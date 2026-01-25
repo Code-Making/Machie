@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:machine/editor/models/editor_tab_models.dart';
+
+import '../../models/editor_tab_models.dart';
 import 'texture_packer_editor_widget.dart';
 import 'texture_packer_models.dart';
 
@@ -8,7 +9,7 @@ import 'texture_packer_models.dart';
 class TexturePackerTab extends EditorTab {
   @override
   final GlobalKey<TexturePackerEditorWidgetState> editorKey;
-  
+
   /// The initial state of the texture packer project, parsed from the .tpacker file.
   final TexturePackerProject initialProjectState;
 
@@ -18,7 +19,7 @@ class TexturePackerTab extends EditorTab {
     super.id,
     super.onReadyCompleter,
   }) : editorKey = GlobalKey<TexturePackerEditorWidgetState>();
-  
+
   @override
   void dispose() {
     // Perform any specific cleanup if needed.

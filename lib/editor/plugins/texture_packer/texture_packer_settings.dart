@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:machine/editor/plugins/editor_plugin_registry.dart';
+import '../editor_plugin_registry.dart';
 
 class TexturePackerSettings extends PluginSettings {
   int checkerBoardColor1;
@@ -27,12 +26,12 @@ class TexturePackerSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'checkerBoardColor1': checkerBoardColor1,
-        'checkerBoardColor2': checkerBoardColor2,
-        'gridColor': gridColor,
-        'gridThickness': gridThickness,
-        'defaultAnimationSpeed': defaultAnimationSpeed,
-      };
+    'checkerBoardColor1': checkerBoardColor1,
+    'checkerBoardColor2': checkerBoardColor2,
+    'gridColor': gridColor,
+    'gridThickness': gridThickness,
+    'defaultAnimationSpeed': defaultAnimationSpeed,
+  };
 
   TexturePackerSettings copyWith({
     int? checkerBoardColor1,
@@ -46,7 +45,8 @@ class TexturePackerSettings extends PluginSettings {
       checkerBoardColor2: checkerBoardColor2 ?? this.checkerBoardColor2,
       gridColor: gridColor ?? this.gridColor,
       gridThickness: gridThickness ?? this.gridThickness,
-      defaultAnimationSpeed: defaultAnimationSpeed ?? this.defaultAnimationSpeed,
+      defaultAnimationSpeed:
+          defaultAnimationSpeed ?? this.defaultAnimationSpeed,
     );
   }
 

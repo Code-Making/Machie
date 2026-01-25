@@ -8,13 +8,13 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../asset_cache/asset_models.dart';
 import '../../command/command_models.dart';
 import '../../data/cache/type_adapters.dart';
+import '../../data/content_provider/file_content_provider.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../settings/settings_models.dart';
 import 'editor_tab_models.dart';
-import '../../data/content_provider/file_content_provider.dart';
-import '../../asset_cache/asset_models.dart';
 
 export '../../settings/settings_models.dart';
 
@@ -61,7 +61,7 @@ abstract class EditorPlugin {
 
   /// Plugin-specific command groups. Defaults to an empty list.
   List<CommandGroup> getCommandGroups() => [];
-  
+
   /// App-wide commands provided by the plugin. Defaults to an empty list.
   List<Command> getAppCommands() => [];
 
@@ -78,8 +78,8 @@ abstract class EditorPlugin {
   Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) =>
-      const SizedBox.shrink();
+  ) => const SizedBox.shrink();
+
   /// A way for plugins to wrap toolbars (e.g., to handle focus).
   /// Defaults to returning the toolbar unmodified.
   Widget wrapCommandToolbar(Widget toolbar) => toolbar;
@@ -121,7 +121,7 @@ abstract class EditorPlugin {
   TypeAdapter<TabHotStateDto>? get hotStateAdapter;
 
   /// A list of [AssetLoader]s that this plugin introduces.
-  /// This allows the plugin to define how to load custom file types 
+  /// This allows the plugin to define how to load custom file types
   /// into the shared cache.
   List<AssetLoader> get assetLoaders => [];
 

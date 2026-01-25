@@ -1,16 +1,17 @@
 // FILE: lib/editor/plugins/texture_packer/widgets/slicing_view.dart
 
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_widget.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_settings.dart';
-import 'package:machine/settings/settings_notifier.dart';
+
+import '../../../../settings/settings_notifier.dart';
 import '../texture_packer_asset_resolver.dart';
+import '../texture_packer_editor_widget.dart';
+import '../texture_packer_models.dart';
+import '../texture_packer_notifier.dart';
+import '../texture_packer_settings.dart';
 
 class SlicingView extends ConsumerWidget {
   final String tabId;
@@ -37,10 +38,16 @@ class SlicingView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeSourceId = ref.watch(activeSourceImageIdProvider);
-    
-    final settings = ref.watch(effectiveSettingsProvider
-        .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
-        ?? TexturePackerSettings();
+
+    final settings =
+        ref.watch(
+          effectiveSettingsProvider.select(
+            (s) =>
+                s.pluginSettings[TexturePackerSettings]
+                    as TexturePackerSettings?,
+          ),
+        ) ??
+        TexturePackerSettings();
 
     if (activeSourceId == null) {
       return const Center(child: Text('Select a source image from the panel.'));
@@ -59,19 +66,22 @@ class SlicingView extends ConsumerWidget {
       data: (resolver) {
         // Get the image directly from the resolver using the raw relative path.
         final image = resolver.getImage(sourceConfig.path);
-        
+
         if (image == null) {
-           return Center(child: Text('Failed to load image: ${sourceConfig.path}'));
+          return Center(
+            child: Text('Failed to load image: ${sourceConfig.path}'),
+          );
         }
-        
+
         final imageSize = Size(image.width.toDouble(), image.height.toDouble());
 
         final selectedNodeId = ref.watch(selectedNodeIdProvider);
         GridRect? activeSelection;
-        
+
         if (selectedNodeId != null) {
           final definition = notifier.project.definitions[selectedNodeId];
-          if (definition is SpriteDefinition && definition.sourceImageId == activeSourceId) {
+          if (definition is SpriteDefinition &&
+              definition.sourceImageId == activeSourceId) {
             activeSelection = definition.gridRect;
           }
         }
@@ -151,24 +161,34 @@ class _SlicingPainter extends CustomPainter {
       _drawHighlight(canvas, dragSelection!, paint);
     }
   }
-  
+
   void _drawHighlight(Canvas canvas, GridRect rect, Paint paint) {
     final pixelRect = _gridToPixelRect(rect);
     canvas.drawRect(pixelRect, paint);
-    
-    final stroke = Paint()
-      ..color = paint.color.withOpacity(1.0)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+
+    final stroke =
+        Paint()
+          ..color = paint.color.withOpacity(1.0)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0;
     canvas.drawRect(pixelRect, stroke);
   }
 
   Rect _gridToPixelRect(GridRect rect) {
-    final left = slicing.margin + rect.x * (slicing.tileWidth + slicing.padding);
-    final top = slicing.margin + rect.y * (slicing.tileHeight + slicing.padding);
-    final width = rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
-    final height = rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
-    return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
+    final left =
+        slicing.margin + rect.x * (slicing.tileWidth + slicing.padding);
+    final top =
+        slicing.margin + rect.y * (slicing.tileHeight + slicing.padding);
+    final width =
+        rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
+    final height =
+        rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
+    return Rect.fromLTWH(
+      left.toDouble(),
+      top.toDouble(),
+      width.toDouble(),
+      height.toDouble(),
+    );
   }
 
   void _drawGrid(Canvas canvas, Size size) {
@@ -186,7 +206,14 @@ class _SlicingPainter extends CustomPainter {
     List<Color> buildColors() {
       final c = [gridColor, gridColor, Colors.transparent, Colors.transparent];
       if (slicing.padding > 0) {
-        c.addAll([Colors.transparent, Colors.transparent, gridColor, gridColor, Colors.transparent, Colors.transparent]);
+        c.addAll([
+          Colors.transparent,
+          Colors.transparent,
+          gridColor,
+          gridColor,
+          Colors.transparent,
+          Colors.transparent,
+        ]);
       }
       return c;
     }
@@ -194,17 +221,12 @@ class _SlicingPainter extends CustomPainter {
     List<double> buildStops(double period, double tileDim) {
       final double r1 = (thickness / period).clamp(0.0, 1.0);
       final s = [0.0, r1, r1, 1.0];
-      
+
       if (slicing.padding > 0) {
         final double r2Start = (tileDim / period).clamp(0.0, 1.0);
         final double r2End = ((tileDim + thickness) / period).clamp(0.0, 1.0);
-        
-        return [
-          0.0, r1, 
-          r1, r2Start, 
-          r2Start, r2End, 
-          r2End, 1.0
-        ];
+
+        return [0.0, r1, r1, r2Start, r2Start, r2End, r2End, 1.0];
       }
       return s;
     }
@@ -246,12 +268,14 @@ class _SlicingPainter extends CustomPainter {
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < cols; x++) {
         if ((x + y) % 2 == 1) {
-          path.addRect(Rect.fromLTWH(
-            x * checkerSize, 
-            y * checkerSize, 
-            checkerSize, 
-            checkerSize
-          ));
+          path.addRect(
+            Rect.fromLTWH(
+              x * checkerSize,
+              y * checkerSize,
+              checkerSize,
+              checkerSize,
+            ),
+          );
         }
       }
     }

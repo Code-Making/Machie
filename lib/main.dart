@@ -1,25 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_notifier.dart';
 import 'app/app_screen.dart';
 import 'app/lifecycle.dart';
+import 'command/command_notifier.dart';
+import 'data/cache/hot_state_cache_service.dart';
 import 'data/shared_preferences.dart';
 import 'logs/logs_provider.dart';
+import 'project/project_settings_notifier.dart';
+import 'settings/settings_notifier.dart';
 import 'settings/settings_screen.dart';
-
-import 'dart:io';
-
-import 'package:flutter/services.dart';
-
-import 'command/command_notifier.dart'; 
-import 'data/cache/background_task/background_cache_service.dart'; 
-import 'data/cache/hot_state_cache_service.dart'; 
-import 'settings/settings_notifier.dart'; 
-import 'project/project_settings_notifier.dart'; 
 
 // --------------------
 //   Global Providers

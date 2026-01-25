@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../command/command_models.dart';
+
 import '../termux_terminal_models.dart';
 
 class TermuxSettingsWidget extends ConsumerStatefulWidget {
@@ -53,8 +54,9 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
   }
 
   void _removeShortcut(int index) {
-    final newList =
-        List<TerminalShortcut>.from(widget.settings.customShortcuts);
+    final newList = List<TerminalShortcut>.from(
+      widget.settings.customShortcuts,
+    );
     newList.removeAt(index);
     widget.onChanged(widget.settings.copyWith(customShortcuts: newList));
   }
@@ -63,26 +65,31 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
-    final newList =
-        List<TerminalShortcut>.from(widget.settings.customShortcuts);
+    final newList = List<TerminalShortcut>.from(
+      widget.settings.customShortcuts,
+    );
     final item = newList.removeAt(oldIndex);
     newList.insert(newIndex, item);
     widget.onChanged(widget.settings.copyWith(customShortcuts: newList));
   }
 
-  Future<void> _showShortcutDialog(
-      {TerminalShortcut? existingShortcut, int? index}) async {
+  Future<void> _showShortcutDialog({
+    TerminalShortcut? existingShortcut,
+    int? index,
+  }) async {
     final result = await showDialog<TerminalShortcut>(
       context: context,
-      builder: (context) => _ShortcutDialog(
-        initialValue: existingShortcut,
-        availableIcons: _pickerIcons,
-      ),
+      builder:
+          (context) => _ShortcutDialog(
+            initialValue: existingShortcut,
+            availableIcons: _pickerIcons,
+          ),
     );
 
     if (result != null) {
-      final newList =
-          List<TerminalShortcut>.from(widget.settings.customShortcuts);
+      final newList = List<TerminalShortcut>.from(
+        widget.settings.customShortcuts,
+      );
       if (index != null) {
         newList[index] = result;
       } else {
@@ -109,15 +116,16 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
                   labelText: 'Font Size',
                   helperText: 'Recommended: 12.0 to 16.0',
                   border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
                 keyboardType: TextInputType.number,
                 onChanged: (val) {
                   final size = double.tryParse(val);
                   if (size != null && size > 0) {
-                    widget.onChanged(
-                        widget.settings.copyWith(fontSize: size));
+                    widget.onChanged(widget.settings.copyWith(fontSize: size));
                   }
                 },
               ),
@@ -128,11 +136,15 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
                   labelText: 'Default Working Directory',
                   helperText: 'The directory where new terminals will start.',
                   border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
-                onChanged: (val) => widget.onChanged(
-                    widget.settings.copyWith(termuxWorkDir: val.trim())),
+                onChanged:
+                    (val) => widget.onChanged(
+                      widget.settings.copyWith(termuxWorkDir: val.trim()),
+                    ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -141,18 +153,24 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
                   labelText: 'Shell Executable',
                   helperText: 'e.g., bash, zsh, fish',
                   border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
-                onChanged: (val) => widget.onChanged(
-                    widget.settings.copyWith(shellCommand: val.trim())),
+                onChanged:
+                    (val) => widget.onChanged(
+                      widget.settings.copyWith(shellCommand: val.trim()),
+                    ),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Use Dark Theme'),
                 value: widget.settings.useDarkTheme,
-                onChanged: (val) => widget.onChanged(
-                    widget.settings.copyWith(useDarkTheme: val)),
+                onChanged:
+                    (val) => widget.onChanged(
+                      widget.settings.copyWith(useDarkTheme: val),
+                    ),
               ),
             ],
           ),
@@ -195,8 +213,7 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
             onReorder: _reorderShortcuts,
             itemBuilder: (context, index) {
               final shortcut = widget.settings.customShortcuts[index];
-              final iconData =
-                  _pickerIcons[shortcut.iconName] ?? Icons.code;
+              final iconData = _pickerIcons[shortcut.iconName] ?? Icons.code;
 
               return ListTile(
                 key: ValueKey(shortcut.hashCode), // Simple key for reordering
@@ -206,8 +223,7 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
                   shortcut.command,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -217,8 +233,10 @@ class _TermuxSettingsWidgetState extends ConsumerState<TermuxSettingsWidget> {
                       onPressed: () => _editShortcut(index),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
                       onPressed: () => _removeShortcut(index),
                     ),
                     const SizedBox(width: 8), // Spacing for drag handle
@@ -237,10 +255,7 @@ class _ShortcutDialog extends StatefulWidget {
   final TerminalShortcut? initialValue;
   final Map<String, IconData> availableIcons;
 
-  const _ShortcutDialog({
-    this.initialValue,
-    required this.availableIcons,
-  });
+  const _ShortcutDialog({this.initialValue, required this.availableIcons});
 
   @override
   State<_ShortcutDialog> createState() => _ShortcutDialogState();
@@ -254,10 +269,12 @@ class _ShortcutDialogState extends State<_ShortcutDialog> {
   @override
   void initState() {
     super.initState();
-    _labelController =
-        TextEditingController(text: widget.initialValue?.label ?? '');
-    _commandController =
-        TextEditingController(text: widget.initialValue?.command ?? '');
+    _labelController = TextEditingController(
+      text: widget.initialValue?.label ?? '',
+    );
+    _commandController = TextEditingController(
+      text: widget.initialValue?.command ?? '',
+    );
     _selectedIconName = widget.initialValue?.iconName ?? 'code';
   }
 
@@ -272,17 +289,21 @@ class _ShortcutDialogState extends State<_ShortcutDialog> {
     if (_labelController.text.isEmpty || _commandController.text.isEmpty) {
       return;
     }
-    Navigator.of(context).pop(TerminalShortcut(
-      label: _labelController.text,
-      command: _commandController.text,
-      iconName: _selectedIconName,
-    ));
+    Navigator.of(context).pop(
+      TerminalShortcut(
+        label: _labelController.text,
+        command: _commandController.text,
+        iconName: _selectedIconName,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.initialValue == null ? 'Add Shortcut' : 'Edit Shortcut'),
+      title: Text(
+        widget.initialValue == null ? 'Add Shortcut' : 'Edit Shortcut',
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -334,20 +355,26 @@ class _ShortcutDialogState extends State<_ShortcutDialog> {
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primary.withAlpha(50)
-                            : null,
-                        border: isSelected
-                            ? Border.all(
-                                color: Theme.of(context).colorScheme.primary)
-                            : null,
+                        color:
+                            isSelected
+                                ? Theme.of(
+                                  context,
+                                ).colorScheme.primary.withAlpha(50)
+                                : null,
+                        border:
+                            isSelected
+                                ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                                : null,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         icon,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
+                        color:
+                            isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
                       ),
                     ),
                   );
@@ -362,10 +389,7 @@ class _ShortcutDialogState extends State<_ShortcutDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _save,
-          child: const Text('Save'),
-        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
       ],
     );
   }

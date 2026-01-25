@@ -1,9 +1,9 @@
 import 'dart:math';
-import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart' hide Text, ColorProperty;
-import 'package:tiled/tiled.dart';
+
 import 'package:collection/collection.dart';
-import '../../../asset_cache/asset_models.dart';
+import 'package:tiled/tiled.dart';
 
 abstract class _HistoryAction {
   void undo(TiledMap map);
@@ -17,7 +17,7 @@ class _WrapperAction implements _HistoryAction {
 
   @override
   void undo(TiledMap map) => onUndo();
-  
+
   @override
   void redo(TiledMap map) => onRedo();
 }
@@ -96,7 +96,9 @@ class _BulkTilesetRemovalHistoryAction implements _HistoryAction {
   @override
   void undo(TiledMap map) {
     final items = IterableZip([originalIndices, removedTilesets]);
-    final sortedItems = items.sorted((a, b) => (a[0] as int).compareTo(a[1] as int));
+    final sortedItems = items.sorted(
+      (a, b) => (a[0] as int).compareTo(a[1] as int),
+    );
     for (final item in sortedItems) {
       map.tilesets.insert(item[0] as int, deepCopyTileset(item[1] as Tileset));
     }
@@ -167,7 +169,11 @@ class _ObjectGroupHistoryAction implements _HistoryAction {
   final List<TiledObject> beforeObjects;
   final List<TiledObject> afterObjects;
 
-  _ObjectGroupHistoryAction(this.layerId, this.beforeObjects, this.afterObjects);
+  _ObjectGroupHistoryAction(
+    this.layerId,
+    this.beforeObjects,
+    this.afterObjects,
+  );
 
   @override
   void undo(TiledMap map) {
@@ -204,7 +210,7 @@ class _PropertyChangeHistoryAction implements _HistoryAction {
     _applyState(map, afterState);
   }
 
-void _applyState(TiledMap map, Object state) {
+  void _applyState(TiledMap map, Object state) {
     if (state is TiledMap) {
       map.backgroundColorHex = state.backgroundColorHex;
       map.renderOrder = state.renderOrder;
@@ -302,13 +308,12 @@ class TiledMapNotifier extends ChangeNotifier {
   List<List<Gid>>? _floatingSelection;
   Point? _floatingSelectionPosition;
 
-
   TiledMapNotifier(this._map);
   TiledMap get map => _map;
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
   List<TiledObject> get selectedObjects => List.unmodifiable(_selectedObjects);
-  
+
   Rect? get tileSelectionRect => _tileSelectionRect;
   List<List<Gid>>? get floatingSelection => _floatingSelection;
   bool get hasFloatingSelection => _floatingSelection != null;
@@ -327,7 +332,6 @@ class TiledMapNotifier extends ChangeNotifier {
   void notifyChange() {
     notifyListeners();
   }
-
 
   void addSelection(TiledObject obj) {
     if (!_selectedObjects.contains(obj)) {
@@ -365,14 +369,17 @@ class TiledMapNotifier extends ChangeNotifier {
     Object? afterState;
 
     if (parentObject is Tileset) {
-      final tilesetInMap = _map.tilesets.firstWhereOrNull((ts) => ts == parentObject);
+      final tilesetInMap = _map.tilesets.firstWhereOrNull(
+        (ts) => ts == parentObject,
+      );
       if (tilesetInMap != null) {
         beforeState = deepCopyTileset(tilesetInMap);
         tilesetInMap.image = newTiledImage;
         afterState = deepCopyTileset(tilesetInMap);
       }
     } else if (parentObject is ImageLayer) {
-      final layerInMap = _map.layers.firstWhereOrNull((l) => l == parentObject) as ImageLayer?;
+      final layerInMap =
+          _map.layers.firstWhereOrNull((l) => l == parentObject) as ImageLayer?;
       if (layerInMap != null) {
         beforeState = deepCopyLayer(layerInMap);
         layerInMap.image = newTiledImage;
@@ -383,12 +390,11 @@ class TiledMapNotifier extends ChangeNotifier {
     if (beforeState != null && afterState != null) {
       recordPropertyChange(beforeState, afterState);
     }
-    
+
     notifyListeners();
   }
 
-
-    void beginTileStroke(int layerId) {
+  void beginTileStroke(int layerId) {
     if (_tileStrokeBeforeData != null) return;
     final layer =
         _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
@@ -407,7 +413,8 @@ class TiledMapNotifier extends ChangeNotifier {
     final afterData =
         layer!.tileData!.map((row) => List<Gid>.from(row)).toList();
     _pushHistory(
-        _TileLayerHistoryAction(layerId, _tileStrokeBeforeData!, afterData));
+      _TileLayerHistoryAction(layerId, _tileStrokeBeforeData!, afterData),
+    );
     _tileStrokeBeforeData = null;
   }
 
@@ -416,8 +423,7 @@ class TiledMapNotifier extends ChangeNotifier {
     final layer =
         _map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
     if (layer == null) return;
-    _objectStrokeBeforeData =
-        layer.objects.map(deepCopyTiledObject).toList();
+    _objectStrokeBeforeData = layer.objects.map(deepCopyTiledObject).toList();
   }
 
   void endObjectChange(int layerId) {
@@ -426,10 +432,14 @@ class TiledMapNotifier extends ChangeNotifier {
         _map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
     if (layer == null) return;
 
-    final afterObjects =
-        layer.objects.map(deepCopyTiledObject).toList();
-    _pushHistory(_ObjectGroupHistoryAction(
-        layerId, _objectStrokeBeforeData!, afterObjects));
+    final afterObjects = layer.objects.map(deepCopyTiledObject).toList();
+    _pushHistory(
+      _ObjectGroupHistoryAction(
+        layerId,
+        _objectStrokeBeforeData!,
+        afterObjects,
+      ),
+    );
     _objectStrokeBeforeData = null;
   }
 
@@ -465,14 +475,16 @@ class TiledMapNotifier extends ChangeNotifier {
     Tileset tileset,
     Rect rect,
   ) {
-    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+    final layer =
+        _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
     if (layer == null || layer.tileData == null) return;
 
     for (int y = 0; y < rect.height; y++) {
       for (int x = 0; x < rect.width; x++) {
         final mapX = startX + x;
         final mapY = startY + y;
-        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height) continue;
+        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height)
+          continue;
 
         final tileX = (rect.left + x).toInt();
         final tileY = (rect.top + y).toInt();
@@ -489,14 +501,16 @@ class TiledMapNotifier extends ChangeNotifier {
   }
 
   void eraseTiles(int startX, int startY, int layerId, Rect rect) {
-    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+    final layer =
+        _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
     if (layer == null || layer.tileData == null) return;
 
     for (int y = 0; y < rect.height; y++) {
       for (int x = 0; x < rect.width; x++) {
         final mapX = startX + x;
         final mapY = startY + y;
-        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height) continue;
+        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height)
+          continue;
         layer.tileData![mapY][mapX] = Gid.fromInt(0);
       }
     }
@@ -511,7 +525,8 @@ class TiledMapNotifier extends ChangeNotifier {
     Tileset tileset,
     Rect selectionRect,
   ) {
-    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+    final layer =
+        _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
     if (layer == null || layer.tileData == null) return;
     if (x < 0 || x >= _map.width || y < 0 || y >= _map.height) return;
 
@@ -559,8 +574,8 @@ class TiledMapNotifier extends ChangeNotifier {
 
     notifyListeners();
   }
-  
-    void setTileSelection(Rect? rect, int layerId) {
+
+  void setTileSelection(Rect? rect, int layerId) {
     if (_floatingSelection != null) {
       stampFloatingSelection(layerId, cancelFloat: false);
     }
@@ -569,7 +584,8 @@ class TiledMapNotifier extends ChangeNotifier {
   }
 
   void cutSelection(int layerId) {
-    final layer =_map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+    final layer =
+        _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
     if (layer?.tileData == null || _tileSelectionRect == null) return;
 
     beginTileStroke(layerId);
@@ -591,23 +607,27 @@ class TiledMapNotifier extends ChangeNotifier {
       _floatingSelection!.add(row);
     }
 
-    _floatingSelectionPosition = Point(x:rect.left, y:rect.top);
+    _floatingSelectionPosition = Point(x: rect.left, y: rect.top);
     _tileSelectionRect = null;
-    
+
     endTileStroke(layerId);
     notifyListeners();
   }
-  
+
   void updateFloatingSelectionPosition(Point newPosition) {
     if (_floatingSelectionPosition != newPosition) {
       _floatingSelectionPosition = newPosition;
       notifyListeners();
     }
   }
-  
+
   void stampFloatingSelection(int layerId, {bool cancelFloat = true}) {
-    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
-    if (layer?.tileData == null || _floatingSelection == null || _floatingSelectionPosition == null) return;
+    final layer =
+        _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+    if (layer?.tileData == null ||
+        _floatingSelection == null ||
+        _floatingSelectionPosition == null)
+      return;
 
     beginTileStroke(layerId);
 
@@ -629,14 +649,14 @@ class TiledMapNotifier extends ChangeNotifier {
     }
 
     endTileStroke(layerId);
-    
+
     if (cancelFloat) {
       _floatingSelection = null;
       _floatingSelectionPosition = null;
     }
     notifyListeners();
   }
-  
+
   void toggleObjectVisibility(int layerId, int objectId) {
     final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId);
     if (layer is ObjectGroup) {
@@ -645,7 +665,7 @@ class TiledMapNotifier extends ChangeNotifier {
         final before = deepCopyTiledObject(object);
         object.visible = !object.visible;
         final after = deepCopyTiledObject(object);
-        
+
         recordPropertyChange(before, after);
         notifyListeners();
       }
@@ -653,7 +673,8 @@ class TiledMapNotifier extends ChangeNotifier {
   }
 
   void deleteObject(int layerId, int objectId) {
-    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
+    final layer =
+        _map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
     if (layer == null) return;
 
     beginObjectChange(layerId);
@@ -661,7 +682,7 @@ class TiledMapNotifier extends ChangeNotifier {
     final object = layer.objects.firstWhereOrNull((o) => o.id == objectId);
     if (object != null) {
       layer.objects.remove(object);
-      
+
       if (_selectedObjects.contains(object)) {
         _selectedObjects.remove(object);
       }
@@ -679,26 +700,28 @@ class TiledMapNotifier extends ChangeNotifier {
     }
   }
 
- void reorderLayer(int oldIndex, int newIndex) {
+  void reorderLayer(int oldIndex, int newIndex) {
     final item = _map.layers.removeAt(oldIndex);
     _map.layers.insert(newIndex, item);
 
-    _pushHistory(_LayerReorderHistoryAction(oldIndex: oldIndex, newIndex: newIndex));
+    _pushHistory(
+      _LayerReorderHistoryAction(oldIndex: oldIndex, newIndex: newIndex),
+    );
     notifyListeners();
   }
 
-void toggleLayerVisibility(int layerId) {
+  void toggleLayerVisibility(int layerId) {
     final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId);
     if (layer != null) {
       final beforeState = deepCopyLayer(layer);
       layer.visible = !layer.visible;
       final afterState = deepCopyLayer(layer);
-      
+
       recordPropertyChange(beforeState, afterState);
       notifyListeners();
     }
   }
-  
+
   void recordPropertyChange(Object before, Object after) {
     _pushHistory(_PropertyChangeHistoryAction(before, after));
   }
@@ -746,11 +769,13 @@ void toggleLayerVisibility(int layerId) {
   Future<void> addTileset(Tileset newTileset) async {
     _map.tilesets.add(newTileset);
 
-    _pushHistory(_TilesetHistoryAction(
-      tileset: newTileset,
-      index: _map.tilesets.length - 1,
-      wasAddOperation: true,
-    ));
+    _pushHistory(
+      _TilesetHistoryAction(
+        tileset: newTileset,
+        index: _map.tilesets.length - 1,
+        wasAddOperation: true,
+      ),
+    );
 
     if (_map.tilesets.length == 1) {
       _map.tileWidth = newTileset.tileWidth ?? _map.tileWidth;
@@ -758,21 +783,25 @@ void toggleLayerVisibility(int layerId) {
     }
     notifyListeners();
   }
-  
+
   void deleteTileset(Tileset tilesetToDelete) {
-    final index = _map.tilesets.indexWhere((ts) => ts.name == tilesetToDelete.name);
+    final index = _map.tilesets.indexWhere(
+      (ts) => ts.name == tilesetToDelete.name,
+    );
     if (index == -1) return;
 
     final tileset = _map.tilesets.removeAt(index);
 
-    _pushHistory(_TilesetHistoryAction(
-      tileset: tileset,
-      index: index,
-      wasAddOperation: false,
-    ));
+    _pushHistory(
+      _TilesetHistoryAction(
+        tileset: tileset,
+        index: index,
+        wasAddOperation: false,
+      ),
+    );
     notifyListeners();
   }
-  
+
   List<Tileset> findUnusedTilesets() {
     final usedGids = <int>{};
     for (final layer in _map.layers) {
@@ -810,9 +839,9 @@ void toggleLayerVisibility(int layerId) {
 
     final removedTilesets = <Tileset>[];
     final originalIndices = <int>[];
-    
+
     final namesToRemove = tilesetsToRemove.map((ts) => ts.name).toSet();
-    
+
     for (int i = _map.tilesets.length - 1; i >= 0; i--) {
       final tileset = _map.tilesets[i];
       if (namesToRemove.contains(tileset.name)) {
@@ -822,16 +851,18 @@ void toggleLayerVisibility(int layerId) {
       }
     }
 
-    if(removedTilesets.isNotEmpty) {
-        _pushHistory(_BulkTilesetRemovalHistoryAction(
+    if (removedTilesets.isNotEmpty) {
+      _pushHistory(
+        _BulkTilesetRemovalHistoryAction(
           removedTilesets: removedTilesets,
           originalIndices: originalIndices,
-        ));
-        notifyListeners();
+        ),
+      );
+      notifyListeners();
     }
   }
 
-void addLayer({required String name, required LayerType type}) {
+  void addLayer({required String name, required LayerType type}) {
     final int newLayerId;
     if (_map.nextLayerId != null) {
       newLayerId = _map.nextLayerId!;
@@ -861,7 +892,7 @@ void addLayer({required String name, required LayerType type}) {
       case LayerType.objectGroup:
         newLayer = ObjectGroup(id: newLayerId, name: name, objects: []);
         break;
-      
+
       case LayerType.imageLayer:
         newLayer = ImageLayer(
           id: newLayerId,
@@ -872,11 +903,7 @@ void addLayer({required String name, required LayerType type}) {
         );
         break;
       case LayerType.group:
-        newLayer = Group(
-          id: newLayerId,
-          name: name,
-          layers: [],
-        );
+        newLayer = Group(id: newLayerId, name: name, layers: []);
         break;
       default:
         break;
@@ -884,10 +911,9 @@ void addLayer({required String name, required LayerType type}) {
 
     if (newLayer != null) {
       _map.layers.add(newLayer);
-      _pushHistory(_LayerAddHistoryAction(
-        layer: newLayer,
-        index: _map.layers.length - 1,
-      ));
+      _pushHistory(
+        _LayerAddHistoryAction(layer: newLayer, index: _map.layers.length - 1),
+      );
     }
     notifyListeners();
   }
@@ -899,7 +925,7 @@ void addLayer({required String name, required LayerType type}) {
       notifyListeners();
     }
   }
-  
+
   void deleteLayer(int layerId) {
     final index = _map.layers.indexWhere((l) => l.id == layerId);
     if (index == -1) return;
@@ -911,7 +937,7 @@ void addLayer({required String name, required LayerType type}) {
     );
     notifyListeners();
   }
-  
+
   void reorderObject(int layerId, int oldIndex, int newIndex) {
     final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId);
     if (layer is! ObjectGroup) return;
@@ -919,7 +945,7 @@ void addLayer({required String name, required LayerType type}) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
-    
+
     newIndex = newIndex.clamp(0, layer.objects.length - 1);
 
     if (oldIndex == newIndex) return;
@@ -927,11 +953,13 @@ void addLayer({required String name, required LayerType type}) {
     final obj = layer.objects.removeAt(oldIndex);
     layer.objects.insert(newIndex, obj);
 
-    _pushHistory(_ObjectReorderHistoryAction(
-      layerId: layerId,
-      oldIndex: oldIndex,
-      newIndex: newIndex,
-    ));
+    _pushHistory(
+      _ObjectReorderHistoryAction(
+        layerId: layerId,
+        oldIndex: oldIndex,
+        newIndex: newIndex,
+      ),
+    );
     notifyListeners();
   }
 
@@ -967,13 +995,16 @@ Property<Object> deepCopyProperty(Property<dynamic> p) {
   } else if (p is ObjectProperty) {
     return ObjectProperty(name: p.name, value: p.value);
   }
-  
+
   // Fallback if needed, though usually the specific ones cover most cases
-  if (p.value is String) return StringProperty(name: p.name, value: p.value as String);
+  if (p.value is String)
+    return StringProperty(name: p.name, value: p.value as String);
   if (p.value is int) return IntProperty(name: p.name, value: p.value as int);
-  if (p.value is double) return FloatProperty(name: p.name, value: p.value as double);
-  if (p.value is bool) return BoolProperty(name: p.name, value: p.value as bool);
-  
+  if (p.value is double)
+    return FloatProperty(name: p.name, value: p.value as double);
+  if (p.value is bool)
+    return BoolProperty(name: p.name, value: p.value as bool);
+
   return Property(name: p.name, type: p.type, value: p.value);
 }
 
@@ -994,25 +1025,29 @@ TiledObject deepCopyTiledObject(TiledObject other) {
     ellipse: other.ellipse,
     point: other.point,
     polygon: List<Point>.from(other.polygon.map((p) => Point(x: p.x, y: p.y))),
-    polyline: List<Point>.from(other.polyline.map((p) => Point(x: p.x, y: p.y))),
-    text: other.text != null
-        ? Text(
-            text: other.text!.text,
-            fontFamily: other.text!.fontFamily,
-            pixelSize: other.text!.pixelSize,
-            wrap: other.text!.wrap,
-            color: other.text!.color,
-            bold: other.text!.bold,
-            italic: other.text!.italic,
-            underline: other.text!.underline,
-            strikeout: other.text!.strikeout,
-            kerning: other.text!.kerning,
-            hAlign: other.text!.hAlign,
-            vAlign: other.text!.vAlign,
-          )
-        : null,
-    properties: CustomProperties(
-        {for (var p in other.properties) p.name: deepCopyProperty(p)}),
+    polyline: List<Point>.from(
+      other.polyline.map((p) => Point(x: p.x, y: p.y)),
+    ),
+    text:
+        other.text != null
+            ? Text(
+              text: other.text!.text,
+              fontFamily: other.text!.fontFamily,
+              pixelSize: other.text!.pixelSize,
+              wrap: other.text!.wrap,
+              color: other.text!.color,
+              bold: other.text!.bold,
+              italic: other.text!.italic,
+              underline: other.text!.underline,
+              strikeout: other.text!.strikeout,
+              kerning: other.text!.kerning,
+              hAlign: other.text!.hAlign,
+              vAlign: other.text!.vAlign,
+            )
+            : null,
+    properties: CustomProperties({
+      for (var p in other.properties) p.name: deepCopyProperty(p),
+    }),
   );
 }
 
@@ -1036,14 +1071,15 @@ Layer deepCopyLayer(Layer other) {
       tintColor: other.tintColor,
       opacity: other.opacity,
       visible: other.visible,
-      properties: CustomProperties(
-          {for (var p in other.properties) p.name: deepCopyProperty(p)}),
+      properties: CustomProperties({
+        for (var p in other.properties) p.name: deepCopyProperty(p),
+      }),
       compression: other.compression,
       encoding: other.encoding,
       chunks: other.chunks,
     )..tileData = other.tileData?.map((row) => List<Gid>.from(row)).toList();
   }
-if (other is ObjectGroup) {
+  if (other is ObjectGroup) {
     return ObjectGroup(
       id: other.id,
       name: other.name,
@@ -1063,8 +1099,9 @@ if (other is ObjectGroup) {
       tintColor: other.tintColor,
       opacity: other.opacity,
       visible: other.visible,
-      properties: CustomProperties(
-          {for (var p in other.properties) p.name: deepCopyProperty(p)}),
+      properties: CustomProperties({
+        for (var p in other.properties) p.name: deepCopyProperty(p),
+      }),
       colorHex: other.colorHex,
     );
   }
@@ -1088,8 +1125,9 @@ if (other is ObjectGroup) {
       tintColor: other.tintColor,
       opacity: other.opacity,
       visible: other.visible,
-      properties: CustomProperties(
-          {for (var p in other.properties) p.name: deepCopyProperty(p)}),
+      properties: CustomProperties({
+        for (var p in other.properties) p.name: deepCopyProperty(p),
+      }),
       transparentColorHex: other.transparentColorHex,
       transparentColor: other.transparentColor,
     );
@@ -1108,13 +1146,14 @@ Tileset deepCopyTileset(Tileset other) {
     tileCount: other.tileCount,
     columns: other.columns,
     objectAlignment: other.objectAlignment,
-    image: other.image != null
-        ? TiledImage(
-            source: other.image!.source,
-            width: other.image!.width,
-            height: other.image!.height,
-          )
-        : null,
+    image:
+        other.image != null
+            ? TiledImage(
+              source: other.image!.source,
+              width: other.image!.width,
+              height: other.image!.height,
+            )
+            : null,
     tiles: other.tiles.map((t) => Tile(localId: t.localId)).toList(),
   );
 }

@@ -1,6 +1,6 @@
 // FILE: lib/editor/plugins/flow_graph/flow_graph_settings_model.dart
 
-import 'package:machine/editor/plugins/editor_plugin_registry.dart';
+import '../editor_plugin_registry.dart';
 
 class FlowGraphSettings extends PluginSettings {
   int backgroundColorValue;
@@ -28,12 +28,12 @@ class FlowGraphSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'backgroundColorValue': backgroundColorValue,
-        'gridColorValue': gridColorValue,
-        'gridSpacing': gridSpacing,
-        'gridThickness': gridThickness,
-        'schemaPath': schemaPath, // Save to JSON
-      };
+    'backgroundColorValue': backgroundColorValue,
+    'gridColorValue': gridColorValue,
+    'gridSpacing': gridSpacing,
+    'gridThickness': gridThickness,
+    'schemaPath': schemaPath, // Save to JSON
+  };
 
   FlowGraphSettings copyWith({
     int? backgroundColorValue,

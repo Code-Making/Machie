@@ -18,8 +18,10 @@ class SearchExplorerSettingsUI extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Search Configuration',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Search Configuration',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 16),
         _buildEditableList(
           context,
@@ -112,15 +114,16 @@ class SearchExplorerSettingsUI extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 4,
-          children: items.map((item) {
-            return Chip(
-              label: Text(item),
-              onDeleted: () {
-                final newItems = Set<String>.from(items)..remove(item);
-                onListChanged(newItems);
-              },
-            );
-          }).toList(),
+          children:
+              items.map((item) {
+                return Chip(
+                  label: Text(item),
+                  onDeleted: () {
+                    final newItems = Set<String>.from(items)..remove(item);
+                    onListChanged(newItems);
+                  },
+                );
+              }).toList(),
         ),
       ],
     );

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_handler/file_handler.dart';
 import 'saf_platform_file_service.dart';
 
-
 /// A global provider for the platform-specific implementation of [PlatformFileService].
 ///
 /// This provider determines at runtime which concrete service to use based on
@@ -20,7 +19,9 @@ final platformFileServiceProvider = Provider<PlatformFileService>((ref) {
   // if (Platform.isLinux) {
   //   return LinuxPlatformFileService();
   // }
-  throw UnsupportedError('No PlatformFileService implementation for this platform.');
+  throw UnsupportedError(
+    'No PlatformFileService implementation for this platform.',
+  );
 });
 
 /// Defines a service for interacting with platform-native file system dialogs.

@@ -1,16 +1,8 @@
 import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 
-enum ClassMemberType { 
-  string, 
-  int, 
-  float, 
-  bool, 
-  color, 
-  file,
-  enum_,
-  object,
-} 
+enum ClassMemberType { string, int, float, bool, color, file, enum_, object }
 
 @immutable
 class ClassMemberDefinition {
@@ -38,7 +30,7 @@ class ClassMemberDefinition {
   static ClassMemberType _parseType(String? type) {
     if (type == null) return ClassMemberType.string;
     if (type.toLowerCase() == 'enum') return ClassMemberType.enum_;
-    
+
     return ClassMemberType.values.firstWhere(
       (e) => e.name == type.toLowerCase(),
       orElse: () => ClassMemberType.string,
@@ -61,9 +53,10 @@ class ObjectClassDefinition {
     return ObjectClassDefinition(
       name: json['name'],
       color: _parseColor(json['color']),
-      members: (json['members'] as List)
-          .map((m) => ClassMemberDefinition.fromJson(m))
-          .toList(),
+      members:
+          (json['members'] as List)
+              .map((m) => ClassMemberDefinition.fromJson(m))
+              .toList(),
     );
   }
 

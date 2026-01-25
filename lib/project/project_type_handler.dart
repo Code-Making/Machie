@@ -20,11 +20,11 @@ abstract class ProjectTypeHandler {
 
   /// An icon to represent this project type in the UI.
   IconData get icon;
-  
+
   /// Checks if the app currently has the necessary permissions to open
   /// a project described by the given metadata.
   Future<bool> hasPersistedPermission(ProjectMetadata metadata);
-  
+
   /// A list of persistence type IDs that are compatible with this project type.
   /// This is used by the UI to filter and display the correct storage options.
   List<String> get supportedPersistenceTypeIds;

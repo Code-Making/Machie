@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../models/editor_command_context.dart';
 import 'package:meta/meta.dart';
+
+import '../../models/editor_command_context.dart';
 import 'tiled_paint_tools.dart';
 
 @immutable

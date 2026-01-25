@@ -1,52 +1,48 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:tiled/tiled.dart' hide Text;
-import 'package:tiled/tiled.dart' as tiled show Text;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:xml/xml.dart';
+
 import 'package:collection/collection.dart';
-import '../../../app/app_notifier.dart';
-import '../../../widgets/dialogs/folder_picker_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:tiled/tiled.dart' as tiled show Text;
+import 'package:tiled/tiled.dart' hide Text;
+import 'package:xml/xml.dart';
+
+import '../../../asset_cache/asset_models.dart';
+import '../../../asset_cache/asset_providers.dart';
+import '../../../command/command_widgets.dart';
 import '../../../data/repositories/project/project_repository.dart';
+import '../../../logs/logs_provider.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
+import '../../../widgets/dialogs/file_explorer_dialogs.dart';
+import '../../../widgets/dialogs/folder_picker_dialog.dart';
+import '../../models/editor_command_context.dart';
 import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
-import '../../../logs/logs_provider.dart';
-import '../../../utils/toast.dart';
-import 'package:path/path.dart' as p;
-
+import 'inspector/inspector_dialog.dart';
+import 'project_tsx_provider.dart';
+import 'tiled_asset_resolver.dart';
 import 'tiled_command_context.dart';
 import 'tiled_editor_models.dart';
 import 'tiled_editor_plugin.dart';
+import 'tiled_editor_settings_model.dart';
 import 'tiled_map_notifier.dart';
-import 'tmx_writer.dart';
-import '../../../command/command_widgets.dart';
-import '../../models/editor_command_context.dart';
-import 'widgets/layers_panel.dart';
-import 'widgets/tile_palette.dart';
+import 'tiled_map_painter.dart';
 import 'tiled_paint_tools.dart';
-import '../../../widgets/dialogs/file_explorer_dialogs.dart';
+import 'tmx_writer.dart';
+import 'widgets/export_dialog.dart';
+import 'widgets/layers_panel.dart';
 import 'widgets/map_properties_dialog.dart';
 import 'widgets/new_layer_dialog.dart';
 import 'widgets/new_tileset_dialog.dart';
-import 'project_tsx_provider.dart';
-
-import 'tiled_map_painter.dart';
-import 'inspector/inspector_dialog.dart';
 import 'widgets/object_editor_app_bar.dart';
 import 'widgets/paint_editor_app_bar.dart';
-import 'package:machine/settings/settings_notifier.dart';
-import 'tiled_editor_settings_model.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import 'widgets/export_dialog.dart';
-
 import 'widgets/sprite_picker_dialog.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'tiled_asset_resolver.dart';
-
+import 'widgets/tile_palette.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -68,7 +64,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   Rect? _selectedTileRect;
 
   String? _baseContentHash;
-  
+
   bool _isLoading = true;
   Object? _loadingError;
 
@@ -76,12 +72,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   bool _isPaletteVisible = false;
   bool _isLayersPanelVisible = false;
   TiledEditorMode _mode = TiledEditorMode.panZoom;
-  
+
   bool get isZoomMode => (_mode == TiledEditorMode.panZoom);
   TiledPaintMode _paintMode = TiledPaintMode.paint;
   Rect? _tileMarqueeSelection;
   Offset? _dragStartOffsetInSelection;
-  
+
   ObjectTool _activeObjectTool = ObjectTool.select;
   bool _isSnapToGridEnabled = true;
   Offset? _dragStartMapPosition;
@@ -115,9 +111,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       );
     });
   }
-  
+
   TiledEditorMode getMode() => _mode;
-  
+
   void setMode(TiledEditorMode newMode) {
     if (_mode == newMode) {
       setState(() => _mode = TiledEditorMode.panZoom);
@@ -145,7 +141,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     setState(() => _isLayersPanelVisible = !_isLayersPanelVisible);
     syncCommandContext();
   }
-  
+
   void setActiveObjectTool(ObjectTool tool) {
     setState(() => _activeObjectTool = tool);
     syncCommandContext();
@@ -158,7 +154,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   @override
   void syncCommandContext() {
-    final isPolyToolActive = _activeObjectTool == ObjectTool.addPolygon ||
+    final isPolyToolActive =
+        _activeObjectTool == ObjectTool.addPolygon ||
         _activeObjectTool == ObjectTool.addPolyline;
 
     Widget? appBarOverride;
@@ -177,7 +174,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           isObjectSelected: _notifier?.selectedObjects.isNotEmpty ?? false,
           onInspectObject: _inspectSelectedObject,
           onDeleteObject: _deleteSelectedObject,
-          showFinishShapeButton: isPolyToolActive && _inProgressPoints.isNotEmpty,
+          showFinishShapeButton:
+              isPolyToolActive && _inProgressPoints.isNotEmpty,
           onFinishShape: _finalizePolygon,
         );
         break;
@@ -186,8 +184,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         break;
     }
 
-    ref.read(commandContextProvider(widget.tab.id).notifier).state =
-        TiledEditorCommandContext(
+    ref
+        .read(commandContextProvider(widget.tab.id).notifier)
+        .state = TiledEditorCommandContext(
       mode: _mode,
       isGridVisible: _showGrid,
       canUndo: _notifier?.canUndo ?? false,
@@ -235,7 +234,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
-    return repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
+    return repo.fileHandler.getPathForDisplay(
+      tmxFile.uri,
+      relativeTo: project.rootUri,
+    );
   }
 
   Future<void> _initializeAndLoadMap() async {
@@ -243,13 +245,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final repo = ref.read(projectRepositoryProvider)!;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
       final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
-      
+
       final tsxProvider = ProjectTsxProvider(repo, tmxParentUri);
       final tsxProviders = await ProjectTsxProvider.parseFromTmx(
         widget.tab.initialTmxContent,
         tsxProvider.getProvider,
       );
-      
+
       final map = TileMapParser.parseTmx(
         widget.tab.initialTmxContent,
         tsxList: tsxProviders,
@@ -257,10 +259,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
       final uris = await _collectAssetUris(map);
-      
+
       // START OF CHANGES
       final queries = uris.map((uri) => AssetQuery(path: uri)).toSet();
-      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(queries);
+      final assetDataMap = await ref
+          .read(assetMapProvider(widget.tab.id).notifier)
+          .updateUris(queries);
       // END OF CHANGES
 
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
@@ -270,7 +274,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         _notifier = TiledMapNotifier(map);
         _notifier!.addListener(_onMapChanged);
 
-        _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
+        _selectedLayerId =
+            map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
         _selectedTileset = map.tilesets.firstOrNull;
         _isLoading = false;
       });
@@ -287,8 +292,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       }
     }
   }
-  
-  String _determineTilesetContext(String tmxPath, Tileset tileset, ProjectRepository repo) {
+
+  String _determineTilesetContext(
+    String tmxPath,
+    Tileset tileset,
+    ProjectRepository repo,
+  ) {
     if (tileset.source != null) {
       final tsxPath = repo.resolveRelativePath(tmxPath, tileset.source!);
       return tsxPath;
@@ -298,8 +307,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   Future<Set<String>> _collectAssetUris(TiledMap map) async {
-  final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
-  talker.debug("TiledEditor: Starting _collectAssetUris scan"); // [DIAGNOSTIC]
+    final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+    talker.debug(
+      "TiledEditor: Starting _collectAssetUris scan",
+    ); // [DIAGNOSTIC]
     final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
@@ -308,7 +319,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     for (final tileset in map.tilesets) {
       final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
       if (tileset.image?.source != null) {
-        final assetUri = repo.resolveRelativePath(contextPath, tileset.image!.source!);
+        final assetUri = repo.resolveRelativePath(
+          contextPath,
+          tileset.image!.source!,
+        );
         uris.add(assetUri);
       }
     }
@@ -322,42 +336,54 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
 
     // 4. NEW: Recursively Scan Layers for Object Assets (e.g. 'atlas')
-  void scanGroup(Group group) {
-    for (final layer in group.layers) {
+    void scanGroup(Group group) {
+      for (final layer in group.layers) {
+        if (layer is Group) {
+          scanGroup(layer);
+        } else if (layer is ObjectGroup) {
+          for (final obj in layer.objects) {
+            final atlasProp = obj.properties['atlas'];
+            if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+              final resolved = repo.resolveRelativePath(
+                tmxPath,
+                atlasProp.value,
+              ); // [DIAGNOSTIC] refactor for log
+              talker.debug(
+                "TiledEditor: Found Object ${obj.id} with atlas '${atlasProp.value}' -> '$resolved'",
+              ); // [DIAGNOSTIC]
+              uris.add(resolved);
+            }
+          }
+        }
+      }
+    }
+
+    // Start scan from root layers
+    for (final layer in map.layers) {
       if (layer is Group) {
         scanGroup(layer);
       } else if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
           final atlasProp = obj.properties['atlas'];
           if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-             final resolved = repo.resolveRelativePath(tmxPath, atlasProp.value); // [DIAGNOSTIC] refactor for log
-             talker.debug("TiledEditor: Found Object ${obj.id} with atlas '${atlasProp.value}' -> '$resolved'"); // [DIAGNOSTIC]
-             uris.add(resolved);
+            final resolved = repo.resolveRelativePath(
+              tmxPath,
+              atlasProp.value,
+            ); // [DIAGNOSTIC] refactor for log
+            talker.debug(
+              "TiledEditor: Found Object ${obj.id} with atlas '${atlasProp.value}' -> '$resolved'",
+            ); // [DIAGNOSTIC]
+            uris.add(resolved);
           }
         }
       }
     }
-  }
-
-    // Start scan from root layers
-  for (final layer in map.layers) {
-    if (layer is Group) {
-      scanGroup(layer);
-    } else if (layer is ObjectGroup) {
-      for (final obj in layer.objects) {
-         final atlasProp = obj.properties['atlas'];
-         if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-            final resolved = repo.resolveRelativePath(tmxPath, atlasProp.value); // [DIAGNOSTIC] refactor for log
-            talker.debug("TiledEditor: Found Object ${obj.id} with atlas '${atlasProp.value}' -> '$resolved'"); // [DIAGNOSTIC]
-            uris.add(resolved);
-         }
-      }
-    }
-  }
-      talker.info("TiledEditor: _collectAssetUris finished. Total Unique URIs: ${uris.length}"); // [DIAGNOSTIC]
+    talker.info(
+      "TiledEditor: _collectAssetUris finished. Total Unique URIs: ${uris.length}",
+    ); // [DIAGNOSTIC]
     return uris;
   }
-  
+
   Future<void> _rebuildAssetUriSet() async {
     if (_notifier == null) return;
     final uris = await _collectAssetUris(_notifier!.map);
@@ -366,19 +392,21 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(queries);
     // END OF CHANGES
   }
-  
+
   Future<void> reloadImageSource({
     required Object parentObject,
     required String oldSourcePath,
     required String newProjectPath,
   }) async {
     if (_notifier == null) return;
-        
+
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final tmxPath = _getTmxProjectRelativePath();
 
-      final assetData = await ref.read(assetDataProvider(newProjectPath).future);
+      final assetData = await ref.read(
+        assetDataProvider(newProjectPath).future,
+      );
       if (assetData is! ImageAssetData) {
         throw (assetData as ErrorAssetData).error;
       }
@@ -391,7 +419,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         contextPath = tmxPath;
       }
 
-      final newRelativePath = repo.calculateRelativePath(contextPath, newProjectPath);
+      final newRelativePath = repo.calculateRelativePath(
+        contextPath,
+        newProjectPath,
+      );
 
       _notifier!.updateImageSource(
         parentObject: parentObject,
@@ -399,32 +430,40 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         newWidth: newImage.width,
         newHeight: newImage.height,
       );
-      
+
       await _rebuildAssetUriSet();
-      
+
       MachineToast.info('Image source updated successfully.');
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to reload image source');
       MachineToast.error('Failed to reload image: $e');
     }
   }
-  
+
   void _fixupParsedMap(TiledMap map, String tmxContent) {
     final xmlDocument = XmlDocument.parse(tmxContent);
     final layerElements = xmlDocument.rootElement.findAllElements('layer');
-    final objectGroupElements = xmlDocument.rootElement.findAllElements('objectgroup');
+    final objectGroupElements = xmlDocument.rootElement.findAllElements(
+      'objectgroup',
+    );
 
     for (final layerElement in layerElements) {
       final layerId = int.tryParse(layerElement.getAttribute('id') ?? '');
       if (layerId == null) continue;
-      
-      final layer = map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
-      if (layer != null && (layer.tileData == null || layer.tileData!.isEmpty)) {
+
+      final layer =
+          map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+      if (layer != null &&
+          (layer.tileData == null || layer.tileData!.isEmpty)) {
         final dataElement = layerElement.findElements('data').firstOrNull;
-        if (dataElement != null && dataElement.getAttribute('encoding') == null) {
+        if (dataElement != null &&
+            dataElement.getAttribute('encoding') == null) {
           final tileElements = dataElement.findElements('tile');
-          final gids = tileElements.map((t) => int.tryParse(t.getAttribute('gid') ?? '0') ?? 0).toList();
-          if(gids.isNotEmpty) {
+          final gids =
+              tileElements
+                  .map((t) => int.tryParse(t.getAttribute('gid') ?? '0') ?? 0)
+                  .toList();
+          if (gids.isNotEmpty) {
             layer.tileData = Gid.generate(gids, layer.width, layer.height);
           }
         }
@@ -435,7 +474,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final layerId = int.tryParse(objectGroupElement.getAttribute('id') ?? '');
       if (layerId == null) continue;
 
-      final objectGroup = map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
+      final objectGroup =
+          map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
       if (objectGroup == null) continue;
 
       final objectElements = objectGroupElement.findAllElements('object');
@@ -443,11 +483,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         final objectId = int.tryParse(objectElement.getAttribute('id') ?? '');
         if (objectId == null) continue;
 
-        final tiledObject = objectGroup.objects.firstWhereOrNull((o) => o.id == objectId);
+        final tiledObject = objectGroup.objects.firstWhereOrNull(
+          (o) => o.id == objectId,
+        );
         if (tiledObject != null) {
           final hasEllipse = objectElement.findElements('ellipse').isNotEmpty;
           final hasPoint = objectElement.findElements('point').isNotEmpty;
-          
+
           if (hasEllipse) {
             tiledObject.ellipse = true;
             tiledObject.rectangle = false;
@@ -494,27 +536,31 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
 
     assignIds(map.layers);
-    
+
     map.nextLayerId = nextAvailableId;
   }
-  
-  void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
+
+  void _fixupTilesetsAfterImageLoad(
+    TiledMap map,
+    Map<String, AssetData> assetDataMap,
+  ) {
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
 
     for (final tileset in map.tilesets) {
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
         final rawSource = tileset.image!.source!;
-        
+
         final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
         final canonicalKey = repo.resolveRelativePath(contextPath, rawSource);
-        
+
         final asset = assetDataMap[canonicalKey];
         if (asset is ImageAssetData) {
           final loadedImage = asset.image;
           final currentTiledImage = tileset.image!;
 
-          if (currentTiledImage.width == null || currentTiledImage.height == null) {
+          if (currentTiledImage.width == null ||
+              currentTiledImage.height == null) {
             tileset.image = TiledImage(
               source: currentTiledImage.source,
               width: loadedImage.width,
@@ -527,14 +573,23 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           final imageWidth = tileset.image!.width!;
           final imageHeight = tileset.image!.height!;
 
-          if (tileWidth != null && tileHeight != null && tileWidth > 0 && tileHeight > 0) {
-            final columns = (imageWidth - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
-            final rows = (imageHeight - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
+          if (tileWidth != null &&
+              tileHeight != null &&
+              tileWidth > 0 &&
+              tileHeight > 0) {
+            final columns =
+                (imageWidth - tileset.margin * 2 + tileset.spacing) ~/
+                (tileWidth + tileset.spacing);
+            final rows =
+                (imageHeight - tileset.margin * 2 + tileset.spacing) ~/
+                (tileHeight + tileset.spacing);
             final tileCount = columns * rows;
-            
+
             tileset.columns = columns;
             tileset.tileCount = tileCount;
-            tileset.tiles = [for (var i = 0; i < tileCount; ++i) Tile(localId: i)];
+            tileset.tiles = [
+              for (var i = 0; i < tileCount; ++i) Tile(localId: i),
+            ];
           }
         }
       }
@@ -543,11 +598,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
-    
+
     _rebuildAssetUriSet().then((_) {
       if (mounted) setState(() {});
     });
-    
+
     syncCommandContext();
     setState(() {});
   }
@@ -566,7 +621,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       );
     }
   }
-  
+
   Map<String, AssetData>? _getAssetDataMap() {
     final assetMapAsync = ref.read(assetMapProvider(widget.tab.id));
     final assetMap = assetMapAsync.valueOrNull;
@@ -576,48 +631,54 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
     return assetMap;
   }
-  
+
   void showExportDialog() {
     if (_notifier == null) return;
 
     // FIX: Get the initial name from the file metadata associated with the tab.
     final metadata = ref.read(tabMetadataProvider)[widget.tab.id];
-    final initialName = metadata != null ? p.basenameWithoutExtension(metadata.file.name) : 'map';
+    final initialName =
+        metadata != null
+            ? p.basenameWithoutExtension(metadata.file.name)
+            : 'map';
 
     showDialog(
       context: context,
-      builder: (_) => ExportDialog(
-        notifier: _notifier!,
-        talker: ref.read(talkerProvider),
-        tabId: widget.tab.id,
-        initialMapName: initialName, // Pass the corrected name here
-      ),
+      builder:
+          (_) => ExportDialog(
+            notifier: _notifier!,
+            talker: ref.read(talkerProvider),
+            tabId: widget.tab.id,
+            initialMapName: initialName, // Pass the corrected name here
+          ),
     );
-  }  
+  }
 
   void inspectMapProperties() {
     final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
     final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
     final resolver = resolverState.valueOrNull;
-    
+
     if (_notifier == null || resolver == null) return;
 
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: _notifier!.map,
-        title: 'Map Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-        resolver: resolver,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: _notifier!.map,
+            title: 'Map Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+            resolver: resolver,
+          ),
     );
   }
 
   Future<void> _addTileset() async {
     final relativeImagePath = await showDialog<String>(
       context: context,
-      builder: (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
+      builder:
+          (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
     );
     if (relativeImagePath == null || !mounted) return;
 
@@ -630,17 +691,26 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final project = ref.read(currentProjectProvider)!;
-      
-      final imageFile = await repo.fileHandler.resolvePath(project.rootUri, relativeImagePath);
+
+      final imageFile = await repo.fileHandler.resolvePath(
+        project.rootUri,
+        relativeImagePath,
+      );
       if (imageFile != null) {
         _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
       }
 
       final tmxPath = _getTmxProjectRelativePath();
-      final imagePathRelativeToTmx = repo.calculateRelativePath(tmxPath, relativeImagePath);
+      final imagePathRelativeToTmx = repo.calculateRelativePath(
+        tmxPath,
+        relativeImagePath,
+      );
 
-      final assetData = await ref.read(assetDataProvider(relativeImagePath).future);
-      if (assetData is! ImageAssetData) throw Exception("Failed to load image asset");
+      final assetData = await ref.read(
+        assetDataProvider(relativeImagePath).future,
+      );
+      if (assetData is! ImageAssetData)
+        throw Exception("Failed to load image asset");
       final image = assetData.image;
 
       final tileWidth = result['tileWidth'] as int;
@@ -672,13 +742,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _onMapChanged();
       });
-
     } catch (e, st) {
       MachineToast.error('Failed to add tileset: $e');
       ref.read(talkerProvider).handle(e, st, 'Failed to add tileset');
     }
   }
-  
+
   void _deleteSelectedTileset() async {
     if (_notifier == null || _selectedTileset == null) return;
 
@@ -698,10 +767,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       });
     }
   }
-  
-    void _clearUnusedTilesets() async {
+
+  void _clearUnusedTilesets() async {
     if (_notifier == null) return;
-    
+
     final unused = _notifier!.findUnusedTilesets();
 
     if (unused.isEmpty) {
@@ -717,10 +786,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     );
 
     if (confirm) {
-      final selectedIsUnused = unused.any((ts) => ts.name == _selectedTileset?.name);
-      
+      final selectedIsUnused = unused.any(
+        (ts) => ts.name == _selectedTileset?.name,
+      );
+
       _notifier!.removeTilesets(unused);
-      
+
       if (selectedIsUnused) {
         setState(() {
           _selectedTileset = null;
@@ -736,17 +807,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
     final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
     final resolver = resolverState.valueOrNull;
-    if (_notifier == null || _selectedTileset == null || resolver == null) return;
-    
+    if (_notifier == null || _selectedTileset == null || resolver == null)
+      return;
+
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: _selectedTileset!,
-        title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-        resolver: resolver,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: _selectedTileset!,
+            title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+            resolver: resolver,
+          ),
     );
   }
 
@@ -759,32 +832,38 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _notifier!.addLayer(name: result['name'], type: result['type']);
     }
   }
-  
 
   void _deleteLayer(int layerId) async {
     if (_notifier == null) return;
-    final layerToDelete =
-        _notifier!.map.layers.firstWhereOrNull((l) => l.id == layerId);
+    final layerToDelete = _notifier!.map.layers.firstWhereOrNull(
+      (l) => l.id == layerId,
+    );
     if (layerToDelete == null) return;
 
     final confirm = await showConfirmDialog(
       context,
       title: 'Delete Layer "${layerToDelete.name}"?',
-      content: 'Are you sure you want to delete this layer? This can be undone.',
+      content:
+          'Are you sure you want to delete this layer? This can be undone.',
     );
 
     if (confirm) {
       final oldIndex = _notifier!.map.layers.indexWhere((l) => l.id == layerId);
       _notifier!.deleteLayer(layerId);
       if (_selectedLayerId == layerId) {
-        final newIndex = (oldIndex - 1).clamp(0, _notifier!.map.layers.length - 1);
+        final newIndex = (oldIndex - 1).clamp(
+          0,
+          _notifier!.map.layers.length - 1,
+        );
         final newSelectedLayer =
-            _notifier!.map.layers.isEmpty ? null : _notifier!.map.layers[newIndex];
+            _notifier!.map.layers.isEmpty
+                ? null
+                : _notifier!.map.layers[newIndex];
         _onLayerSelect(newSelectedLayer?.id ?? -1);
       }
     }
   }
-  
+
   void _onLayerSelect(int id) {
     final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == id);
     if (layer == null) return;
@@ -792,10 +871,14 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     var newMode = _mode;
     if (_mode == TiledEditorMode.paint && layer is! TileLayer) {
       newMode = TiledEditorMode.panZoom;
-      MachineToast.info("Switched to Pan/Zoom mode. Selected layer is not a Tile Layer.");
+      MachineToast.info(
+        "Switched to Pan/Zoom mode. Selected layer is not a Tile Layer.",
+      );
     } else if (_mode == TiledEditorMode.object && layer is! ObjectGroup) {
       newMode = TiledEditorMode.panZoom;
-      MachineToast.info("Switched to Pan/Zoom mode. Selected layer is not an Object Layer.");
+      MachineToast.info(
+        "Switched to Pan/Zoom mode. Selected layer is not an Object Layer.",
+      );
     }
 
     setState(() {
@@ -807,38 +890,41 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   void _showLayerInspector(Layer layer, TiledAssetResolver resolver) {
     if (_notifier == null) return;
-    
+
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: layer,
-        title: '${layer.name} Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-        resolver: resolver,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: layer,
+            title: '${layer.name} Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+            resolver: resolver,
+          ),
     );
   }
-  
+
   void _inspectObject(TiledObject object, TiledAssetResolver resolver) {
     if (_notifier == null) return;
-    
+
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: object,
-        title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-        resolver: resolver,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: object,
+            title:
+                '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+            resolver: resolver,
+          ),
     );
   }
-  
+
   void _inspectSelectedObject() {
     final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
     final resolver = resolverState.valueOrNull;
-    if(resolver==null) return;
+    if (resolver == null) return;
     if (_notifier == null) return;
     final selection = _notifier!.selectedObjects;
     if (selection.length != 1) return;
@@ -846,17 +932,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final target = selection.first;
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: target,
-        title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-        resolver: resolver,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: target,
+            title:
+                '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+            resolver: resolver,
+          ),
     );
   }
-  
-    void _deleteSelectedObject() async {
+
+  void _deleteSelectedObject() async {
     if (_notifier == null || _notifier!.selectedObjects.isEmpty) return;
 
     final count = _notifier!.selectedObjects.length;
@@ -871,7 +959,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _notifier!.deleteSelectedObjects(_selectedLayerId);
     }
   }
-  
+
   void _onInteractionUpdate(Offset localPosition, {bool isStart = false}) {
     switch (_mode) {
       case TiledEditorMode.paint:
@@ -885,7 +973,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         break;
     }
   }
-  
 
   void _onInteractionCancel() {
     switch (_mode) {
@@ -947,9 +1034,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   void _handlePaintInteraction(Offset localPosition, {bool isStart = false}) {
     if (isZoomMode || _selectedLayerId == -1) return;
-    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! TileLayer) {
-      if(isStart) {
+      if (isStart) {
         MachineToast.info("Select a Tile Layer.");
       }
       return;
@@ -1009,7 +1098,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         break;
     }
   }
-  
+
   void _paintStamp(Offset localPosition) {
     if (isZoomMode ||
         _selectedTileset == null ||
@@ -1036,7 +1125,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _selectedTileRect!,
     );
   }
-  
+
   void _handleTileSelect(Offset localPosition, {required bool isStart}) {
     final mapPosition = _getMapPosition(localPosition);
     if (isStart) {
@@ -1045,11 +1134,14 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     } else {
       if (_dragStartMapPosition == null) return;
       setState(() {
-        _tileMarqueeSelection = Rect.fromPoints(_dragStartMapPosition!, mapPosition);
+        _tileMarqueeSelection = Rect.fromPoints(
+          _dragStartMapPosition!,
+          mapPosition,
+        );
       });
     }
   }
-  
+
   void _handleTileMove(Offset localPosition, {required bool isStart}) {
     if (notifier?.hasFloatingSelection != true) return;
     final mapPosition = _getMapPosition(localPosition);
@@ -1071,10 +1163,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final tileX = (newTopLeftPixelX / notifier!.map.tileWidth).floor();
       final tileY = (newTopLeftPixelY / notifier!.map.tileHeight).floor();
 
-      notifier!.updateFloatingSelectionPosition(Point(x: tileX.toDouble(), y: tileY.toDouble()));
+      notifier!.updateFloatingSelectionPosition(
+        Point(x: tileX.toDouble(), y: tileY.toDouble()),
+      );
     }
   }
-  
 
   void _handlePaintInteractionEnd() {
     if (_paintMode == TiledPaintMode.select && _tileMarqueeSelection != null) {
@@ -1093,10 +1186,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         (startTileX - endTileX).abs() + 1,
         (startTileY - endTileY).abs() + 1,
       );
-      
+
       notifier?.setTileSelection(selection, _selectedLayerId);
-      notifier?.cutSelection(_selectedLayerId);      
-    } else if (notifier?.hasFloatingSelection == true && _paintMode != TiledPaintMode.move) {
+      notifier?.cutSelection(_selectedLayerId);
+    } else if (notifier?.hasFloatingSelection == true &&
+        _paintMode != TiledPaintMode.move) {
       notifier?.stampFloatingSelection(_selectedLayerId);
     }
     notifier?.endTileStroke(_selectedLayerId);
@@ -1105,7 +1199,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _tileMarqueeSelection = null;
       _dragStartOffsetInSelection = null;
     });
-    
   }
 
   Offset _getMapPosition(Offset localPosition) {
@@ -1122,7 +1215,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       (offset.dy / tileHeight).round() * tileHeight,
     );
   }
-  
+
   TexturePackerSpriteData? _findSpriteDataInAssets(String spriteName) {
     final assetMap = _getAssetDataMap();
     if (assetMap == null) return null;
@@ -1142,9 +1235,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
     return null;
   }
-  
+
   Future<void> _createSpriteObjectFromTap() async {
-    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _dragStartMapPosition == null) return;
 
     final assetMap = _getAssetDataMap();
@@ -1157,9 +1252,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         allSpriteNames.addAll(value.animations.keys);
       }
     });
-    
+
     if (allSpriteNames.isEmpty) {
-      MachineToast.info("No sprites available. Link a .tpacker file in Map Properties.");
+      MachineToast.info(
+        "No sprites available. Link a .tpacker file in Map Properties.",
+      );
       return;
     }
     allSpriteNames.sort();
@@ -1191,7 +1288,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       width: width,
       height: height,
       properties: CustomProperties({
-        'tp_sprite': Property(name: 'tp_sprite', type: PropertyType.string, value: selectedSprite)
+        'tp_sprite': Property(
+          name: 'tp_sprite',
+          type: PropertyType.string,
+          value: selectedSprite,
+        ),
       }),
     );
 
@@ -1199,14 +1300,16 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     notifier!.map.nextObjectId = newId + 1;
     notifier!.endObjectChange(_selectedLayerId);
     notifier!.selectObject(newObject);
-    
+
     setState(() {});
   }
 
   void _handleObjectInteraction(Offset localPosition, {bool isStart = false}) {
-    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup) {
-      if(isStart) {
+      if (isStart) {
         MachineToast.info("Select an Object Layer to edit objects.");
       }
       return;
@@ -1229,19 +1332,22 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         break;
       case ObjectTool.addPolygon:
       case ObjectTool.addPolyline:
-          _handlePolygonTool(mapPosition, isStart: isStart);
+        _handlePolygonTool(mapPosition, isStart: isStart);
         break;
       case ObjectTool.addSprite:
         if (isStart) {
-           setState(() => _dragStartMapPosition = _snapOffsetToGrid(mapPosition));
+          setState(
+            () => _dragStartMapPosition = _snapOffsetToGrid(mapPosition),
+          );
         }
         break;
-     }
+    }
   }
 
   void _handleObjectInteractionEnd() {
     final dragThreshold = 4.0;
-    final didDrag = _dragStartMapPosition != null &&
+    final didDrag =
+        _dragStartMapPosition != null &&
         (_getMapPosition(Offset.zero) - _dragStartMapPosition!).distance >
             dragThreshold;
 
@@ -1285,8 +1391,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   TiledObject? _getObjectAt(Offset mapPosition, int layerId) {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == layerId);
+    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == layerId);
     if (layer is! ObjectGroup) return null;
 
     for (final obj in layer.objects.reversed) {
@@ -1312,15 +1417,20 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     } else {
       if (_dragStartMapPosition == null) return;
       setState(() {
-        _marqueeSelection = Rect.fromPoints(_dragStartMapPosition!, mapPosition);
+        _marqueeSelection = Rect.fromPoints(
+          _dragStartMapPosition!,
+          mapPosition,
+        );
       });
     }
   }
-  
-    void _selectObjectsInMarquee() {
-    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+
+  void _selectObjectsInMarquee() {
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _marqueeSelection == null) return;
-    
+
     final selectionRect = _marqueeSelection!;
     final selected = <TiledObject>[];
     for (final obj in layer.objects) {
@@ -1329,7 +1439,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         selected.add(obj);
       }
     }
-    
+
     if (selected.isNotEmpty) {
       notifier?.selectObject(selected.first);
       for (var i = 1; i < selected.length; i++) {
@@ -1341,18 +1451,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   void _handleMoveTool(Offset mapPosition, {required bool isStart}) {
     if (isStart) {
       if (notifier?.selectedObjects.isEmpty ?? true) return;
-      
+
       notifier?.beginObjectChange(_selectedLayerId);
       setState(() {
         _dragStartMapPosition = mapPosition;
         _initialObjectPositions = {
           for (var obj in notifier!.selectedObjects)
-            obj.id: Point(x:obj.x, y:obj.y)
+            obj.id: Point(x: obj.x, y: obj.y),
         };
       });
     } else {
-      if (_dragStartMapPosition == null || _initialObjectPositions == null) return;
-      
+      if (_dragStartMapPosition == null || _initialObjectPositions == null)
+        return;
+
       var delta = mapPosition - _dragStartMapPosition!;
       if (_isSnapToGridEnabled) {
         delta = _snapOffsetToGrid(delta) - _snapOffsetToGrid(Offset.zero);
@@ -1376,22 +1487,29 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       setState(() => _dragStartMapPosition = snappedPos);
     } else {
       if (_dragStartMapPosition == null) return;
-      setState(() => _previewShape = Rect.fromPoints(_dragStartMapPosition!, snappedPos));
+      setState(
+        () =>
+            _previewShape = Rect.fromPoints(_dragStartMapPosition!, snappedPos),
+      );
     }
   }
 
   void _createShapeFromTap() {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _dragStartMapPosition == null) return;
 
     notifier?.beginObjectChange(_selectedLayerId);
 
-    final defaultSize = _isSnapToGridEnabled
-        ? Size(notifier!.map.tileWidth.toDouble(),
-            notifier!.map.tileHeight.toDouble())
-        : const Size(16, 16);
-    
+    final defaultSize =
+        _isSnapToGridEnabled
+            ? Size(
+              notifier!.map.tileWidth.toDouble(),
+              notifier!.map.tileHeight.toDouble(),
+            )
+            : const Size(16, 16);
+
     final newId = notifier!.map.nextObjectId ?? 1;
 
     final newObject = TiledObject(
@@ -1403,21 +1521,21 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     );
 
     _configureObjectShape(newObject);
-    
+
     layer.objects.add(newObject);
     notifier!.map.nextObjectId = newId + 1;
     notifier!.endObjectChange(_selectedLayerId);
     notifier!.selectObject(newObject);
-    
+
     setState(() {});
   }
-  
+
   void _createShapeFromPreview() {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _previewShape == null) return;
 
-    
     final rect = _previewShape!;
     final newId = notifier!.map.nextObjectId ?? 1;
 
@@ -1430,17 +1548,17 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     );
 
     _configureObjectShape(newObject);
-    
+
     layer.objects.add(newObject);
     notifier!.map.nextObjectId = newId + 1;
     notifier!.endObjectChange(_selectedLayerId);
     notifier!.selectObject(newObject);
-    
+
     setState(() {});
   }
 
   void _configureObjectShape(TiledObject newObject) {
-     switch (_activeObjectTool) {
+    switch (_activeObjectTool) {
       case ObjectTool.addRectangle:
         newObject.rectangle = true;
         break;
@@ -1462,7 +1580,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   void _handlePolygonTool(Offset mapPosition, {required bool isStart}) {
     final snappedPos = _snapOffsetToGrid(mapPosition);
     final point = Point(x: snappedPos.dx, y: snappedPos.dy);
-    
+
     if (isStart) {
       if (_inProgressPoints.isEmpty) {
         notifier?.beginObjectChange(_selectedLayerId);
@@ -1481,8 +1599,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   void _finalizePolygon() {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _inProgressPoints.length < 2) {
       setState(() {
         if (_inProgressPoints.isNotEmpty) {
@@ -1493,16 +1612,16 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       return;
     }
 
-
     final newId = notifier!.map.nextObjectId ?? 1;
     final minX = _inProgressPoints.map((p) => p.x).reduce(min);
     final minY = _inProgressPoints.map((p) => p.y).reduce(min);
     final maxX = _inProgressPoints.map((p) => p.x).reduce(max);
     final maxY = _inProgressPoints.map((p) => p.y).reduce(max);
 
-    final relativePoints = _inProgressPoints
-        .map((p) => Point(x: p.x - minX, y: p.y - minY))
-        .toList();
+    final relativePoints =
+        _inProgressPoints
+            .map((p) => Point(x: p.x - minX, y: p.y - minY))
+            .toList();
 
     final newObject = TiledObject(
       id: newId,
@@ -1534,7 +1653,14 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       return Center(child: Text('Error loading map: $_loadingError'));
     if (notifier == null)
       return const Center(child: Text('Could not load map.'));
-    final tiledSettings = ref.watch(effectiveSettingsProvider.select((s) => s.pluginSettings[TiledEditorSettings] as TiledEditorSettings?)) ?? TiledEditorSettings();
+    final tiledSettings =
+        ref.watch(
+          effectiveSettingsProvider.select(
+            (s) =>
+                s.pluginSettings[TiledEditorSettings] as TiledEditorSettings?,
+          ),
+        ) ??
+        TiledEditorSettings();
 
     final map = notifier!.map;
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
@@ -1546,10 +1672,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       skipLoadingOnReload: true,
       data: (resolver) {
         final editorContent = GestureDetector(
-          onTapDown: (details) =>
-              _onInteractionUpdate(details.localPosition, isStart: true),
-          onPanStart: (details) =>
-              _onInteractionUpdate(details.localPosition, isStart: true),
+          onTapDown:
+              (details) =>
+                  _onInteractionUpdate(details.localPosition, isStart: true),
+          onPanStart:
+              (details) =>
+                  _onInteractionUpdate(details.localPosition, isStart: true),
           onPanUpdate: (details) => _onInteractionUpdate(details.localPosition),
           onPanEnd: (details) => _onInteractionEnd(),
           onTapUp: (details) => _onInteractionEnd(),
@@ -1572,16 +1700,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                 selectedObjects: notifier!.selectedObjects,
                 previewShape: _previewShape,
                 inProgressPoints: _inProgressPoints,
-                marqueeSelection: _mode == TiledEditorMode.paint ? _tileMarqueeSelection : _marqueeSelection,
+                marqueeSelection:
+                    _mode == TiledEditorMode.paint
+                        ? _tileMarqueeSelection
+                        : _marqueeSelection,
                 settings: tiledSettings,
                 floatingSelection: notifier!.floatingSelection,
                 floatingSelectionPosition: notifier!.floatingSelectionPosition,
-    talker: ref.read(talkerProvider), // [DIAGNOSTIC] Inject
+                talker: ref.read(talkerProvider), // [DIAGNOSTIC] Inject
               ),
             ),
           ),
         );
-    
+
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -1614,7 +1745,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                   resolver: resolver,
                   selectedTileset: _selectedTileset,
                   selectedTileRect: _selectedTileRect,
-                  onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
+                  onTilesetChanged:
+                      (ts) => setState(() => _selectedTileset = ts),
                   onTileSelectionChanged:
                       (rect) => setState(() => _selectedTileRect = rect),
                   onAddTileset: _addTileset,
@@ -1644,24 +1776,26 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                   notifier!.selectObject(obj);
                   syncCommandContext();
                 },
-                onLayerVisibilityChanged: (id) => notifier!.toggleLayerVisibility(id),
-                onObjectVisibilityChanged: (layerId, objectId) => 
-                    notifier!.toggleObjectVisibility(layerId, objectId),
-                
+                onLayerVisibilityChanged:
+                    (id) => notifier!.toggleLayerVisibility(id),
+                onObjectVisibilityChanged:
+                    (layerId, objectId) =>
+                        notifier!.toggleObjectVisibility(layerId, objectId),
+
                 onLayerReorder: (oldIndex, newIndex) {
                   notifier!.reorderLayer(oldIndex, newIndex);
                 },
                 onObjectReorder: (layerId, oldIndex, newIndex) {
                   notifier!.reorderObject(layerId, oldIndex, newIndex);
                 },
-                
+
                 onAddLayer: _addLayer,
-                
+
                 onLayerDelete: _deleteLayer,
                 onObjectDelete: (layerId, objectId) {
                   notifier!.deleteObject(layerId, objectId);
                 },
-                
+
                 onLayerInspect: (layer) => _showLayerInspector(layer, resolver),
                 onObjectInspect: (obj) => _inspectObject(obj, resolver),
               ),
@@ -1670,12 +1804,16 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text('Error loading assets:\n$err', textAlign: TextAlign.center),
-        ),
-      ),
+      error:
+          (err, stack) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Error loading assets:\n$err',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
     );
   }
 

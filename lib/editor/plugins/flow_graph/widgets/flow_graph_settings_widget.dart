@@ -1,8 +1,10 @@
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_settings_widget.dart
 
-import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+
+import 'package:flex_color_picker/flex_color_picker.dart';
+
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../flow_graph_settings_model.dart';
 
 class FlowGraphSettingsWidget extends StatelessWidget {
@@ -15,7 +17,11 @@ class FlowGraphSettingsWidget extends StatelessWidget {
     required this.onChanged,
   });
 
-  Future<void> _pickColor(BuildContext context, Color current, Function(int) onSave) async {
+  Future<void> _pickColor(
+    BuildContext context,
+    Color current,
+    Function(int) onSave,
+  ) async {
     final newColor = await showColorPickerDialog(
       context,
       current,
@@ -43,7 +49,9 @@ class FlowGraphSettingsWidget extends StatelessWidget {
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Schema File (.json)'),
-          subtitle: Text(settings.schemaPath.isEmpty ? 'Not set' : settings.schemaPath),
+          subtitle: Text(
+            settings.schemaPath.isEmpty ? 'Not set' : settings.schemaPath,
+          ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -67,11 +75,13 @@ class FlowGraphSettingsWidget extends StatelessWidget {
           title: const Text('Background Color'),
           trailing: ColorIndicator(
             color: Color(settings.backgroundColorValue),
-            onSelect: () => _pickColor(
-              context,
-              Color(settings.backgroundColorValue),
-              (val) => onChanged(settings.copyWith(backgroundColorValue: val)),
-            ),
+            onSelect:
+                () => _pickColor(
+                  context,
+                  Color(settings.backgroundColorValue),
+                  (val) =>
+                      onChanged(settings.copyWith(backgroundColorValue: val)),
+                ),
           ),
         ),
         ListTile(
@@ -79,11 +89,12 @@ class FlowGraphSettingsWidget extends StatelessWidget {
           title: const Text('Grid Line Color'),
           trailing: ColorIndicator(
             color: Color(settings.gridColorValue),
-            onSelect: () => _pickColor(
-              context,
-              Color(settings.gridColorValue),
-              (val) => onChanged(settings.copyWith(gridColorValue: val)),
-            ),
+            onSelect:
+                () => _pickColor(
+                  context,
+                  Color(settings.gridColorValue),
+                  (val) => onChanged(settings.copyWith(gridColorValue: val)),
+                ),
           ),
         ),
         const SizedBox(height: 16),

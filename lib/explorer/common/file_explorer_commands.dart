@@ -13,8 +13,8 @@ import '../../data/repositories/project/project_repository.dart';
 import '../../editor/plugins/editor_plugin_registry.dart';
 import '../../utils/clipboard.dart';
 import '../../utils/toast.dart';
-import '../services/explorer_service.dart';
 import '../../widgets/dialogs/file_explorer_dialogs.dart';
+import '../services/explorer_service.dart';
 
 class _DividerCommand extends FileContextCommand {
   const _DividerCommand()

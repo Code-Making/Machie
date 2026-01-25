@@ -17,8 +17,9 @@ class AppStateDto {
   });
 
   factory AppStateDto.fromJson(Map<String, dynamic> json) {
-    final projectStateJson = json['currentProjectDto'] ?? json['currentProjectState'];
-    
+    final projectStateJson =
+        json['currentProjectDto'] ?? json['currentProjectState'];
+
     return AppStateDto(
       knownProjects:
           (json['knownProjects'] as List? ?? [])
@@ -27,9 +28,7 @@ class AppStateDto {
       lastOpenedProjectId: json['lastOpenedProjectId'],
       currentProjectDto:
           projectStateJson != null
-              ? ProjectDto.fromJson(
-                projectStateJson as Map<String, dynamic>,
-              )
+              ? ProjectDto.fromJson(projectStateJson as Map<String, dynamic>)
               : null,
     );
   }

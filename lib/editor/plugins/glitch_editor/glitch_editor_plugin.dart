@@ -10,11 +10,11 @@ import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
+import '../../models/editor_command_context.dart';
+import '../../models/editor_plugin_models.dart';
 import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
-import '../../models/editor_command_context.dart';
-import '../../models/editor_plugin_models.dart';
 import 'glitch_editor_hot_state_adapter.dart';
 import 'glitch_editor_hot_state_dto.dart';
 import 'glitch_editor_models.dart';
@@ -40,11 +40,11 @@ class GlitchEditorPlugin extends EditorPlugin {
   @override
   final PluginSettings? settings = null;
   @override
-    Widget buildSettingsUI(
+  Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
   ) => const SizedBox.shrink();
-  
+
   @override
   Type? get hotStateDtoRuntimeType => GlitchEditorHotStateDto;
 

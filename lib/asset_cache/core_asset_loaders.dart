@@ -1,12 +1,10 @@
 import 'dart:ui' as ui;
-import 'asset_models.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/editor/plugins/editor_plugin_registry.dart';
+
+import '../data/file_handler/file_handler.dart';
 import '../data/repositories/project/project_repository.dart';
-import '../project/project_models.dart';
-
-
+import 'asset_models.dart';
 
 class CoreImageAssetLoader implements AssetLoader<ImageAssetData> {
   static const _extensions = {'png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'};
@@ -18,7 +16,11 @@ class CoreImageAssetLoader implements AssetLoader<ImageAssetData> {
   }
 
   @override
-  Future<ImageAssetData> load(Ref ref, ProjectDocumentFile file, ProjectRepository repo) async {
+  Future<ImageAssetData> load(
+    Ref ref,
+    ProjectDocumentFile file,
+    ProjectRepository repo,
+  ) async {
     final bytes = await repo.readFileAsBytes(file.uri);
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();

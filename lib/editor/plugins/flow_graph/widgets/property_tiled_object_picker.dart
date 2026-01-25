@@ -1,12 +1,17 @@
 // FILE: lib/editor/plugins/flow_graph/widgets/property_tiled_object_picker.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tiled/tiled.dart' hide Text; // Hide Text from Tiled to avoid collision with Flutter's Text widget
-import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+
+import '../../../../data/repositories/project/project_repository.dart';
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../models/flow_references.dart';
 import '../models/flow_schema_models.dart';
+
+import 'package:tiled/tiled.dart'
+    hide
+        Text; // Hide Text from Tiled to avoid collision with Flutter's Text widget
 
 class PropertyTiledObjectPicker extends ConsumerWidget {
   final FlowPropertyDefinition definition;
@@ -22,16 +27,20 @@ class PropertyTiledObjectPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final displayText = value != null
-        ? '${value!.objectNameSnapshot ?? "Obj#${value!.objectId}"} (L:${value!.layerId})'
-        : 'Select Object...';
+    final displayText =
+        value != null
+            ? '${value!.objectNameSnapshot ?? "Obj#${value!.objectId}"} (L:${value!.layerId})'
+            : 'Select Object...';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(definition.label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text(
+            definition.label,
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
+          ),
           const SizedBox(height: 2),
           InkWell(
             onTap: () => _showPickerDialog(context, ref),
@@ -53,7 +62,11 @@ class PropertyTiledObjectPicker extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+                  const Icon(
+                    Icons.arrow_drop_down,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
                 ],
               ),
             ),
@@ -69,10 +82,8 @@ class PropertyTiledObjectPicker extends ConsumerWidget {
 
     final result = await showDialog<TiledObjectReference>(
       context: context,
-      builder: (ctx) => _TiledObjectSelectionDialog(
-        initialValue: value,
-        repo: repo,
-      ),
+      builder:
+          (ctx) => _TiledObjectSelectionDialog(initialValue: value, repo: repo),
     );
 
     if (result != null) {
@@ -85,13 +96,18 @@ class _TiledObjectSelectionDialog extends StatefulWidget {
   final TiledObjectReference? initialValue;
   final ProjectRepository repo;
 
-  const _TiledObjectSelectionDialog({required this.initialValue, required this.repo});
+  const _TiledObjectSelectionDialog({
+    required this.initialValue,
+    required this.repo,
+  });
 
   @override
-  State<_TiledObjectSelectionDialog> createState() => _TiledObjectSelectionDialogState();
+  State<_TiledObjectSelectionDialog> createState() =>
+      _TiledObjectSelectionDialogState();
 }
 
-class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog> {
+class _TiledObjectSelectionDialogState
+    extends State<_TiledObjectSelectionDialog> {
   String? _selectedMapPath;
   int? _selectedLayerId;
   int? _selectedObjectId;
@@ -116,7 +132,10 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
   Future<void> _loadMap(String path) async {
     setState(() => _isLoadingMap = true);
     try {
-      final file = await widget.repo.fileHandler.resolvePath(widget.repo.rootUri, path);
+      final file = await widget.repo.fileHandler.resolvePath(
+        widget.repo.rootUri,
+        path,
+      );
       if (file != null) {
         final content = await widget.repo.readFile(file.uri);
         // Simple parse, ignoring external tilesets for object listing speed
@@ -161,7 +180,7 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
               },
             ),
             const Divider(),
-            
+
             if (_isLoadingMap)
               const Center(child: CircularProgressIndicator())
             else if (_parsedMap != null) ...[
@@ -169,13 +188,16 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
               DropdownButtonFormField<int>(
                 value: _selectedLayerId,
                 decoration: const InputDecoration(labelText: 'Layer'),
-                items: _parsedMap!.layers
-                    .whereType<ObjectGroup>()
-                    .map((l) => DropdownMenuItem(
-                          value: l.id,
-                          child: Text(l.name),
-                        ))
-                    .toList(),
+                items:
+                    _parsedMap!.layers
+                        .whereType<ObjectGroup>()
+                        .map(
+                          (l) => DropdownMenuItem(
+                            value: l.id,
+                            child: Text(l.name),
+                          ),
+                        )
+                        .toList(),
                 onChanged: (val) {
                   setState(() {
                     _selectedLayerId = val;
@@ -184,20 +206,21 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
                 },
               ),
               const SizedBox(height: 16),
-              
+
               // Object Selection
               if (_selectedLayerId != null)
                 DropdownButtonFormField<int>(
                   value: _selectedObjectId,
                   decoration: const InputDecoration(labelText: 'Object'),
-                  items: _getObjectsInLayer(_selectedLayerId!).map((o) {
-                    final name = o.name.isEmpty ? 'Object ${o.id}' : o.name;
-                    return DropdownMenuItem(
-                      value: o.id,
-                      onTap: () => _selectedObjectName = name,
-                      child: Text('$name (ID:${o.id})'),
-                    );
-                  }).toList(),
+                  items:
+                      _getObjectsInLayer(_selectedLayerId!).map((o) {
+                        final name = o.name.isEmpty ? 'Object ${o.id}' : o.name;
+                        return DropdownMenuItem(
+                          value: o.id,
+                          onTap: () => _selectedObjectName = name,
+                          child: Text('$name (ID:${o.id})'),
+                        );
+                      }).toList(),
                   onChanged: (val) => setState(() => _selectedObjectId = val),
                 ),
             ],
@@ -205,21 +228,27 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
-          onPressed: _selectedMapPath != null && _selectedLayerId != null && _selectedObjectId != null
-              ? () {
-                  Navigator.pop(
-                    context,
-                    TiledObjectReference(
-                      sourceMapPath: _selectedMapPath,
-                      layerId: _selectedLayerId!,
-                      objectId: _selectedObjectId!,
-                      objectNameSnapshot: _selectedObjectName,
-                    ),
-                  );
-                }
-              : null,
+          onPressed:
+              _selectedMapPath != null &&
+                      _selectedLayerId != null &&
+                      _selectedObjectId != null
+                  ? () {
+                    Navigator.pop(
+                      context,
+                      TiledObjectReference(
+                        sourceMapPath: _selectedMapPath,
+                        layerId: _selectedLayerId!,
+                        objectId: _selectedObjectId!,
+                        objectNameSnapshot: _selectedObjectName,
+                      ),
+                    );
+                  }
+                  : null,
           child: const Text('Select'),
         ),
       ],
@@ -229,7 +258,7 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
   List<TiledObject> _getObjectsInLayer(int layerId) {
     if (_parsedMap == null) return [];
     final layer = _parsedMap!.layers.firstWhere(
-      (l) => l.id == layerId, 
+      (l) => l.id == layerId,
       orElse: () => ObjectGroup(id: -1, name: 'dummy', objects: []),
     );
     if (layer is ObjectGroup) {

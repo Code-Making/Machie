@@ -2,28 +2,26 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'dart:math';
-import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/editor/plugins/tiled_editor/tmj_writer.dart';
-import 'package:machine/editor/plugins/tiled_editor/tmx_writer.dart';
-import 'package:machine/logs/logs_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:tiled/tiled.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import 'package:machine/utils/texture_packer_algo.dart';
 
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'package:machine/editor/plugins/flow_graph/services/flow_export_service.dart';
-import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
-import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart';
-
-import 'tiled_asset_resolver.dart';
+import '../../../asset_cache/asset_models.dart';
+import '../../../asset_cache/asset_providers.dart';
+import '../../../data/repositories/project/project_repository.dart';
+import '../../../logs/logs_provider.dart';
+import '../flow_graph/flow_graph_asset_resolver.dart';
+import '../flow_graph/models/flow_graph_models.dart';
+import '../flow_graph/services/flow_export_service.dart';
+import '../texture_packer/texture_packer_models.dart';
 import 'project_tsx_provider.dart';
+import 'tiled_asset_resolver.dart';
+import 'tmj_writer.dart';
+import 'tmx_writer.dart';
 
 final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
   return TiledExportService(ref);
@@ -44,7 +42,8 @@ class _UnifiedAssetSource {
        height = sourceRect.height.toInt();
 
   @override
-  bool operator ==(Object other) => other is _UnifiedAssetSource && other.uniqueId == uniqueId;
+  bool operator ==(Object other) =>
+      other is _UnifiedAssetSource && other.uniqueId == uniqueId;
   @override
   int get hashCode => uniqueId.hashCode;
 }
@@ -70,23 +69,23 @@ class _UnifiedPackResult {
 class _ExportContext {
   /// Canonical paths of maps already queued or processed to prevent cycles.
   final Set<String> visitedMaps = {};
-  
+
   /// Canonical paths of atlases already scanned to prevent double processing
   final Set<String> visitedAtlases = {};
-  
+
   /// Queue of map paths to process.
   final List<String> mapsToProcess = [];
-  
+
   /// Aggregated unique assets from all maps.
   final Set<_UnifiedAssetSource> collectedAssets = {};
-  
+
   /// Mapping from original project path to the final exported filename.
   /// Key: "libs/rooms/start.tmx", Value: "start.json"
   final Map<String, String> mapRenames = {};
-  
+
   /// Cache of loaded TiledMap objects to avoid reading disk twice (scan phase & write phase).
   final Map<String, TiledMap> loadedMaps = {};
-  
+
   final ProjectRepository repo;
   final Talker talker;
 
@@ -100,7 +99,10 @@ class TiledExportService {
   static const int _flippedHorizontallyFlag = 0x80000000;
   static const int _flippedVerticallyFlag = 0x40000000;
   static const int _flippedDiagonallyFlag = 0x20000000;
-  static const int _flagMask = _flippedHorizontallyFlag | _flippedVerticallyFlag | _flippedDiagonallyFlag;
+  static const int _flagMask =
+      _flippedHorizontallyFlag |
+      _flippedVerticallyFlag |
+      _flippedDiagonallyFlag;
   static const int _gidMask = ~_flagMask;
 
   int _getCleanGid(int gid) => gid & _gidMask;
@@ -124,7 +126,7 @@ class TiledExportService {
     required String destinationFolderUri,
     required String mapFileName,
     required String atlasFileName,
-    bool removeUnused = true, 
+    bool removeUnused = true,
     bool asJson = false,
     bool packInAtlas = true,
     bool packAssetsOnly = false,
@@ -165,11 +167,19 @@ class TiledExportService {
 
     if (packInAtlas) {
       if (context.collectedAssets.isNotEmpty) {
-        talker.info('Packing ${context.collectedAssets.length} unique assets from ${context.visitedMaps.length} maps (and linked atlases).');
+        talker.info(
+          'Packing ${context.collectedAssets.length} unique assets from ${context.visitedMaps.length} maps (and linked atlases).',
+        );
 
-        packResult = await _packUnifiedAtlasGrid(context.collectedAssets, map.tileWidth, map.tileHeight);
+        packResult = await _packUnifiedAtlasGrid(
+          context.collectedAssets,
+          map.tileWidth,
+          map.tileHeight,
+        );
 
-        talker.info('Atlas packing complete. Size: ${packResult.atlasWidth}x${packResult.atlasHeight}, Cols: ${packResult.columns}');
+        talker.info(
+          'Atlas packing complete. Size: ${packResult.atlasWidth}x${packResult.atlasHeight}, Cols: ${packResult.columns}',
+        );
 
         await repo.createDocumentFile(
           destinationFolderUri,
@@ -192,15 +202,15 @@ class TiledExportService {
     if (!packAssetsOnly) {
       for (final entry in context.loadedMaps.entries) {
         final originalPath = entry.key;
-        final mapInstance = _deepCopyMap(entry.value); 
+        final mapInstance = _deepCopyMap(entry.value);
         final exportName = context.mapRenames[originalPath]!;
 
         // Create specific resolver for this map context
         final mapResolver = TiledAssetResolver(
-          resolver.rawAssets, 
-          repo, 
-          originalPath, 
-          talker
+          resolver.rawAssets,
+          repo,
+          originalPath,
+          talker,
         );
 
         // 1. Process Flow Graph Dependencies
@@ -226,14 +236,21 @@ class TiledExportService {
           _remapAndFinalizeMap(mapInstance, packResult, atlasFileName);
         } else {
           // Legacy: Copy individual images
-          await _copyAndRelinkAssets(mapInstance, mapResolver, destinationFolderUri);
+          await _copyAndRelinkAssets(
+            mapInstance,
+            mapResolver,
+            destinationFolderUri,
+          );
         }
 
         // 4. Remap Links to other Maps (Properties pointing to .tmx files)
         _remapMapLinks(mapInstance, context, originalPath);
 
         // 5. Write Map File
-        final fileContent = asJson ? TmjWriter(mapInstance).toTmj() : TmxWriter(mapInstance).toTmx();
+        final fileContent =
+            asJson
+                ? TmjWriter(mapInstance).toTmj()
+                : TmxWriter(mapInstance).toTmx();
         await repo.createDocumentFile(
           destinationFolderUri,
           exportName,
@@ -245,7 +262,7 @@ class TiledExportService {
     } else {
       talker.info('Pack-only mode: Skipped generating map files.');
     }
-    
+
     talker.info('Recursive export complete.');
   }
 
@@ -265,16 +282,24 @@ class TiledExportService {
     if (context.loadedMaps.containsKey(mapPath)) {
       map = context.loadedMaps[mapPath]!;
     } else {
-      final file = await context.repo.fileHandler.resolvePath(context.repo.rootUri, mapPath);
+      final file = await context.repo.fileHandler.resolvePath(
+        context.repo.rootUri,
+        mapPath,
+      );
       if (file == null) {
-        context.talker.warning("Could not find linked map to process: $mapPath");
+        context.talker.warning(
+          "Could not find linked map to process: $mapPath",
+        );
         return;
       }
       try {
         final content = await context.repo.readFile(file.uri);
         final parentUri = context.repo.fileHandler.getParentUri(file.uri);
         final tsxProvider = ProjectTsxProvider(context.repo, parentUri);
-        final tsxProviders = await ProjectTsxProvider.parseFromTmx(content, tsxProvider.getProvider);
+        final tsxProviders = await ProjectTsxProvider.parseFromTmx(
+          content,
+          tsxProvider.getProvider,
+        );
 
         map = TileMapParser.parseTmx(content, tsxList: tsxProviders);
         context.loadedMaps[mapPath] = map;
@@ -300,7 +325,7 @@ class TiledExportService {
         map,
         mapResolver,
         // Disable individual inclusion logic here; handled separately in step 4
-        includeAllAtlasSprites: false, 
+        includeAllAtlasSprites: false,
       );
       context.collectedAssets.addAll(assets);
     }
@@ -310,19 +335,22 @@ class TiledExportService {
 
     // 4. Deep Scan of Linked Atlases
     if (includeAllAtlasSprites && packInAtlas) {
-       await _findAndScanAtlases(map, mapPath, context);
+      await _findAndScanAtlases(map, mapPath, context);
     }
   }
 
-  void _findAndQueueLinkedMaps(TiledMap map, String currentMapPath, _ExportContext context) {
+  void _findAndQueueLinkedMaps(
+    TiledMap map,
+    String currentMapPath,
+    _ExportContext context,
+  ) {
     void checkProperties(CustomProperties properties) {
       for (final prop in properties) {
         String? potentialPath;
 
         if (prop.type == PropertyType.file && prop.value is String) {
           potentialPath = prop.value as String;
-        } 
-        else if (prop.type == PropertyType.string && prop.value is String) {
+        } else if (prop.type == PropertyType.string && prop.value is String) {
           final val = prop.value as String;
           if (val.toLowerCase().endsWith('.tmx')) {
             potentialPath = val;
@@ -330,9 +358,14 @@ class TiledExportService {
         }
 
         if (potentialPath != null && potentialPath.isNotEmpty) {
-          final resolvedPath = context.repo.resolveRelativePath(currentMapPath, potentialPath);
+          final resolvedPath = context.repo.resolveRelativePath(
+            currentMapPath,
+            potentialPath,
+          );
           if (!context.visitedMaps.contains(resolvedPath)) {
-            context.talker.debug("Found linked map: $resolvedPath (from $currentMapPath)");
+            context.talker.debug(
+              "Found linked map: $resolvedPath (from $currentMapPath)",
+            );
             context.visitedMaps.add(resolvedPath);
             context.mapsToProcess.add(resolvedPath);
           }
@@ -349,7 +382,11 @@ class TiledExportService {
     });
   }
 
-  Future<void> _findAndScanAtlases(TiledMap map, String currentMapPath, _ExportContext context) async {
+  Future<void> _findAndScanAtlases(
+    TiledMap map,
+    String currentMapPath,
+    _ExportContext context,
+  ) async {
     final atlasesToScan = <String>{};
 
     void checkProperties(CustomProperties properties) {
@@ -359,7 +396,12 @@ class TiledExportService {
       }
       final atlasesProp = properties['atlases'];
       if (atlasesProp is StringProperty && atlasesProp.value.isNotEmpty) {
-        atlasesToScan.addAll(atlasesProp.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+        atlasesToScan.addAll(
+          atlasesProp.value
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty),
+        );
       }
     }
 
@@ -382,8 +424,11 @@ class TiledExportService {
     final repo = context.repo;
     final talker = context.talker;
 
-    final tpackerCanonicalPath = repo.resolveRelativePath(mapContextPath, relativeTpackerPath);
-    
+    final tpackerCanonicalPath = repo.resolveRelativePath(
+      mapContextPath,
+      relativeTpackerPath,
+    );
+
     if (context.visitedAtlases.contains(tpackerCanonicalPath)) return;
     context.visitedAtlases.add(tpackerCanonicalPath);
 
@@ -392,25 +437,31 @@ class TiledExportService {
     try {
       // Use the AssetProvider system to load the TexturePacker asset properly.
       // This ensures we get the parsed TexturePackerAssetData with all path resolutions handled.
-      final asset = await _ref.read(assetDataProvider(tpackerCanonicalPath).future);
-      
+      final asset = await _ref.read(
+        assetDataProvider(tpackerCanonicalPath).future,
+      );
+
       if (asset is TexturePackerAssetData) {
         talker.debug('Loaded atlas with ${asset.frames.length} frames.');
-        
+
         // Iterate all frames in the atlas and add them to the unified assets list
         for (final entry in asset.frames.entries) {
           final frameName = entry.key;
           final spriteData = entry.value;
           final uniqueKey = 'sprite_$frameName';
-          
-          context.collectedAssets.add(_UnifiedAssetSource(
-            uniqueId: uniqueKey,
-            sourceImage: spriteData.sourceImage,
-            sourceRect: spriteData.sourceRect,
-          ));
+
+          context.collectedAssets.add(
+            _UnifiedAssetSource(
+              uniqueId: uniqueKey,
+              sourceImage: spriteData.sourceImage,
+              sourceRect: spriteData.sourceRect,
+            ),
+          );
         }
       } else {
-        talker.warning('Loaded asset is not TexturePackerAssetData: $tpackerCanonicalPath');
+        talker.warning(
+          'Loaded asset is not TexturePackerAssetData: $tpackerCanonicalPath',
+        );
       }
     } catch (e, st) {
       talker.handle(e, st, 'Failed to scan atlas file: $tpackerCanonicalPath');
@@ -419,20 +470,31 @@ class TiledExportService {
 
   // --- Remapping Logic ---
 
-  void _remapMapLinks(TiledMap map, _ExportContext context, String currentMapPath) {
-    void updateProperties(CustomProperties props, Function(CustomProperties) setter) {
+  void _remapMapLinks(
+    TiledMap map,
+    _ExportContext context,
+    String currentMapPath,
+  ) {
+    void updateProperties(
+      CustomProperties props,
+      Function(CustomProperties) setter,
+    ) {
       if (props.isEmpty) return;
-      
+
       final updates = <String, String>{};
-      
+
       for (final prop in props) {
-        if ((prop is StringProperty || prop is FileProperty) && prop.value is String) {
+        if ((prop is StringProperty || prop is FileProperty) &&
+            prop.value is String) {
           final val = prop.value as String;
           if (val.isEmpty) continue;
 
           // Resolve property path to absolute
-          final resolvedPath = context.repo.resolveRelativePath(currentMapPath, val);
-          
+          final resolvedPath = context.repo.resolveRelativePath(
+            currentMapPath,
+            val,
+          );
+
           if (context.mapRenames.containsKey(resolvedPath)) {
             final newFileName = context.mapRenames[resolvedPath]!;
             updates[prop.name] = newFileName;
@@ -464,6 +526,7 @@ class TiledExportService {
         }
       }
     }
+
     processLayers(map.layers);
 
     _traverseMapObjects(map, (obj) {
@@ -483,31 +546,34 @@ class TiledExportService {
         }
       }
     }
+
     for (final layer in map.layers) {
       visitLayer(layer);
     }
   }
 
   Future<Set<_UnifiedAssetSource>> _collectUnifiedAssets(
-    TiledMap map, 
-    TiledAssetResolver resolver,
-    {bool includeAllAtlasSprites = false}
-  ) async {
+    TiledMap map,
+    TiledAssetResolver resolver, {
+    bool includeAllAtlasSprites = false,
+  }) async {
     final talker = _ref.read(talkerProvider);
     final assets = <_UnifiedAssetSource>{};
     final seenKeys = <String>{};
-    
+
     // We'll collect all paths here to possibly scan later, or to look up animation frames
     final referencedAtlases = <String>{};
 
     void addAsset(String key, ui.Image? image, ui.Rect srcRect) {
       if (image != null && !seenKeys.contains(key)) {
         seenKeys.add(key);
-        assets.add(_UnifiedAssetSource(
-          uniqueId: key,
-          sourceImage: image,
-          sourceRect: srcRect,
-        ));
+        assets.add(
+          _UnifiedAssetSource(
+            uniqueId: key,
+            sourceImage: image,
+            sourceRect: srcRect,
+          ),
+        );
       }
     }
 
@@ -530,17 +596,23 @@ class TiledExportService {
             if (!seenKeys.contains(uniqueKey)) {
               final tile = map.tileByGid(cleanGid);
               final imageSource = tile?.image?.source ?? tileset.image?.source;
-              
+
               if (imageSource != null) {
                 final image = resolver.getImage(imageSource, tileset: tileset);
                 if (image != null) {
-                  final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                  addAsset(uniqueKey, image, ui.Rect.fromLTWH(
-                    rect.left.toDouble(),
-                    rect.top.toDouble(),
-                    rect.width.toDouble(),
-                    rect.height.toDouble(),
-                  ));
+                  final rect = tileset.computeDrawRect(
+                    tile ?? Tile(localId: localId),
+                  );
+                  addAsset(
+                    uniqueKey,
+                    image,
+                    ui.Rect.fromLTWH(
+                      rect.left.toDouble(),
+                      rect.top.toDouble(),
+                      rect.width.toDouble(),
+                      rect.height.toDouble(),
+                    ),
+                  );
                 }
               }
             }
@@ -548,7 +620,8 @@ class TiledExportService {
         }
       }
     }
-    for(final layer in map.layers) scanTileLayers(layer);
+
+    for (final layer in map.layers) scanTileLayers(layer);
 
     _traverseMapObjects(map, (obj) {
       // 1. Tile Objects
@@ -559,44 +632,54 @@ class TiledExportService {
           if (tileset != null) {
             final localId = cleanGid - tileset.firstGid!;
             final uniqueKey = 'tile_${tileset.name}_$localId';
-            
+
             if (!seenKeys.contains(uniqueKey)) {
-                final tile = map.tileByGid(cleanGid);
-                final imageSource = tile?.image?.source ?? tileset.image?.source;
-                if (imageSource != null) {
-                  final image = resolver.getImage(imageSource, tileset: tileset);
-                  if (image != null) {
-                    final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                    addAsset(uniqueKey, image, ui.Rect.fromLTWH(
-                      rect.left.toDouble(), 
-                      rect.top.toDouble(), 
-                      rect.width.toDouble(), 
-                      rect.height.toDouble()
-                    ));
-                  }
+              final tile = map.tileByGid(cleanGid);
+              final imageSource = tile?.image?.source ?? tileset.image?.source;
+              if (imageSource != null) {
+                final image = resolver.getImage(imageSource, tileset: tileset);
+                if (image != null) {
+                  final rect = tileset.computeDrawRect(
+                    tile ?? Tile(localId: localId),
+                  );
+                  addAsset(
+                    uniqueKey,
+                    image,
+                    ui.Rect.fromLTWH(
+                      rect.left.toDouble(),
+                      rect.top.toDouble(),
+                      rect.width.toDouble(),
+                      rect.height.toDouble(),
+                    ),
+                  );
                 }
+              }
             }
           }
         }
       }
-      
+
       // 2. Sprite Objects
       final atlasProp = obj.properties['atlas'];
       if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
         referencedAtlases.add(atlasProp.value);
-        
-        final frameProp = obj.properties['initialFrame'] ?? obj.properties['initialAnim'];
+
+        final frameProp =
+            obj.properties['initialFrame'] ?? obj.properties['initialAnim'];
         if (frameProp is StringProperty && frameProp.value.isNotEmpty) {
           final spriteName = frameProp.value;
-          
+
           // Look up if this is a single sprite or an animation
           // If it's an animation, we want ALL frames.
           final spritesToAdd = <TexturePackerSpriteData>[];
-          
+
           for (final path in [atlasProp.value]) {
-            final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, path);
+            final canonicalKey = resolver.repo.resolveRelativePath(
+              resolver.tmxPath,
+              path,
+            );
             final asset = resolver.getAsset(canonicalKey);
-            
+
             if (asset is TexturePackerAssetData) {
               // Case A: It's an animation
               if (asset.animations.containsKey(spriteName)) {
@@ -606,7 +689,7 @@ class TiledExportService {
                     spritesToAdd.add(asset.frames[frameName]!);
                   }
                 }
-              } 
+              }
               // Case B: It's a single sprite
               else if (asset.frames.containsKey(spriteName)) {
                 spritesToAdd.add(asset.frames[spriteName]!);
@@ -617,10 +700,16 @@ class TiledExportService {
           if (spritesToAdd.isNotEmpty) {
             for (final spriteData in spritesToAdd) {
               final uniqueKey = 'sprite_${spriteData.name}';
-              addAsset(uniqueKey, spriteData.sourceImage, spriteData.sourceRect);
+              addAsset(
+                uniqueKey,
+                spriteData.sourceImage,
+                spriteData.sourceRect,
+              );
             }
           } else {
-            talker.warning('Object ${obj.id}: Could not resolve sprite/anim "$spriteName" in atlas "${atlasProp.value}".');
+            talker.warning(
+              'Object ${obj.id}: Could not resolve sprite/anim "$spriteName" in atlas "${atlasProp.value}".',
+            );
           }
         }
       }
@@ -628,25 +717,33 @@ class TiledExportService {
 
     void scanImageLayers(Layer layer) {
       if (layer is Group) {
-        for(final child in layer.layers) scanImageLayers(child);
+        for (final child in layer.layers) scanImageLayers(child);
       } else if (layer is ImageLayer && layer.image.source != null) {
         final image = resolver.getImage(layer.image.source);
         if (image != null) {
           addAsset(
             'image_layer_${layer.id}',
             image,
-            ui.Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble())
+            ui.Rect.fromLTWH(
+              0,
+              0,
+              image.width.toDouble(),
+              image.height.toDouble(),
+            ),
           );
         } else {
-          talker.warning('Could not find source image "${layer.image.source}" for Image Layer "${layer.name}"');
+          talker.warning(
+            'Could not find source image "${layer.image.source}" for Image Layer "${layer.name}"',
+          );
         }
       }
     }
-    for(final layer in map.layers) scanImageLayers(layer);
+
+    for (final layer in map.layers) scanImageLayers(layer);
 
     return assets;
   }
-  
+
   String? _findNodeNameInTree(PackerItemNode node, String id) {
     if (node.id == id) return node.name;
     for (final child in node.children) {
@@ -671,23 +768,34 @@ class TiledExportService {
     final top = s.margin + grid.y * (s.tileHeight + s.padding);
     final width = grid.width * s.tileWidth + (grid.width - 1) * s.padding;
     final height = grid.height * s.tileHeight + (grid.height - 1) * s.padding;
-    return ui.Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
+    return ui.Rect.fromLTWH(
+      left.toDouble(),
+      top.toDouble(),
+      width.toDouble(),
+      height.toDouble(),
+    );
   }
-  
-  Future<_UnifiedPackResult> _packUnifiedAtlasGrid(Set<_UnifiedAssetSource> assets, int tileWidth, int tileHeight) async {
-    final sortedAssets = assets.toList()..sort((a, b) {
-       if (a.height != b.height) return b.height.compareTo(a.height);
-       if (a.width != b.width) return b.width.compareTo(a.width);
-       return a.uniqueId.compareTo(b.uniqueId);
-    });
+
+  Future<_UnifiedPackResult> _packUnifiedAtlasGrid(
+    Set<_UnifiedAssetSource> assets,
+    int tileWidth,
+    int tileHeight,
+  ) async {
+    final sortedAssets =
+        assets.toList()..sort((a, b) {
+          if (a.height != b.height) return b.height.compareTo(a.height);
+          if (a.width != b.width) return b.width.compareTo(a.width);
+          return a.uniqueId.compareTo(b.uniqueId);
+        });
 
     double totalArea = 0;
-    for(var a in sortedAssets) totalArea += (a.width * a.height);
-    
+    for (var a in sortedAssets) totalArea += (a.width * a.height);
+
     int potSize = _nextPowerOfTwo(sqrt(totalArea).ceil());
     if (potSize < 256) potSize = 256;
-    
-    int maxAssetWidth = sortedAssets.isEmpty ? 0 : sortedAssets.map((e) => e.width).reduce(max);
+
+    int maxAssetWidth =
+        sortedAssets.isEmpty ? 0 : sortedAssets.map((e) => e.width).reduce(max);
     if (potSize < maxAssetWidth) potSize = _nextPowerOfTwo(maxAssetWidth);
 
     int columns = potSize ~/ tileWidth;
@@ -707,7 +815,7 @@ class TiledExportService {
       neededHeight = rows * tileHeight;
       potHeight = _nextPowerOfTwo(neededHeight);
     }
-    
+
     final List<List<bool>> grid = [];
 
     void ensureRows(int rowIndex) {
@@ -744,20 +852,25 @@ class TiledExportService {
 
       bool placed = false;
       int r = 0;
-      
+
       while (!placed) {
-        ensureRows(r + hCells); 
+        ensureRows(r + hCells);
         for (int c = 0; c <= columns - wCells; c++) {
           if (checkFit(c, r, wCells, hCells)) {
             markOccupied(c, r, wCells, hCells);
-            
+
             final px = (c * tileWidth).toDouble();
             final py = (r * tileHeight).toDouble();
-            
-            packedRects[asset.uniqueId] = ui.Rect.fromLTWH(px, py, asset.width.toDouble(), asset.height.toDouble());
-            
+
+            packedRects[asset.uniqueId] = ui.Rect.fromLTWH(
+              px,
+              py,
+              asset.width.toDouble(),
+              asset.height.toDouble(),
+            );
+
             idToGid[asset.uniqueId] = (r * columns) + c + 1;
-            
+
             placed = true;
             break;
           }
@@ -778,14 +891,19 @@ class TiledExportService {
       final id = entry.key;
       final destRect = entry.value;
       final asset = sortedAssets.firstWhere((a) => a.uniqueId == id);
-      
-      canvas.drawImageRect(asset.sourceImage, asset.sourceRect, destRect, paint);
+
+      canvas.drawImageRect(
+        asset.sourceImage,
+        asset.sourceRect,
+        destRect,
+        paint,
+      );
     }
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(potSize, finalPotHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    
+
     if (byteData == null) throw Exception('Failed to encode atlas image.');
 
     return _UnifiedPackResult(
@@ -798,24 +916,30 @@ class TiledExportService {
     );
   }
 
-  void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
+  void _remapAndFinalizeMap(
+    TiledMap map,
+    _UnifiedPackResult result,
+    String atlasName,
+  ) {
     final newTiles = <Tile>[];
-    
+
     final sortedKeys = result.idToGid.keys.toList()..sort();
 
     for (final uniqueId in sortedKeys) {
-        final newGid = result.idToGid[uniqueId]!;
-        final localId = newGid - 1;
+      final newGid = result.idToGid[uniqueId]!;
+      final localId = newGid - 1;
 
-        newTiles.add(Tile(
-            localId: localId,
-            properties: CustomProperties({
-                'atlas_id': StringProperty(name: 'atlas_id', value: uniqueId),
-            }),
-        ));
+      newTiles.add(
+        Tile(
+          localId: localId,
+          properties: CustomProperties({
+            'atlas_id': StringProperty(name: 'atlas_id', value: uniqueId),
+          }),
+        ),
+      );
     }
     newTiles.sort((a, b) => a.localId.compareTo(b.localId));
-    
+
     final oldTilesets = List<Tileset>.from(map.tilesets);
 
     int safeColumns = 1;
@@ -830,23 +954,30 @@ class TiledExportService {
       tileHeight: map.tileHeight,
       tileCount: result.columns * (result.atlasHeight ~/ map.tileHeight),
       columns: safeColumns,
-      image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
+      image: TiledImage(
+        source: '$atlasName.png',
+        width: result.atlasWidth,
+        height: result.atlasHeight,
+      ),
     )..tiles = newTiles;
 
     _performSafeRemap(map, oldTilesets, result.idToGid, result.packedRects);
 
-    map.tilesets..clear()..add(newTileset);
+    map.tilesets
+      ..clear()
+      ..add(newTileset);
   }
 
   void _performSafeRemap(
-    TiledMap map, 
-    List<Tileset> oldTilesets, 
+    TiledMap map,
+    List<Tileset> oldTilesets,
     Map<String, int> keyToNewGid,
     Map<String, ui.Rect> keyToRect,
   ) {
     Tileset? findTileset(int gid) {
       for (var i = oldTilesets.length - 1; i >= 0; i--) {
-        if (oldTilesets[i].firstGid != null && oldTilesets[i].firstGid! <= gid) {
+        if (oldTilesets[i].firstGid != null &&
+            oldTilesets[i].firstGid! <= gid) {
           return oldTilesets[i];
         }
       }
@@ -855,7 +986,7 @@ class TiledExportService {
 
     void processLayer(Layer layer) {
       if (layer is Group) {
-        for(final child in layer.layers) processLayer(child);
+        for (final child in layer.layers) processLayer(child);
       } else if (layer is TileLayer && layer.tileData != null) {
         for (int y = 0; y < layer.height; y++) {
           for (int x = 0; x < layer.width; x++) {
@@ -886,12 +1017,12 @@ class TiledExportService {
             final rawGid = object.gid!;
             final cleanGid = _getCleanGid(rawGid);
             final flags = _getGidFlags(rawGid);
-            
+
             final oldTileset = findTileset(cleanGid);
             if (oldTileset != null) {
               final localId = cleanGid - oldTileset.firstGid!;
               final key = 'tile_${oldTileset.name}_$localId';
-              
+
               if (keyToNewGid.containsKey(key)) {
                 object.gid = keyToNewGid[key]! | flags;
               }
@@ -913,15 +1044,25 @@ class TiledExportService {
     for (final uniqueId in sortedKeys) {
       final rect = result.packedRects[uniqueId]!;
       frames[uniqueId] = {
-        "frame": {"x": rect.left.toInt(), "y": rect.top.toInt(), "w": rect.width.toInt(), "h": rect.height.toInt()},
+        "frame": {
+          "x": rect.left.toInt(),
+          "y": rect.top.toInt(),
+          "w": rect.width.toInt(),
+          "h": rect.height.toInt(),
+        },
         "rotated": false,
         "trimmed": false,
-        "spriteSourceSize": {"x": 0, "y": 0, "w": rect.width.toInt(), "h": rect.height.toInt()},
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": rect.width.toInt(),
+          "h": rect.height.toInt(),
+        },
         "sourceSize": {"w": rect.width.toInt(), "h": rect.height.toInt()},
-        "anchor": {"x": 0.5, "y": 0.5}
+        "anchor": {"x": 0.5, "y": 0.5},
       };
     }
-    
+
     final jsonOutput = {
       "frames": frames,
       "meta": {
@@ -930,13 +1071,13 @@ class TiledExportService {
         "image": "$atlasName.png",
         "format": "RGBA8888",
         "size": {"w": result.atlasWidth, "h": result.atlasHeight},
-        "scale": "1"
-      }
+        "scale": "1",
+      },
     };
     return const JsonEncoder.withIndent('  ').convert(jsonOutput);
   }
 
-Future<void> _processTexturePackerDependencies(
+  Future<void> _processTexturePackerDependencies(
     TiledMap map,
     TiledAssetResolver resolver,
     _UnifiedPackResult packResult,
@@ -953,13 +1094,15 @@ Future<void> _processTexturePackerDependencies(
       final val = map.properties.getValue<String>('atlas');
       if (val != null) {
         referencedAtlases.addAll(
-            val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+          val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
+        );
       }
     } else if (map.properties.has('atlases')) {
       final val = map.properties.getValue<String>('atlases');
       if (val != null) {
         referencedAtlases.addAll(
-            val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+          val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
+        );
       }
     }
 
@@ -975,8 +1118,10 @@ Future<void> _processTexturePackerDependencies(
     for (final path in referencedAtlases) {
       try {
         final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, path);
-        final file =
-            await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+        final file = await repo.fileHandler.resolvePath(
+          repo.rootUri,
+          canonicalKey,
+        );
         if (file == null) {
           talker.warning('Could not find linked .tpacker file: $path');
           continue;
@@ -986,8 +1131,9 @@ Future<void> _processTexturePackerDependencies(
 
         if (exportAsJson) {
           final content = await repo.readFile(file.uri);
-          final originalProject =
-              TexturePackerProject.fromJson(jsonDecode(content));
+          final originalProject = TexturePackerProject.fromJson(
+            jsonDecode(content),
+          );
 
           // --- PIXIJS FORMAT CONVERSION START ---
           final frames = <String, Map<String, dynamic>>{};
@@ -997,7 +1143,7 @@ Future<void> _processTexturePackerDependencies(
             if (node.type == PackerItemType.sprite) {
               // The key used in the Unified Atlas packing process
               final unifiedKey = 'sprite_${node.name}';
-              
+
               // Find the rect in the unified atlas
               final rect = packResult.packedRects[unifiedKey];
 
@@ -1008,7 +1154,7 @@ Future<void> _processTexturePackerDependencies(
                     "x": rect.left.toInt(),
                     "y": rect.top.toInt(),
                     "w": rect.width.toInt(),
-                    "h": rect.height.toInt()
+                    "h": rect.height.toInt(),
                   },
                   "rotated": false,
                   "trimmed": false,
@@ -1016,21 +1162,23 @@ Future<void> _processTexturePackerDependencies(
                     "x": 0,
                     "y": 0,
                     "w": rect.width.toInt(),
-                    "h": rect.height.toInt()
+                    "h": rect.height.toInt(),
                   },
                   "sourceSize": {
-                    "w": rect.width.toInt(), 
-                    "h": rect.height.toInt()
+                    "w": rect.width.toInt(),
+                    "h": rect.height.toInt(),
                   },
-                  "anchor": {"x": 0.5, "y": 0.5} // Default anchor
+                  "anchor": {"x": 0.5, "y": 0.5}, // Default anchor
                 };
               } else {
-                talker.warning("Sprite '${node.name}' defined in .tpacker but missing from packed result.");
+                talker.warning(
+                  "Sprite '${node.name}' defined in .tpacker but missing from packed result.",
+                );
               }
             } else if (node.type == PackerItemType.animation) {
               // Flatten animation children into a list of names
               final frameNames = <String>[];
-              
+
               void collectFrames(PackerItemNode animChild) {
                 if (animChild.type == PackerItemType.sprite) {
                   frameNames.add(animChild.name);
@@ -1040,8 +1188,8 @@ Future<void> _processTexturePackerDependencies(
                   for (final c in animChild.children) collectFrames(c);
                 }
               }
-              
-              for(final child in node.children) {
+
+              for (final child in node.children) {
                 collectFrames(child);
               }
 
@@ -1066,12 +1214,9 @@ Future<void> _processTexturePackerDependencies(
               "version": "1.0",
               "image": "$atlasName.png",
               "format": "RGBA8888",
-              "size": {
-                "w": packResult.atlasWidth,
-                "h": packResult.atlasHeight
-              },
-              "scale": 1
-            }
+              "size": {"w": packResult.atlasWidth, "h": packResult.atlasHeight},
+              "scale": 1,
+            },
           };
           // --- PIXIJS FORMAT CONVERSION END ---
 
@@ -1081,7 +1226,9 @@ Future<void> _processTexturePackerDependencies(
           await repo.createDocumentFile(
             destinationFolderUri,
             newFilename,
-            initialContent: const JsonEncoder.withIndent('  ').convert(jsonOutput),
+            initialContent: const JsonEncoder.withIndent(
+              '  ',
+            ).convert(jsonOutput),
             overwrite: true,
           );
         } else {
@@ -1108,8 +1255,9 @@ Future<void> _processTexturePackerDependencies(
           .map((v) => newAtlasPaths[v.trim()] ?? v.trim())
           .join(',');
 
-      final newProps =
-          Map<String, Property<Object>>.from(map.properties.byName);
+      final newProps = Map<String, Property<Object>>.from(
+        map.properties.byName,
+      );
       newProps['atlas'] = StringProperty(name: 'atlas', value: newVals);
       map.properties = CustomProperties(newProps);
     }
@@ -1118,31 +1266,34 @@ Future<void> _processTexturePackerDependencies(
       if (obj.properties.has('atlas')) {
         final oldVal = obj.properties.getValue<String>('atlas');
         if (oldVal != null && newAtlasPaths.containsKey(oldVal)) {
-          final newProps =
-              Map<String, Property<Object>>.from(obj.properties.byName);
-          newProps['atlas'] =
-              StringProperty(name: 'atlas', value: newAtlasPaths[oldVal]!);
+          final newProps = Map<String, Property<Object>>.from(
+            obj.properties.byName,
+          );
+          newProps['atlas'] = StringProperty(
+            name: 'atlas',
+            value: newAtlasPaths[oldVal]!,
+          );
           obj.properties = CustomProperties(newProps);
         }
       }
     });
   }
-  
+
   PackerItemNode? _findNodeInTree(PackerItemNode node, String id) {
-      if (node.id == id) return node;
-      for (final child in node.children) {
-          final found = _findNodeInTree(child, id);
-          if (found != null) return found;
-      }
-      return null;
+    if (node.id == id) return node;
+    for (final child in node.children) {
+      final found = _findNodeInTree(child, id);
+      if (found != null) return found;
+    }
+    return null;
   }
 
   Future<void> _processFlowGraphDependencies(
-    TiledMap mapToExport, 
-    TiledAssetResolver resolver, 
-    String destinationFolderUri,
-    {bool exportAsJson = true}
-  ) async {
+    TiledMap mapToExport,
+    TiledAssetResolver resolver,
+    String destinationFolderUri, {
+    bool exportAsJson = true,
+  }) async {
     final talker = _ref.read(talkerProvider);
     final repo = resolver.repo;
     final flowService = _ref.read(flowExportServiceProvider);
@@ -1154,71 +1305,100 @@ Future<void> _processTexturePackerDependencies(
       if (obj.properties.has('flowGraph')) {
         final propVal = obj.properties.getValue<String>('flowGraph');
         if (propVal != null && propVal.isNotEmpty) {
-          futures.add(Future(() async {
-            try {
-              final fgCanonicalKey = repo.resolveRelativePath(resolver.tmxPath, propVal);
-              final fgFile = await repo.fileHandler.resolvePath(repo.rootUri, fgCanonicalKey);
-              if (fgFile == null) {
-                talker.warning("Flow Graph file not found: $propVal");
-                return;
-              }
-              
-              final exportName = p.basenameWithoutExtension(fgFile.name);
-              String newFileName;
-
-              if (exportAsJson) {
-                final content = await repo.readFile(fgFile.uri);
-                final graph = FlowGraph.deserialize(content);
-                final fgPath = repo.fileHandler.getPathForDisplay(fgFile.uri, relativeTo: repo.rootUri);
-                final fgResolver = FlowGraphAssetResolver(resolver.rawAssets, repo, fgPath);
-                
-                newFileName = '$exportName.json';
-                
-                await flowService.export(
-                  graph: graph,
-                  resolver: fgResolver,
-                  destinationFolderUri: destinationFolderUri,
-                  fileName: exportName,
-                  embedSchema: true,
+          futures.add(
+            Future(() async {
+              try {
+                final fgCanonicalKey = repo.resolveRelativePath(
+                  resolver.tmxPath,
+                  propVal,
                 );
-              } else {
-                newFileName = '$exportName.fg';
-                final bytes = await repo.readFileAsBytes(fgFile.uri);
-                await repo.createDocumentFile(
-                  destinationFolderUri,
-                  newFileName,
-                  initialBytes: bytes,
-                  overwrite: true,
+                final fgFile = await repo.fileHandler.resolvePath(
+                  repo.rootUri,
+                  fgCanonicalKey,
+                );
+                if (fgFile == null) {
+                  talker.warning("Flow Graph file not found: $propVal");
+                  return;
+                }
+
+                final exportName = p.basenameWithoutExtension(fgFile.name);
+                String newFileName;
+
+                if (exportAsJson) {
+                  final content = await repo.readFile(fgFile.uri);
+                  final graph = FlowGraph.deserialize(content);
+                  final fgPath = repo.fileHandler.getPathForDisplay(
+                    fgFile.uri,
+                    relativeTo: repo.rootUri,
+                  );
+                  final fgResolver = FlowGraphAssetResolver(
+                    resolver.rawAssets,
+                    repo,
+                    fgPath,
+                  );
+
+                  newFileName = '$exportName.json';
+
+                  await flowService.export(
+                    graph: graph,
+                    resolver: fgResolver,
+                    destinationFolderUri: destinationFolderUri,
+                    fileName: exportName,
+                    embedSchema: true,
+                  );
+                } else {
+                  newFileName = '$exportName.fg';
+                  final bytes = await repo.readFileAsBytes(fgFile.uri);
+                  await repo.createDocumentFile(
+                    destinationFolderUri,
+                    newFileName,
+                    initialBytes: bytes,
+                    overwrite: true,
+                  );
+                }
+
+                final newProps = Map<String, Property<Object>>.from(
+                  obj.properties.byName,
+                );
+                newProps['flowGraph'] = StringProperty(
+                  name: 'flowGraph',
+                  value: newFileName,
+                );
+                obj.properties = CustomProperties(newProps);
+              } catch (e) {
+                talker.warning(
+                  'Failed to export Flow Graph dependency "$propVal": $e',
                 );
               }
-              
-              final newProps = Map<String, Property<Object>>.from(obj.properties.byName);
-              newProps['flowGraph'] = StringProperty(name: 'flowGraph', value: newFileName);
-              obj.properties = CustomProperties(newProps);
-
-            } catch (e) {
-              talker.warning('Failed to export Flow Graph dependency "$propVal": $e');
-            }
-          }));
+            }),
+          );
         }
       }
     });
-    
+
     await Future.wait(futures);
   }
 
-  Future<void> _copyAndRelinkAssets(TiledMap mapToExport, TiledAssetResolver resolver, String destinationFolderUri) async {
+  Future<void> _copyAndRelinkAssets(
+    TiledMap mapToExport,
+    TiledAssetResolver resolver,
+    String destinationFolderUri,
+  ) async {
     final repo = resolver.repo;
-    
+
     for (final tileset in mapToExport.tilesets) {
       if (tileset.image?.source != null) {
         final rawSource = tileset.image!.source!;
-        final contextPath = (tileset.source != null) 
-            ? repo.resolveRelativePath(resolver.tmxPath, tileset.source!) 
-            : resolver.tmxPath;
-        
+        final contextPath =
+            (tileset.source != null)
+                ? repo.resolveRelativePath(resolver.tmxPath, tileset.source!)
+                : resolver.tmxPath;
+
         final canonicalKey = repo.resolveRelativePath(contextPath, rawSource);
-        final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+        final file = await repo.fileHandler.resolvePath(
+          repo.rootUri,
+          canonicalKey,
+        );
 
         if (file != null) {
           final bytes = await repo.readFileAsBytes(file.uri);
@@ -1228,21 +1408,31 @@ Future<void> _processTexturePackerDependencies(
             initialBytes: bytes,
             overwrite: true,
           );
-          
+
           final oldImage = tileset.image!;
-          tileset.image = TiledImage(source: file.name, width: oldImage.width, height: oldImage.height);
+          tileset.image = TiledImage(
+            source: file.name,
+            width: oldImage.width,
+            height: oldImage.height,
+          );
           tileset.source = null;
         }
       }
     }
-    
+
     void processLayer(Layer layer) async {
       if (layer is Group) {
-        for(final child in layer.layers) processLayer(child);
+        for (final child in layer.layers) processLayer(child);
       } else if (layer is ImageLayer && layer.image.source != null) {
         final rawSource = layer.image.source!;
-        final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, rawSource);
-        final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+        final canonicalKey = repo.resolveRelativePath(
+          resolver.tmxPath,
+          rawSource,
+        );
+        final file = await repo.fileHandler.resolvePath(
+          repo.rootUri,
+          canonicalKey,
+        );
         if (file != null) {
           final bytes = await repo.readFileAsBytes(file.uri);
           await repo.createDocumentFile(
@@ -1251,13 +1441,18 @@ Future<void> _processTexturePackerDependencies(
             initialBytes: bytes,
             overwrite: true,
           );
-          
+
           final oldImage = layer.image;
-          layer.image = TiledImage(source: file.name, width: oldImage.width, height: oldImage.height);
+          layer.image = TiledImage(
+            source: file.name,
+            width: oldImage.width,
+            height: oldImage.height,
+          );
         }
       }
     }
-    for(final layer in mapToExport.layers) processLayer(layer);
+
+    for (final layer in mapToExport.layers) processLayer(layer);
   }
 
   TiledMap _deepCopyMap(TiledMap original) {

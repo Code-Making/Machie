@@ -1,6 +1,7 @@
 // FILE: lib/editor/plugins/flow_graph/widgets/node_palette.dart
 
 import 'package:flutter/material.dart';
+
 import '../asset/flow_asset_models.dart';
 import '../models/flow_schema_models.dart';
 
@@ -26,12 +27,13 @@ class _NodePaletteState extends State<NodePalette> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     // Filter and Group nodes
-    final filtered = widget.schema.nodeTypes.where((n) {
-      return n.label.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             n.category.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
+    final filtered =
+        widget.schema.nodeTypes.where((n) {
+          return n.label.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              n.category.toLowerCase().contains(_searchQuery.toLowerCase());
+        }).toList();
 
     final grouped = <String, List<FlowNodeType>>{};
     for (var node in filtered) {
@@ -48,13 +50,19 @@ class _NodePaletteState extends State<NodePalette> {
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
-                const Text("Add Node", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  "Add Node",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const Spacer(),
-                IconButton(icon: const Icon(Icons.close, size: 18), onPressed: widget.onClose),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: widget.onClose,
+                ),
               ],
             ),
           ),
-          
+
           // Search
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -77,20 +85,26 @@ class _NodePaletteState extends State<NodePalette> {
               itemBuilder: (context, index) {
                 final category = grouped.keys.elementAt(index);
                 final nodes = grouped[category]!;
-                
+
                 return ExpansionTile(
                   title: Text(category, style: const TextStyle(fontSize: 14)),
                   initiallyExpanded: true,
-                  children: nodes.map((node) {
-                    return ListTile(
-                      dense: true,
-                      title: Text(node.label),
-                      subtitle: node.description.isNotEmpty 
-                          ? Text(node.description, maxLines: 1, overflow: TextOverflow.ellipsis) 
-                          : null,
-                      onTap: () => widget.onNodeSelected(node),
-                    );
-                  }).toList(),
+                  children:
+                      nodes.map((node) {
+                        return ListTile(
+                          dense: true,
+                          title: Text(node.label),
+                          subtitle:
+                              node.description.isNotEmpty
+                                  ? Text(
+                                    node.description,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
+                                  : null,
+                          onTap: () => widget.onNodeSelected(node),
+                        );
+                      }).toList(),
                 );
               },
             ),

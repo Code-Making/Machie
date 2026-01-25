@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../texture_packer_preview_state.dart';
 
 class PreviewAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final String tabId;
   final VoidCallback onExit;
 
-  const PreviewAppBar({
-    super.key,
-    required this.tabId,
-    required this.onExit,
-  });
+  const PreviewAppBar({super.key, required this.tabId, required this.onExit});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,16 +27,19 @@ class PreviewAppBar extends ConsumerWidget implements PreferredSizeWidget {
         IconButton(
           icon: Icon(state.showGrid ? Icons.grid_on : Icons.grid_off),
           tooltip: 'Toggle Background',
-          onPressed: () => notifier.state = state.copyWith(showGrid: !state.showGrid),
+          onPressed:
+              () => notifier.state = state.copyWith(showGrid: !state.showGrid),
         ),
         const VerticalDivider(indent: 12, endIndent: 12, width: 24),
-        
+
         // Loop Toggle
         IconButton(
           icon: Icon(state.isLooping ? Icons.repeat_on_outlined : Icons.repeat),
           color: state.isLooping ? Theme.of(context).colorScheme.primary : null,
           tooltip: 'Loop Animation',
-          onPressed: () => notifier.state = state.copyWith(isLooping: !state.isLooping),
+          onPressed:
+              () =>
+                  notifier.state = state.copyWith(isLooping: !state.isLooping),
         ),
 
         // Speed Slider (0.1x to 5.0x)
@@ -50,17 +51,24 @@ class PreviewAppBar extends ConsumerWidget implements PreferredSizeWidget {
             max: 5.0,
             divisions: 49,
             label: '${state.speedMultiplier.toStringAsFixed(1)}x',
-            onChanged: (val) => notifier.state = state.copyWith(speedMultiplier: val),
+            onChanged:
+                (val) => notifier.state = state.copyWith(speedMultiplier: val),
           ),
         ),
 
         // Play/Pause
         IconButton(
-          icon: Icon(state.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+          icon: Icon(
+            state.isPlaying
+                ? Icons.pause_circle_filled
+                : Icons.play_circle_filled,
+          ),
           iconSize: 32,
           color: Theme.of(context).colorScheme.primary,
           tooltip: state.isPlaying ? 'Pause' : 'Play',
-          onPressed: () => notifier.state = state.copyWith(isPlaying: !state.isPlaying),
+          onPressed:
+              () =>
+                  notifier.state = state.copyWith(isPlaying: !state.isPlaying),
         ),
         const SizedBox(width: 16),
       ],

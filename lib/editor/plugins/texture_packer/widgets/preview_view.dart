@@ -1,18 +1,19 @@
 // FILE: lib/editor/plugins/texture_packer/widgets/preview_view.dart
 
-import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_widget.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_settings.dart';
-import 'package:machine/settings/settings_notifier.dart';
+
+import '../../../../settings/settings_notifier.dart';
 import '../texture_packer_asset_resolver.dart';
+import '../texture_packer_editor_widget.dart';
+import '../texture_packer_models.dart';
+import '../texture_packer_notifier.dart';
 import '../texture_packer_preview_state.dart';
+import '../texture_packer_settings.dart';
 
 class PreviewView extends ConsumerStatefulWidget {
   final String tabId;
@@ -23,35 +24,40 @@ class PreviewView extends ConsumerStatefulWidget {
   ConsumerState<PreviewView> createState() => _PreviewViewState();
 }
 
-class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderStateMixin {
+class _PreviewViewState extends ConsumerState<PreviewView>
+    with TickerProviderStateMixin {
   late final AnimationController _animationController;
   late final TransformationController _transformationController;
-  
+
   Animation<int>? _frameAnimation;
-  String? _currentAnimationNodeId; 
+  String? _currentAnimationNodeId;
   bool _needsFit = true;
 
   @override
   void initState() {
     super.initState();
     _transformationController = TransformationController();
-    _animationController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
-    
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+
     _animationController.addListener(() => setState(() {}));
-    
+
     _animationController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         final selectedId = ref.read(selectedNodeIdProvider);
         if (selectedId != null) {
-           final node = _findNodeById(widget.notifier.project.tree, selectedId);
-           if (node?.type == PackerItemType.animation) {
-              final state = ref.read(previewStateProvider(widget.tabId));
-              if (!state.isLooping) {
-                ref.read(previewStateProvider(widget.tabId).notifier).state = 
-                    state.copyWith(isPlaying: false);
-                _animationController.reset();
-              }
-           }
+          final node = _findNodeById(widget.notifier.project.tree, selectedId);
+          if (node?.type == PackerItemType.animation) {
+            final state = ref.read(previewStateProvider(widget.tabId));
+            if (!state.isLooping) {
+              ref
+                  .read(previewStateProvider(widget.tabId).notifier)
+                  .state = state.copyWith(isPlaying: false);
+              _animationController.reset();
+            }
+          }
         }
       }
     });
@@ -63,7 +69,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     _transformationController.dispose();
     super.dispose();
   }
-
 
   PackerItemNode? _findNodeById(PackerItemNode node, String id) {
     if (node.id == id) return node;
@@ -83,15 +88,19 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     for (final child in folder.children) {
       if (child.type == PackerItemType.folder) {
         items.addAll(_collectItemsInFolder(child));
-      } else if (child.type == PackerItemType.sprite || child.type == PackerItemType.animation) {
+      } else if (child.type == PackerItemType.sprite ||
+          child.type == PackerItemType.animation) {
         items.add(child);
       }
     }
     return items;
   }
 
-
-  void _updateAnimationState(PackerItemNode node, AnimationDefinition animDef, PreviewState state) {
+  void _updateAnimationState(
+    PackerItemNode node,
+    AnimationDefinition animDef,
+    PreviewState state,
+  ) {
     final frameCount = node.children.length;
 
     if (frameCount == 0 || animDef.speed <= 0) {
@@ -103,23 +112,31 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
     final effectiveSpeed = animDef.speed * state.speedMultiplier;
     final durationMs = (frameCount / effectiveSpeed * 1000).round();
-    final newDuration = Duration(milliseconds: durationMs > 0 ? durationMs : 1000);
+    final newDuration = Duration(
+      milliseconds: durationMs > 0 ? durationMs : 1000,
+    );
 
-    bool configChanged = node.id != _currentAnimationNodeId || 
-                         _animationController.duration != newDuration;
+    bool configChanged =
+        node.id != _currentAnimationNodeId ||
+        _animationController.duration != newDuration;
 
     if (configChanged) {
       _currentAnimationNodeId = node.id;
       _animationController.duration = newDuration;
-      _frameAnimation = StepTween(begin: 0, end: frameCount).animate(_animationController);
+      _frameAnimation = StepTween(
+        begin: 0,
+        end: frameCount,
+      ).animate(_animationController);
     }
 
     if (state.isPlaying) {
-      if (!_animationController.isAnimating && 
+      if (!_animationController.isAnimating &&
           _animationController.status != AnimationStatus.completed) {
-        state.isLooping ? _animationController.repeat() : _animationController.forward();
+        state.isLooping
+            ? _animationController.repeat()
+            : _animationController.forward();
       } else if (state.isLooping && !_animationController.isAnimating) {
-         _animationController.repeat();
+        _animationController.repeat();
       }
     } else {
       if (_animationController.isAnimating) {
@@ -137,23 +154,24 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
     final double scaleX = availableW / contentSize.width;
     final double scaleY = availableH / contentSize.height;
-    final double scale = math.min(scaleX, scaleY).clamp(0.1, 10.0); 
+    final double scale = math.min(scaleX, scaleY).clamp(0.1, 10.0);
 
     final double offsetX = (viewportSize.width - contentSize.width * scale) / 2;
-    final double offsetY = (viewportSize.height - contentSize.height * scale) / 2;
+    final double offsetY =
+        (viewportSize.height - contentSize.height * scale) / 2;
 
-    _transformationController.value = Matrix4.identity()
-      ..translate(offsetX, offsetY)
-      ..scale(scale);
+    _transformationController.value =
+        Matrix4.identity()
+          ..translate(offsetX, offsetY)
+          ..scale(scale);
 
     _needsFit = false;
   }
 
-
   @override
   Widget build(BuildContext context) {
     final selectedNodeId = ref.watch(selectedNodeIdProvider);
-    
+
     ref.listen(selectedNodeIdProvider, (prev, next) {
       if (prev != next) {
         setState(() {
@@ -166,39 +184,57 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     });
 
     // START OF CHANGES
-    final resolverAsync = ref.watch(texturePackerAssetResolverProvider(widget.tabId));
+    final resolverAsync = ref.watch(
+      texturePackerAssetResolverProvider(widget.tabId),
+    );
     // END OF CHANGES
     final previewState = ref.watch(previewStateProvider(widget.tabId));
-    final settings = ref.watch(effectiveSettingsProvider
-        .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
-        ?? TexturePackerSettings();
+    final settings =
+        ref.watch(
+          effectiveSettingsProvider.select(
+            (s) =>
+                s.pluginSettings[TexturePackerSettings]
+                    as TexturePackerSettings?,
+          ),
+        ) ??
+        TexturePackerSettings();
 
     return resolverAsync.when(
       data: (resolver) {
         Widget content;
         Size contentSize = Size.zero;
-        
+
         if (selectedNodeId == null) {
-          content = _buildPlaceholder('No Item Selected', 'Select a sprite or animation to preview.');
+          content = _buildPlaceholder(
+            'No Item Selected',
+            'Select a sprite or animation to preview.',
+          );
         } else {
-          final node = _findNodeById(widget.notifier.project.tree, selectedNodeId);
-          
+          final node = _findNodeById(
+            widget.notifier.project.tree,
+            selectedNodeId,
+          );
+
           if (node == null) {
-            content = _buildPlaceholder('Item Not Found', 'The selected item may have been deleted.');
+            content = _buildPlaceholder(
+              'Item Not Found',
+              'The selected item may have been deleted.',
+            );
           } else if (node.type == PackerItemType.folder || node.id == 'root') {
             final items = _collectItemsInFolder(node);
-            
+
             if (previewState.isPlaying && !_animationController.isAnimating) {
               _animationController.repeat();
-            } else if (!previewState.isPlaying && _animationController.isAnimating) {
+            } else if (!previewState.isPlaying &&
+                _animationController.isAnimating) {
               _animationController.stop();
             }
 
             content = _buildAtlasPreview(items, resolver, previewState);
-            contentSize = const Size(500, 500); 
+            contentSize = const Size(500, 500);
           } else {
             final definition = widget.notifier.project.definitions[node.id];
-            
+
             if (definition is SpriteDefinition) {
               _animationController.stop();
               final size = _getSpriteSize(definition);
@@ -206,16 +242,20 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
               content = _buildSpritePreview(definition, resolver, size);
             } else if (definition is AnimationDefinition) {
               _updateAnimationState(node, definition, previewState);
-              
+
               if (node.children.isNotEmpty) {
-                 final firstFrameDef = widget.notifier.project.definitions[node.children.first.id];
-                 if (firstFrameDef is SpriteDefinition) {
-                   contentSize = _getSpriteSize(firstFrameDef) ?? Size.zero;
-                 }
+                final firstFrameDef =
+                    widget.notifier.project.definitions[node.children.first.id];
+                if (firstFrameDef is SpriteDefinition) {
+                  contentSize = _getSpriteSize(firstFrameDef) ?? Size.zero;
+                }
               }
               content = _buildAnimationPreview(node, resolver, contentSize);
             } else {
-              content = _buildPlaceholder('No Data', 'Item definition missing.');
+              content = _buildPlaceholder(
+                'No Data',
+                'Item definition missing.',
+              );
             }
           }
         }
@@ -236,33 +276,36 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
                 children: [
                   if (previewState.showGrid)
                     Positioned.fill(
-                      child: CustomPaint(painter: _BackgroundPainter(settings: settings)),
+                      child: CustomPaint(
+                        painter: _BackgroundPainter(settings: settings),
+                      ),
                     ),
                   InteractiveViewer(
                     transformationController: _transformationController,
                     boundaryMargin: const EdgeInsets.all(double.infinity),
                     minScale: 0.01,
                     maxScale: 20.0,
-                    constrained: false, 
-                    child: contentSize.isEmpty 
-                      ? SizedBox(
-                          width: constraints.maxWidth,
-                          height: constraints.maxHeight,
-                          child: Center(child: content),
-                        )
-                      : Align(
-                          alignment: Alignment.topLeft,
-                          child: SizedBox(
-                            width: contentSize.width, 
-                            height: contentSize.height, 
-                            child: content
-                          ),
-                        ),
+                    constrained: false,
+                    child:
+                        contentSize.isEmpty
+                            ? SizedBox(
+                              width: constraints.maxWidth,
+                              height: constraints.maxHeight,
+                              child: Center(child: content),
+                            )
+                            : Align(
+                              alignment: Alignment.topLeft,
+                              child: SizedBox(
+                                width: contentSize.width,
+                                height: contentSize.height,
+                                child: content,
+                              ),
+                            ),
                   ),
                 ],
               ),
             );
-          }
+          },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -305,17 +348,21 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     Size frameSize,
   ) {
     if (_frameAnimation == null || animNode.children.isEmpty) {
-      return _buildPlaceholder('Empty Animation', 'Add sprites to this animation.');
+      return _buildPlaceholder(
+        'Empty Animation',
+        'Add sprites to this animation.',
+      );
     }
 
     var frameIndex = _frameAnimation!.value;
     if (frameIndex >= animNode.children.length) frameIndex = 0;
 
     final frameNode = animNode.children[frameIndex];
-    final spriteDef = widget.notifier.project.definitions[frameNode.id] as SpriteDefinition?;
+    final spriteDef =
+        widget.notifier.project.definitions[frameNode.id] as SpriteDefinition?;
 
     if (spriteDef == null) return const Icon(Icons.error_outline);
-    
+
     return _buildSpritePreview(spriteDef, resolver, frameSize);
   }
 
@@ -324,62 +371,79 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     TexturePackerAssetResolver resolver,
     PreviewState state,
   ) {
-    if (items.isEmpty) return _buildPlaceholder('Empty Folder', 'No items to display.');
+    if (items.isEmpty)
+      return _buildPlaceholder('Empty Folder', 'No items to display.');
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       alignment: WrapAlignment.center,
-      children: items.map((node) {
-        if (node.type == PackerItemType.sprite) {
-          final def = widget.notifier.project.definitions[node.id];
-          if (def is SpriteDefinition) {
-            final size = _getSpriteSize(def);
-            return Container(
-              decoration: BoxDecoration(border: Border.all(color: Colors.white24)),
-              child: _buildSpritePreview(def, resolver, size),
-            );
-          }
-        }
-        else if (node.type == PackerItemType.animation) {
-          final def = widget.notifier.project.definitions[node.id];
-          if (def is AnimationDefinition && node.children.isNotEmpty) {
-            int frameIndex = 0;
-            if (state.isPlaying && def.speed > 0) {
-              final ms = DateTime.now().millisecondsSinceEpoch;
-              final effectiveSpeed = def.speed * state.speedMultiplier;
-              final frameDurationMs = (1000 / effectiveSpeed).round();
-              if (frameDurationMs > 0) {
-                frameIndex = (ms ~/ frameDurationMs) % node.children.length;
+      children:
+          items.map((node) {
+            if (node.type == PackerItemType.sprite) {
+              final def = widget.notifier.project.definitions[node.id];
+              if (def is SpriteDefinition) {
+                final size = _getSpriteSize(def);
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: _buildSpritePreview(def, resolver, size),
+                );
+              }
+            } else if (node.type == PackerItemType.animation) {
+              final def = widget.notifier.project.definitions[node.id];
+              if (def is AnimationDefinition && node.children.isNotEmpty) {
+                int frameIndex = 0;
+                if (state.isPlaying && def.speed > 0) {
+                  final ms = DateTime.now().millisecondsSinceEpoch;
+                  final effectiveSpeed = def.speed * state.speedMultiplier;
+                  final frameDurationMs = (1000 / effectiveSpeed).round();
+                  if (frameDurationMs > 0) {
+                    frameIndex = (ms ~/ frameDurationMs) % node.children.length;
+                  }
+                }
+
+                final frameNode = node.children[frameIndex];
+                final spriteDef =
+                    widget.notifier.project.definitions[frameNode.id];
+
+                if (spriteDef is SpriteDefinition) {
+                  final size = _getSpriteSize(spriteDef);
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    ),
+                    child: _buildSpritePreview(spriteDef, resolver, size),
+                  );
+                }
               }
             }
-            
-            final frameNode = node.children[frameIndex];
-            final spriteDef = widget.notifier.project.definitions[frameNode.id];
-            
-            if (spriteDef is SpriteDefinition) {
-              final size = _getSpriteSize(spriteDef);
-              return Container(
-                decoration: BoxDecoration(border: Border.all(color: Colors.green.withOpacity(0.3))),
-                child: _buildSpritePreview(spriteDef, resolver, size),
-              );
-            }
-          }
-        }
-        return const SizedBox.shrink();
-      }).toList(),
+            return const SizedBox.shrink();
+          }).toList(),
     );
   }
 
   Rect _calculateSourceRect(SourceImageConfig source, GridRect gridRect) {
     final slicing = source.slicing;
-    final left = slicing.margin + gridRect.x * (slicing.tileWidth + slicing.padding);
-    final top = slicing.margin + gridRect.y * (slicing.tileHeight + slicing.padding);
-    final width = gridRect.width * slicing.tileWidth + (gridRect.width - 1) * slicing.padding;
-    final height = gridRect.height * slicing.tileHeight + (gridRect.height - 1) * slicing.padding;
-    return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
+    final left =
+        slicing.margin + gridRect.x * (slicing.tileWidth + slicing.padding);
+    final top =
+        slicing.margin + gridRect.y * (slicing.tileHeight + slicing.padding);
+    final width =
+        gridRect.width * slicing.tileWidth +
+        (gridRect.width - 1) * slicing.padding;
+    final height =
+        gridRect.height * slicing.tileHeight +
+        (gridRect.height - 1) * slicing.padding;
+    return Rect.fromLTWH(
+      left.toDouble(),
+      top.toDouble(),
+      width.toDouble(),
+      height.toDouble(),
+    );
   }
-  
+
   Widget _buildPlaceholder(String title, String message) {
     return Center(
       child: Column(
@@ -409,10 +473,19 @@ class _BackgroundPainter extends CustomPainter {
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < cols; x++) {
         paint.color = ((x + y) % 2 == 0) ? c1 : c2;
-        canvas.drawRect(Rect.fromLTWH(x * checkerSize, y * checkerSize, checkerSize, checkerSize), paint);
+        canvas.drawRect(
+          Rect.fromLTWH(
+            x * checkerSize,
+            y * checkerSize,
+            checkerSize,
+            checkerSize,
+          ),
+          paint,
+        );
       }
     }
   }
+
   @override
   bool shouldRepaint(_BackgroundPainter old) => old.settings != settings;
 }
@@ -423,8 +496,15 @@ class _SpritePainter extends CustomPainter {
   _SpritePainter({required this.image, required this.srcRect});
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawImageRect(image, srcRect, Offset.zero & size, Paint()..filterQuality = FilterQuality.none);
+    canvas.drawImageRect(
+      image,
+      srcRect,
+      Offset.zero & size,
+      Paint()..filterQuality = FilterQuality.none,
+    );
   }
+
   @override
-  bool shouldRepaint(_SpritePainter old) => old.image != image || old.srcRect != srcRect;
+  bool shouldRepaint(_SpritePainter old) =>
+      old.image != image || old.srcRect != srcRect;
 }

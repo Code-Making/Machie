@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../project/project_type_handler_registry.dart';
@@ -10,7 +11,8 @@ class NewProjectScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch the registry to get the list of available handlers.
-    final handlers = ref.watch(projectTypeHandlerRegistryProvider).values.toList();
+    final handlers =
+        ref.watch(projectTypeHandlerRegistryProvider).values.toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -36,7 +38,8 @@ class NewProjectScreen extends ConsumerWidget {
               // passing the selected handler along.
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (ctx) => PersistenceSelectionScreen(handler: handler),
+                  builder:
+                      (ctx) => PersistenceSelectionScreen(handler: handler),
                 ),
               );
             },

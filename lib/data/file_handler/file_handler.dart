@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+
 //TODO: CHANGE LOCATION maybe ?
 class PermissionDeniedException implements Exception {
   /// The URI for which permission was denied.
@@ -89,7 +90,7 @@ abstract class FileHandler {
   String getParentUri(String uri);
   String getFileName(String uri);
   String getPathForDisplay(String uri, {String? relativeTo});
- 
+
   /// Resolves a [relativePath] (e.g. "../img.png") relative to a [contextPath]
   /// (e.g. "maps/level1.tmx") to return a canonical project-relative path
   /// (e.g. "assets/img.png").

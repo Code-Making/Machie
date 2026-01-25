@@ -1,5 +1,6 @@
-import 'package:re_editor/re_editor.dart';
 import 'package:flutter/material.dart';
+
+import 'package:re_editor/re_editor.dart';
 
 class ColorMatch {
   final int start;

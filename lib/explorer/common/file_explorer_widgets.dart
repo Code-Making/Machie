@@ -1,6 +1,7 @@
 // FILE: lib/explorer/common/file_explorer_widgets.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
@@ -16,8 +17,10 @@ import 'file_explorer_commands.dart';
 // --- Providers ---
 
 /// Granular provider: Returns true if the specific [folderUri] is currently expanded.
-final isFolderExpandedProvider =
-    Provider.autoDispose.family<bool, String>((ref, folderUri) {
+final isFolderExpandedProvider = Provider.autoDispose.family<bool, String>((
+  ref,
+  folderUri,
+) {
   final expandedSet = ref.watch(fileExplorerExpandedFoldersProvider);
   return expandedSet.contains(folderUri);
 });
@@ -25,36 +28,38 @@ final isFolderExpandedProvider =
 /// Returns the sorted contents of a directory.
 final sortedDirectoryContentsProvider = Provider.autoDispose
     .family<AsyncValue<List<FileTreeNode>>, String>((ref, directoryUri) {
-  final directoryState = ref.watch(directoryContentsProvider(directoryUri));
+      final directoryState = ref.watch(directoryContentsProvider(directoryUri));
 
-  final sortMode = ref.watch(activeExplorerSettingsProvider.select((s) {
-    if (s is FileExplorerSettings) return s.viewMode;
-    return FileExplorerViewMode.sortByNameAsc;
-  }));
+      final sortMode = ref.watch(
+        activeExplorerSettingsProvider.select((s) {
+          if (s is FileExplorerSettings) return s.viewMode;
+          return FileExplorerViewMode.sortByNameAsc;
+        }),
+      );
 
-  return directoryState?.whenData((nodes) {
-        final sortedNodes = List<FileTreeNode>.from(nodes);
-        sortedNodes.sort((a, b) {
-          if (a.file.isDirectory != b.file.isDirectory) {
-            return a.file.isDirectory ? -1 : 1;
-          }
-          switch (sortMode) {
-            case FileExplorerViewMode.sortByNameDesc:
-              return b.file.name.toLowerCase().compareTo(
+      return directoryState?.whenData((nodes) {
+            final sortedNodes = List<FileTreeNode>.from(nodes);
+            sortedNodes.sort((a, b) {
+              if (a.file.isDirectory != b.file.isDirectory) {
+                return a.file.isDirectory ? -1 : 1;
+              }
+              switch (sortMode) {
+                case FileExplorerViewMode.sortByNameDesc:
+                  return b.file.name.toLowerCase().compareTo(
                     a.file.name.toLowerCase(),
                   );
-            case FileExplorerViewMode.sortByDateModified:
-              return b.file.modifiedDate.compareTo(a.file.modifiedDate);
-            default:
-              return a.file.name.toLowerCase().compareTo(
+                case FileExplorerViewMode.sortByDateModified:
+                  return b.file.modifiedDate.compareTo(a.file.modifiedDate);
+                default:
+                  return a.file.name.toLowerCase().compareTo(
                     b.file.name.toLowerCase(),
                   );
-          }
-        });
-        return sortedNodes;
-      }) ??
-      const AsyncValue.loading();
-});
+              }
+            });
+            return sortedNodes;
+          }) ??
+          const AsyncValue.loading();
+    });
 
 bool _isDropAllowed(
   ProjectDocumentFile draggedFile,
@@ -105,20 +110,21 @@ class DirectoryView extends ConsumerWidget {
           itemCount: nodes.length,
           itemBuilder: (context, index) {
             final node = nodes[index];
-            return _FileExplorerItem(
-              item: node.file,
-              depth: depth,
-            );
+            return _FileExplorerItem(item: node.file, depth: depth);
           },
         );
       },
       // Don't show a spinner for every folder while building the tree recursively
       // Just show nothing until loaded.
       loading: () => const SizedBox.shrink(),
-      error: (err, stack) => Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text('Error: $err', style: const TextStyle(color: Colors.red, fontSize: 12)),
-      ),
+      error:
+          (err, stack) => Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              'Error: $err',
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
     );
   }
 }
@@ -138,7 +144,7 @@ class _FileExplorerItem extends ConsumerWidget {
       final success = await ref
           .read(appNotifierProvider.notifier)
           .openFileInEditor(item);
-      
+
       if (success && context.mounted && navigator.canPop()) {
         navigator.pop();
       }
@@ -150,7 +156,9 @@ class _FileExplorerItem extends ConsumerWidget {
             .read(projectHierarchyServiceProvider.notifier)
             .loadDirectory(item.uri);
       }
-      ref.read(fileExplorerExpandedFoldersProvider.notifier).toggle(item.uri, isExpanded);
+      ref
+          .read(fileExplorerExpandedFoldersProvider.notifier)
+          .toggle(item.uri, isExpanded);
     }
 
     Widget tile;
@@ -159,7 +167,10 @@ class _FileExplorerItem extends ConsumerWidget {
 
       tile = ExpansionTile(
         key: PageStorageKey<String>(item.uri),
-        tilePadding: EdgeInsets.only(left: depth * _kIndentPerLevel, right: 8.0),
+        tilePadding: EdgeInsets.only(
+          left: depth * _kIndentPerLevel,
+          right: 8.0,
+        ),
         leading: Icon(
           isExpanded ? Icons.folder_open : Icons.folder,
           color: Colors.yellow.shade700,
@@ -196,10 +207,7 @@ class _FileExplorerItem extends ConsumerWidget {
       );
     }
 
-    return ProjectFileItemDecorator(
-      item: item,
-      child: tile,
-    );
+    return ProjectFileItemDecorator(item: item, child: tile);
   }
 }
 
@@ -231,17 +239,17 @@ class _ProjectFileItemDecoratorState
 
     final Draggable<ProjectDocumentFile> draggableItem =
         LongPressDraggable<ProjectDocumentFile>(
-      data: widget.item,
-      feedback: _buildDragFeedback(),
-      childWhenDragging: Opacity(opacity: 0.5, child: widget.child),
-      delay: const Duration(milliseconds: 300),
-      onDragEnd: (details) {
-        if (!details.wasAccepted) {
-          showFileContextMenu(context, ref, widget.item);
-        }
-      },
-      child: widget.child,
-    );
+          data: widget.item,
+          feedback: _buildDragFeedback(),
+          childWhenDragging: Opacity(opacity: 0.5, child: widget.child),
+          delay: const Duration(milliseconds: 300),
+          onDragEnd: (details) {
+            if (!details.wasAccepted) {
+              showFileContextMenu(context, ref, widget.item);
+            }
+          },
+          child: widget.child,
+        );
 
     if (!widget.item.isDirectory) {
       return draggableItem;
@@ -250,9 +258,10 @@ class _ProjectFileItemDecoratorState
     return DragTarget<ProjectDocumentFile>(
       builder: (context, candidateData, rejectedData) {
         return Container(
-          color: _isHoveredByDraggable
-              ? Theme.of(context).colorScheme.primary.withAlpha(70)
-              : null,
+          color:
+              _isHoveredByDraggable
+                  ? Theme.of(context).colorScheme.primary.withAlpha(70)
+                  : null,
           child: draggableItem,
         );
       },
@@ -322,7 +331,7 @@ class RootDropZone extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
-    
+
     if (fileHandler == null) return const SizedBox.shrink();
 
     return DragTarget<ProjectDocumentFile>(

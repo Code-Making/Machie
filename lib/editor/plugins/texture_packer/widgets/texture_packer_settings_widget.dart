@@ -1,5 +1,7 @@
-import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
+
+import 'package:flex_color_picker/flex_color_picker.dart';
+
 import '../texture_packer_settings.dart';
 
 class TexturePackerSettingsWidget extends StatelessWidget {
@@ -12,7 +14,11 @@ class TexturePackerSettingsWidget extends StatelessWidget {
     required this.onChanged,
   });
 
-  Future<void> _pickColor(BuildContext context, Color current, Function(Color) onSelect) async {
+  Future<void> _pickColor(
+    BuildContext context,
+    Color current,
+    Function(Color) onSelect,
+  ) async {
     final newColor = await showColorPickerDialog(
       context,
       current,
@@ -27,18 +33,23 @@ class TexturePackerSettingsWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Canvas Appearance', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Canvas Appearance',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Checkerboard Color 1'),
           trailing: ColorIndicator(
             color: Color(settings.checkerBoardColor1),
-            onSelect: () => _pickColor(
-              context, 
-              Color(settings.checkerBoardColor1), 
-              (c) => onChanged(settings.copyWith(checkerBoardColor1: c.value)),
-            ),
+            onSelect:
+                () => _pickColor(
+                  context,
+                  Color(settings.checkerBoardColor1),
+                  (c) =>
+                      onChanged(settings.copyWith(checkerBoardColor1: c.value)),
+                ),
           ),
         ),
         ListTile(
@@ -46,11 +57,13 @@ class TexturePackerSettingsWidget extends StatelessWidget {
           title: const Text('Checkerboard Color 2'),
           trailing: ColorIndicator(
             color: Color(settings.checkerBoardColor2),
-            onSelect: () => _pickColor(
-              context, 
-              Color(settings.checkerBoardColor2), 
-              (c) => onChanged(settings.copyWith(checkerBoardColor2: c.value)),
-            ),
+            onSelect:
+                () => _pickColor(
+                  context,
+                  Color(settings.checkerBoardColor2),
+                  (c) =>
+                      onChanged(settings.copyWith(checkerBoardColor2: c.value)),
+                ),
           ),
         ),
         ListTile(
@@ -58,11 +71,12 @@ class TexturePackerSettingsWidget extends StatelessWidget {
           title: const Text('Grid Color'),
           trailing: ColorIndicator(
             color: Color(settings.gridColor),
-            onSelect: () => _pickColor(
-              context, 
-              Color(settings.gridColor), 
-              (c) => onChanged(settings.copyWith(gridColor: c.value)),
-            ),
+            onSelect:
+                () => _pickColor(
+                  context,
+                  Color(settings.gridColor),
+                  (c) => onChanged(settings.copyWith(gridColor: c.value)),
+                ),
           ),
         ),
         const SizedBox(height: 16),
@@ -80,11 +94,14 @@ class TexturePackerSettingsWidget extends StatelessWidget {
         const SizedBox(height: 8),
         TextFormField(
           initialValue: settings.defaultAnimationSpeed.toString(),
-          decoration: const InputDecoration(labelText: 'Default Animation Speed (FPS)'),
+          decoration: const InputDecoration(
+            labelText: 'Default Animation Speed (FPS)',
+          ),
           keyboardType: TextInputType.number,
           onChanged: (v) {
             final val = double.tryParse(v);
-            if (val != null) onChanged(settings.copyWith(defaultAnimationSpeed: val));
+            if (val != null)
+              onChanged(settings.copyWith(defaultAnimationSpeed: val));
           },
         ),
       ],

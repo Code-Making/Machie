@@ -20,7 +20,7 @@ abstract class ProjectStatePersistenceStrategy {
 
   /// Saves the given [ProjectDto] to the persistence medium.
   Future<void> save(ProjectDto projectDto);
-  
+
   /// Clears any long-term persisted state associated with this strategy.
   ///
   /// This is called when a project is removed from the list of known projects.

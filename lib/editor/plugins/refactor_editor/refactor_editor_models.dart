@@ -2,10 +2,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../models/editor_tab_models.dart';
 import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
 import 'refactor_editor_widget.dart';
-
 
 class RefactorSettings extends PluginSettings {
   Set<String> supportedExtensions;
@@ -19,10 +18,11 @@ class RefactorSettings extends PluginSettings {
     Set<String>? ignoredGlobPatterns,
     this.useProjectGitignore = true,
     this.updateInternalPathsAsDirty = true, // Default to the safer option.
-  })  : supportedExtensions =
-            supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
-        ignoredGlobPatterns = ignoredGlobPatterns ??
-            {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
+  }) : supportedExtensions =
+           supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
+       ignoredGlobPatterns =
+           ignoredGlobPatterns ??
+           {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
 
   RefactorSettings copyWith({
     Set<String>? supportedExtensions,
@@ -63,11 +63,11 @@ class RefactorSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'supportedExtensions': supportedExtensions.toList(),
-        'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
-        'useProjectGitignore': useProjectGitignore,
-        'updateInternalPathsAsDirty': updateInternalPathsAsDirty,
-      };
+    'supportedExtensions': supportedExtensions.toList(),
+    'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
+    'useProjectGitignore': useProjectGitignore,
+    'updateInternalPathsAsDirty': updateInternalPathsAsDirty,
+  };
 }
 
 /// Represents a single occurrence of a search term within a file.

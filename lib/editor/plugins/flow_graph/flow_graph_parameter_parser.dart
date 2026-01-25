@@ -1,7 +1,9 @@
 // FILE: lib/editor/plugins/flow_graph/flow_graph_parameter_parser.dart
 
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+
 import 'models/flow_schema_models.dart';
 
 @immutable
@@ -17,7 +19,7 @@ class FlowGraphParameterParser {
     if (jsonContent.trim().isEmpty) {
       return [];
     }
-    
+
     try {
       final json = jsonDecode(jsonContent);
       final nodes = json['nodes'] as List?;
@@ -34,7 +36,7 @@ class FlowGraphParameterParser {
 
           if (name != null && name.isNotEmpty) {
             FlowPortType paramType;
-            switch(type) {
+            switch (type) {
               case 'core_input_string':
                 paramType = FlowPortType.string;
                 break;

@@ -1,10 +1,13 @@
 // lib/asset_cache/asset_models.dart
+
 import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../data/file_handler/file_handler.dart';
 import '../data/repositories/project/project_repository.dart';
-import '../project/project_models.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
 
 /// Defines how a file path should be interpreted when resolving an asset.
 enum AssetPathMode {
@@ -22,7 +25,7 @@ enum AssetPathMode {
 class AssetQuery {
   final String path;
   final AssetPathMode mode;
-  
+
   /// The project-relative path of the file initiating the request.
   /// Required if [mode] is [AssetPathMode.relativeToContext].
   final String? contextPath;
@@ -32,9 +35,9 @@ class AssetQuery {
     this.mode = AssetPathMode.projectRelative,
     this.contextPath,
   }) : assert(
-          mode != AssetPathMode.relativeToContext || contextPath != null,
-          'Context path must be provided when resolving relative to context.',
-        );
+         mode != AssetPathMode.relativeToContext || contextPath != null,
+         'Context path must be provided when resolving relative to context.',
+       );
 
   @override
   bool operator ==(Object other) =>
@@ -55,10 +58,7 @@ class ResolvedAssetRequest {
   final String tabId;
   final AssetQuery query;
 
-  const ResolvedAssetRequest({
-    required this.tabId,
-    required this.query,
-  });
+  const ResolvedAssetRequest({required this.tabId, required this.query});
 
   @override
   bool operator ==(Object other) =>
@@ -76,7 +76,7 @@ class ResolvedAssetRequest {
 @immutable
 abstract class AssetData {
   const AssetData();
-  
+
   bool get hasError => this is ErrorAssetData;
 }
 
@@ -100,7 +100,11 @@ mixin IDependentAssetLoader<T extends AssetData> on AssetLoader<T> {
   ///
   /// Returns a set of project-relative URIs that this asset needs to load.
   /// This method is called before `load`.
-  Future<Set<String>> getDependencies(Ref ref, ProjectDocumentFile file, ProjectRepository repo);
+  Future<Set<String>> getDependencies(
+    Ref ref,
+    ProjectDocumentFile file,
+    ProjectRepository repo,
+  );
 }
 
 /// Represents an asset that failed to load.
@@ -115,7 +119,6 @@ class ImageAssetData extends AssetData {
   const ImageAssetData({required this.image});
 }
 
-
 /// Represents a single sprite's location within the Texture Packer ecosystem.
 ///
 /// This does NOT represent the sprite in the exported atlas PNG, but rather
@@ -124,17 +127,17 @@ class ImageAssetData extends AssetData {
 class TexturePackerSpriteData {
   /// The unique name of the sprite (e.g. "character/idle_01").
   final String name;
-  
+
   /// The source image containing this sprite.
   final ui.Image sourceImage;
-  
+
   /// The region within [sourceImage] that defines this sprite.
   final ui.Rect sourceRect;
-  
+
   /// The logical position where this sprite would be in the packed atlas.
   /// Used for export coordinates or previewing the atlas layout.
   final ui.Rect packedRect;
-  
+
   /// Whether the sprite is rotated in the pack (not fully implemented in Phase 1).
   final bool rotated;
 
@@ -155,10 +158,10 @@ class TexturePackerSpriteData {
 class TexturePackerAssetData extends AssetData {
   /// Map of sprite names to their data.
   final Map<String, TexturePackerSpriteData> frames;
-  
+
   /// Map of animation names to list of sprite names.
   final Map<String, List<String>> animations;
-  
+
   /// The calculated size of the full atlas if it were exported.
   final ui.Size metaSize;
 

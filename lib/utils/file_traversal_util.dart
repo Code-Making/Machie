@@ -1,8 +1,9 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glob/glob.dart';
-import 'package:collection/collection.dart';
+
 import '../app/app_notifier.dart';
 import '../data/file_handler/file_handler.dart';
 import '../data/repositories/project/project_repository.dart';
@@ -18,10 +19,8 @@ class FileTraversalUtil {
     required Set<String> supportedExtensions,
     required Set<String> ignoredGlobPatterns,
     required bool useProjectGitignore,
-    required Future<void> Function(
-      ProjectDocumentFile file,
-      String displayPath,
-    ) onFileFound,
+    required Future<void> Function(ProjectDocumentFile file, String displayPath)
+    onFileFound,
   }) async {
     final repo = ref.read(projectRepositoryProvider);
     final projectRootUri =
@@ -63,10 +62,8 @@ class FileTraversalUtil {
     required Set<String> supportedExtensions,
     required List<_CompiledGlob> accumulatedIgnoreGlobs,
     required bool useProjectGitignore,
-    required Future<void> Function(
-      ProjectDocumentFile file,
-      String displayPath,
-    ) onFileFound,
+    required Future<void> Function(ProjectDocumentFile file, String displayPath)
+    onFileFound,
   }) async {
     // 1. Load directory (Hydrating state as per your architecture)
     var directoryState = hierarchyNotifier.state[directoryUri];
@@ -87,11 +84,12 @@ class FileTraversalUtil {
     if (gitignoreFile != null && useProjectGitignore) {
       try {
         final content = await repo.readFile(gitignoreFile.uri);
-        final patterns = content
-            .split('\n')
-            .map((l) => l.trim())
-            .where((l) => l.isNotEmpty && !l.startsWith('#'))
-            .toSet();
+        final patterns =
+            content
+                .split('\n')
+                .map((l) => l.trim())
+                .where((l) => l.isNotEmpty && !l.startsWith('#'))
+                .toSet();
         // Add new patterns to the scope
         currentScopeGlobs.addAll(_compileGlobs(patterns));
       } catch (_) {}
@@ -122,16 +120,14 @@ class FileTraversalUtil {
             showHidden: showHidden,
             supportedExtensions: supportedExtensions,
             // FIX: Pass the current scope's globs down to children
-            accumulatedIgnoreGlobs: currentScopeGlobs, 
+            accumulatedIgnoreGlobs: currentScopeGlobs,
             useProjectGitignore: useProjectGitignore,
             onFileFound: onFileFound,
           ),
         );
       } else {
         if (supportedExtensions.isEmpty ||
-            supportedExtensions.any(
-              (ext) => relativePath.endsWith(ext),
-            )) {
+            supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
           await onFileFound(entry, relativePath);
         }
       }

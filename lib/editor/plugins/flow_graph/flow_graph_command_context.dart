@@ -1,7 +1,8 @@
 // FILE: lib/editor/plugins/flow_graph/flow_graph_command_context.dart
 
 import 'package:flutter/material.dart';
-import 'package:machine/editor/models/editor_command_context.dart';
+
+import '../../models/editor_command_context.dart';
 
 @immutable
 class FlowGraphCommandContext extends CommandContext {

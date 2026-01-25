@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../logs/logs_provider.dart';
@@ -22,8 +23,9 @@ class TermuxBridgeService {
 
   // Buffer for data sent before connection is established
   final List<List<int>> _writeBuffer = [];
-  
-  final StreamController<String> _outputController = StreamController.broadcast();
+
+  final StreamController<String> _outputController =
+      StreamController.broadcast();
   Stream<String> get outputStream => _outputController.stream;
 
   bool get isConnected => _clientSocket != null;
@@ -32,7 +34,7 @@ class TermuxBridgeService {
 
   Future<int> initialize() async {
     if (_serverSocket != null) return _serverSocket!.port;
-    
+
     _talker.info('[TermuxBridge] Initializing server socket...');
     try {
       _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
@@ -40,7 +42,9 @@ class TermuxBridgeService {
 
       _serverSocket!.listen(
         (Socket client) {
-          _talker.info('[TermuxBridge] Termux connected: ${client.remoteAddress}:${client.remotePort}');
+          _talker.info(
+            '[TermuxBridge] Termux connected: ${client.remoteAddress}:${client.remotePort}',
+          );
           _handleClientConnection(client);
         },
         onError: (e, st) {
@@ -48,11 +52,13 @@ class TermuxBridgeService {
           _addToOutput('\r\n\x1b[31m[Bridge Server Error: $e]\x1b[0m\r\n');
         },
       );
-      
+
       return _serverSocket!.port;
     } catch (e, st) {
       _talker.handle(e, st, '[TermuxBridge] Failed to start Bridge Server');
-      _addToOutput('\r\n\x1b[31m[Failed to start Bridge Server: $e]\x1b[0m\r\n');
+      _addToOutput(
+        '\r\n\x1b[31m[Failed to start Bridge Server: $e]\x1b[0m\r\n',
+      );
       rethrow;
     }
   }
@@ -63,7 +69,9 @@ class TermuxBridgeService {
 
     // Flush pending writes
     if (_writeBuffer.isNotEmpty) {
-      _talker.info('[TermuxBridge] Flushing ${_writeBuffer.length} buffered packets');
+      _talker.info(
+        '[TermuxBridge] Flushing ${_writeBuffer.length} buffered packets',
+      );
       for (final data in _writeBuffer) {
         client.add(data);
       }
@@ -94,13 +102,13 @@ class TermuxBridgeService {
 
   void write(String data) {
     final bytes = utf8.encode(data);
-    
+
     if (_clientSocket == null) {
       // Buffer the data instead of logging a warning
       _writeBuffer.add(bytes);
       return;
     }
-    
+
     try {
       _clientSocket!.add(bytes);
     } catch (e, st) {
@@ -117,12 +125,12 @@ class TermuxBridgeService {
 
     // UPDATED: Use absolute path for socat to ensure it is found.
     const socatPath = '/data/data/com.termux/files/usr/bin/socat';
-    
+
     // Command Breakdown:
     // 1. exec '$shell -li': Runs bash/zsh as login shell (interactive).
     // 2. pty,stderr,setsid,sigint,sane: Sets up a proper PTY environment.
     // 3. tcp:127.0.0.1:$port: Connects to our Flutter app.
-    final bridgeCommand = 
+    final bridgeCommand =
         "$socatPath EXEC:'$shell -li',pty,stderr,setsid,sigint,sane TCP:127.0.0.1:$port";
 
     _talker.info('[TermuxBridge] Calling MethodChannel with port: $port');
@@ -131,7 +139,9 @@ class TermuxBridgeService {
       // We set a timeout for the connection to be established visibly in the terminal
       Timer(const Duration(seconds: 5), () {
         if (!isConnected) {
-          _addToOutput('\r\n\x1b[33m[Waiting for Termux... Ensure "socat" is installed via "pkg install socat"]\x1b[0m\r\n');
+          _addToOutput(
+            '\r\n\x1b[33m[Waiting for Termux... Ensure "socat" is installed via "pkg install socat"]\x1b[0m\r\n',
+          );
         }
       });
 

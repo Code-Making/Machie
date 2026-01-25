@@ -1,6 +1,7 @@
 // lib/editor/plugins/tiled_editor/widgets/layers_panel.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:tiled/tiled.dart' hide Text;
 
 // Used to identify what is being dragged
@@ -11,10 +12,10 @@ class _LayerPanelDragData {
   final int? parentLayerId; // only for objects
 
   _LayerPanelDragData.layer(this.id, this.index)
-      : type = 'layer',
-        parentLayerId = null;
+    : type = 'layer',
+      parentLayerId = null;
   _LayerPanelDragData.object(this.id, this.index, this.parentLayerId)
-      : type = 'object';
+    : type = 'object';
 }
 
 enum _DropPosition { above, below, inside }
@@ -23,21 +24,21 @@ class LayersPanel extends StatefulWidget {
   final List<Layer> layers;
   final int selectedLayerId;
   final List<TiledObject> selectedObjects;
-  
+
   final ValueChanged<int> onLayerSelected;
   final ValueChanged<TiledObject> onObjectSelected;
-  
+
   final ValueChanged<int> onLayerVisibilityChanged;
   final void Function(int layerId, int objectId) onObjectVisibilityChanged;
-  
+
   final void Function(int oldIndex, int newIndex) onLayerReorder;
   final void Function(int layerId, int oldIndex, int newIndex) onObjectReorder;
-  
+
   final VoidCallback onAddLayer;
-  
+
   final ValueSetter<int> onLayerDelete;
   final void Function(int layerId, int objectId) onObjectDelete;
-  
+
   final ValueSetter<Layer> onLayerInspect;
   final ValueSetter<TiledObject> onObjectInspect;
 
@@ -81,20 +82,18 @@ class _LayersPanelState extends State<LayersPanel> {
 
     for (int i = widget.layers.length - 1; i >= 0; i--) {
       final layer = widget.layers[i];
-      flatList.add(_FlatNode.layer(
-        layer: layer,
-        index: i,
-        depth: 0,
-      ));
+      flatList.add(_FlatNode.layer(layer: layer, index: i, depth: 0));
 
       if (layer is ObjectGroup && _expandedLayerIds.contains(layer.id)) {
         for (int j = 0; j < layer.objects.length; j++) {
-          flatList.add(_FlatNode.object(
-            object: layer.objects[j],
-            parentLayerId: layer.id!,
-            index: j,
-            depth: 1,
-          ));
+          flatList.add(
+            _FlatNode.object(
+              object: layer.objects[j],
+              parentLayerId: layer.id!,
+              index: j,
+              depth: 1,
+            ),
+          );
         }
       }
     }
@@ -130,16 +129,16 @@ class _LayersPanelState extends State<LayersPanel> {
                 final node = flatList[index];
                 return _HierarchyRow(
                   node: node,
-                  isSelectedLayer:
-                      node.layer?.id == widget.selectedLayerId,
-                  isObjectSelected: node.isObject
-                      ? widget.selectedObjects.contains(node.object)
-                      : false,
-                  isExpanded: node.isLayer
-                      ? _expandedLayerIds.contains(node.layer!.id)
-                      : false,
-                  onToggleExpand: () =>
-                      _toggleExpansion(node.layer!.id!),
+                  isSelectedLayer: node.layer?.id == widget.selectedLayerId,
+                  isObjectSelected:
+                      node.isObject
+                          ? widget.selectedObjects.contains(node.object)
+                          : false,
+                  isExpanded:
+                      node.isLayer
+                          ? _expandedLayerIds.contains(node.layer!.id)
+                          : false,
+                  onToggleExpand: () => _toggleExpansion(node.layer!.id!),
                   onTap: () {
                     if (node.isLayer) {
                       widget.onLayerSelected(node.layer!.id!);
@@ -152,7 +151,10 @@ class _LayersPanelState extends State<LayersPanel> {
                     if (node.isLayer) {
                       widget.onLayerVisibilityChanged(node.layer!.id!);
                     } else {
-                      widget.onObjectVisibilityChanged(node.parentLayerId!, node.object!.id);
+                      widget.onObjectVisibilityChanged(
+                        node.parentLayerId!,
+                        node.object!.id,
+                      );
                     }
                   },
                   onInspect: () {
@@ -166,7 +168,10 @@ class _LayersPanelState extends State<LayersPanel> {
                     if (node.isLayer) {
                       widget.onLayerDelete(node.layer!.id!);
                     } else {
-                      widget.onObjectDelete(node.parentLayerId!, node.object!.id);
+                      widget.onObjectDelete(
+                        node.parentLayerId!,
+                        node.object!.id,
+                      );
                     }
                   },
                   onReorderLayer: widget.onLayerReorder,
@@ -201,8 +206,8 @@ class _FlatNode {
     required this.layer,
     required this.index,
     required this.depth,
-  })  : object = null,
-        parentLayerId = null;
+  }) : object = null,
+       parentLayerId = null;
 
   _FlatNode.object({
     required this.object,
@@ -252,9 +257,8 @@ class _HierarchyRowState extends State<_HierarchyRow> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isSelected = widget.node.isLayer
-        ? widget.isSelectedLayer
-        : widget.isObjectSelected;
+    final isSelected =
+        widget.node.isLayer ? widget.isSelectedLayer : widget.isObjectSelected;
 
     bool isVisible = false;
     if (widget.node.isLayer) {
@@ -266,9 +270,10 @@ class _HierarchyRowState extends State<_HierarchyRow> {
     Widget content = Container(
       height: 32,
       padding: EdgeInsets.only(left: widget.node.depth * 16.0 + 4.0),
-      color: isSelected
-          ? theme.colorScheme.primaryContainer.withOpacity(0.3)
-          : null,
+      color:
+          isSelected
+              ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+              : null,
       child: Row(
         children: [
           // Expander for ObjectGroups
@@ -319,7 +324,11 @@ class _HierarchyRowState extends State<_HierarchyRow> {
           // Only show delete for objects here to save space, or for layers too if desired.
           // Let's show for both but smaller.
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
+            icon: const Icon(
+              Icons.delete_outline,
+              size: 16,
+              color: Colors.redAccent,
+            ),
             onPressed: widget.onDelete,
           ),
         ],
@@ -339,11 +348,17 @@ class _HierarchyRowState extends State<_HierarchyRow> {
 
     // Draggable
     final draggable = LongPressDraggable<_LayerPanelDragData>(
-      data: widget.node.isLayer
-          ? _LayerPanelDragData.layer(
-              widget.node.layer!.id!, widget.node.index)
-          : _LayerPanelDragData.object(
-              widget.node.object!.id, widget.node.index, widget.node.parentLayerId!),
+      data:
+          widget.node.isLayer
+              ? _LayerPanelDragData.layer(
+                widget.node.layer!.id!,
+                widget.node.index,
+              )
+              : _LayerPanelDragData.object(
+                widget.node.object!.id,
+                widget.node.index,
+                widget.node.parentLayerId!,
+              ),
       feedback: Material(
         elevation: 4,
         borderRadius: BorderRadius.circular(4),
@@ -400,7 +415,6 @@ class _HierarchyRowState extends State<_HierarchyRow> {
             targetIndex += 1;
           }
           widget.onReorderLayer(data.index, targetIndex);
-
         } else if (data.type == 'object' && widget.node.isObject) {
           int targetIndex = widget.node.index;
           if (_dropPosition == _DropPosition.below) {
@@ -409,10 +423,7 @@ class _HierarchyRowState extends State<_HierarchyRow> {
           widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
         }
       },
-      builder: (ctx, _, __) => InkWell(
-        onTap: widget.onTap,
-        child: draggable,
-      ),
+      builder: (ctx, _, __) => InkWell(onTap: widget.onTap, child: draggable),
     );
   }
 
@@ -452,16 +463,20 @@ class _DropIndicatorPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+    final paint =
+        Paint()
+          ..color = color
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke;
 
     if (position == _DropPosition.above) {
       canvas.drawLine(Offset(0, 1), Offset(size.width, 1), paint);
     } else if (position == _DropPosition.below) {
       canvas.drawLine(
-          Offset(0, size.height - 1), Offset(size.width, size.height - 1), paint);
+        Offset(0, size.height - 1),
+        Offset(size.width, size.height - 1),
+        paint,
+      );
     }
   }
 

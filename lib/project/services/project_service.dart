@@ -1,5 +1,6 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+
+import 'package:collection/collection.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -50,8 +51,6 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
-
-  
   Future<ProjectDto> openProjectDto(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
@@ -96,7 +95,7 @@ class ProjectService {
       );
     }
   }
-  
+
   ProjectSettingsState rehydrateProjectSettings(
     ProjectSettingsDto? dto,
     ProjectMetadata metadata,
@@ -151,7 +150,8 @@ class ProjectService {
     if (handler?.projectTypeSettings != null &&
         dto.typeSpecificSettings != null) {
       // *** AND APPLY THE FIX HERE AS WELL ***
-      typeSpecificSettings = handler!.projectTypeSettings!.clone() as ProjectSettings;
+      typeSpecificSettings =
+          handler!.projectTypeSettings!.clone() as ProjectSettings;
       typeSpecificSettings.fromJson(dto.typeSpecificSettings!);
     }
 

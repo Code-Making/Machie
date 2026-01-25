@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:path/path.dart' as p;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../dto/project_dto.dart';
 import '../../file_handler/file_handler.dart';
@@ -16,6 +16,7 @@ class FileCreateEvent extends FileOperationEvent {
   final ProjectDocumentFile createdFile;
   const FileCreateEvent({required this.createdFile});
 }
+
 //TODO: implement in code
 class FileModifyEvent extends FileOperationEvent {
   final ProjectDocumentFile modifiedFile;
@@ -45,11 +46,9 @@ final fileOperationStreamProvider =
       return ref.watch(fileOperationControllerProvider).stream;
     });
 
-
 final projectRepositoryProvider = StateProvider<ProjectRepository?>(
   (ref) => null,
 );
-
 
 /// The primary public interface and concrete implementation for all data
 /// operations related to an active project.
@@ -145,9 +144,9 @@ class ProjectRepository {
     _eventController.add(FileRenameEvent(oldFile: source, newFile: newFile));
     return newFile;
   }
-  
+
   Future<({ProjectDocumentFile file, List<ProjectDocumentFile> createdDirs})>
-      createDirectoryAndFile(
+  createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
@@ -202,7 +201,7 @@ class ProjectRepository {
     _eventController.add(FileModifyEvent(modifiedFile: newFile));
     return newFile;
   }
-  
+
   /// Resolves a path that is relative to another file within the project.
   /// For example, resolves "../images/player.png" from the context of "maps/level1.tmx".
   String resolveRelativePath(String contextPath, String relativePath) {
@@ -227,10 +226,11 @@ class ProjectRepository {
   /// This method is likely already correct, but shown here for completeness.
   String calculateRelativePath(String fromPath, String toPath) {
     // Ensure 'from' is treated as a directory context if it doesn't have an extension
-    final fromDirectory = p.extension(fromPath).isEmpty ? fromPath : p.dirname(fromPath);
-    
+    final fromDirectory =
+        p.extension(fromPath).isEmpty ? fromPath : p.dirname(fromPath);
+
     final relativePath = p.relative(toPath, from: fromDirectory);
-    
+
     // Ensure consistent path separators for storage.
     return relativePath.replaceAll(r'\', '/');
   }

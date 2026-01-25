@@ -18,9 +18,10 @@ import '../../../logs/logs_provider.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
+import '../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../../models/editor_tab_models.dart';
-import '../../services/editor_service.dart';
 import '../../models/text_editing_capability.dart';
+import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
 import 'occurrence_list_item.dart';
 import 'refactor_editor_controller.dart';
@@ -28,7 +29,6 @@ import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 
 import '../../../explorer/services/explorer_service.dart'; // Import for the listener
-import '../../../widgets/dialogs/folder_picker_dialog.dart';
 
 typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
 

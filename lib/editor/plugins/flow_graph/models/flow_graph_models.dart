@@ -2,7 +2,9 @@
 
 import 'dart:convert';
 import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
+
 import 'package:uuid/uuid.dart';
 
 /// Represents a single connection wire between two nodes.
@@ -21,11 +23,11 @@ class FlowConnection {
   });
 
   Map<String, dynamic> toJson() => {
-        'outNode': outputNodeId,
-        'outPort': outputPortKey,
-        'inNode': inputNodeId,
-        'inPort': inputPortKey,
-      };
+    'outNode': outputNodeId,
+    'outPort': outputPortKey,
+    'inNode': inputNodeId,
+    'inPort': inputPortKey,
+  };
 
   factory FlowConnection.fromJson(Map<String, dynamic> json) {
     return FlowConnection(
@@ -47,7 +49,8 @@ class FlowConnection {
           inputPortKey == other.inputPortKey;
 
   @override
-  int get hashCode => Object.hash(outputNodeId, outputPortKey, inputNodeId, inputPortKey);
+  int get hashCode =>
+      Object.hash(outputNodeId, outputPortKey, inputNodeId, inputPortKey);
 }
 
 /// Represents an instance of a node in the graph.
@@ -83,13 +86,13 @@ class FlowNode {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type,
-        'x': position.dx,
-        'y': position.dy,
-        'properties': properties,
-        if (customData.isNotEmpty) 'customData': customData,
-      };
+    'id': id,
+    'type': type,
+    'x': position.dx,
+    'y': position.dy,
+    'properties': properties,
+    if (customData.isNotEmpty) 'customData': customData,
+  };
 
   factory FlowNode.fromJson(Map<String, dynamic> json) {
     return FlowNode(
@@ -109,7 +112,7 @@ class FlowNode {
 class FlowGraph {
   final List<FlowNode> nodes;
   final List<FlowConnection> connections;
-  
+
   final Offset viewportPosition;
   final double viewportScale;
   final String? schemaPath;
@@ -131,7 +134,7 @@ class FlowGraph {
         'x': viewportPosition.dx,
         'y': viewportPosition.dy,
         'zoom': viewportScale,
-      }
+      },
     };
     return const JsonEncoder.withIndent('  ').convert(map);
   }
@@ -139,14 +142,11 @@ class FlowGraph {
   factory FlowGraph.deserialize(String jsonString) {
     if (jsonString.trim().isEmpty) {
       // CORRECTED: Return mutable lists (removed const)
-      return FlowGraph(
-        nodes: <FlowNode>[], 
-        connections: <FlowConnection>[]
-      );
+      return FlowGraph(nodes: <FlowNode>[], connections: <FlowConnection>[]);
     }
 
     final json = jsonDecode(jsonString);
-    
+
     final viewportJson = json['viewport'] ?? {};
     final viewportPos = Offset(
       (viewportJson['x'] as num? ?? 0).toDouble(),
@@ -156,11 +156,11 @@ class FlowGraph {
 
     return FlowGraph(
       schemaPath: json['schema'],
-      nodes: (json['nodes'] as List?)
-              ?.map((e) => FlowNode.fromJson(e))
-              .toList() ??
+      nodes:
+          (json['nodes'] as List?)?.map((e) => FlowNode.fromJson(e)).toList() ??
           <FlowNode>[], // Ensure fallback is a mutable list
-      connections: (json['connections'] as List?)
+      connections:
+          (json['connections'] as List?)
               ?.map((e) => FlowConnection.fromJson(e))
               .toList() ??
           <FlowConnection>[], // Ensure fallback is a mutable list

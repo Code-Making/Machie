@@ -1,13 +1,15 @@
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_canvas.dart
 
 import 'package:flutter/material.dart';
+
 import '../flow_graph_notifier.dart';
-import '../models/flow_schema_models.dart';
-import '../models/flow_graph_models.dart';
 import '../flow_graph_settings_model.dart';
-import '../utils/flow_layout_utils.dart'; // Import Utils
-import 'schema_node_widget.dart';
+import '../models/flow_graph_models.dart';
+import '../models/flow_schema_models.dart';
 import 'flow_connection_painter.dart';
+import 'schema_node_widget.dart';
+
+import '../utils/flow_layout_utils.dart'; // Import Utils
 
 class FlowGraphCanvas extends StatefulWidget {
   final FlowGraphNotifier notifier;
@@ -34,10 +36,13 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     super.initState();
     final initialPos = widget.notifier.graph.viewportPosition;
     final initialScale = widget.notifier.graph.viewportScale;
-    final matrix = Matrix4.identity()..translate(initialPos.dx, initialPos.dy)..scale(initialScale);
+    final matrix =
+        Matrix4.identity()
+          ..translate(initialPos.dx, initialPos.dy)
+          ..scale(initialScale);
     _transformCtrl.value = matrix;
     _transformCtrl.addListener(() {
-      if (mounted) setState(() {}); 
+      if (mounted) setState(() {});
     });
   }
 
@@ -48,7 +53,8 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
   }
 
   Offset _globalToLocal(Offset global) {
-    final RenderBox? box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? box =
+        _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (box != null) return box.globalToLocal(global);
     return global;
   }
@@ -56,19 +62,35 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
   void _handleDoubleTap(TapDownDetails details) {
     // 1. Get click position in Canvas Space
     final localPos = _globalToLocal(details.globalPosition);
-    
+
     // 2. Iterate connections and check collision
     final graph = widget.notifier.graph;
     final nodes = graph.nodes;
-    
+
     for (final conn in graph.connections) {
-      final outNode = nodes.firstWhere((n) => n.id == conn.outputNodeId, orElse: () => FlowNode(id: '', type: '', position: Offset.zero));
-      final inNode = nodes.firstWhere((n) => n.id == conn.inputNodeId, orElse: () => FlowNode(id: '', type: '', position: Offset.zero));
-      
+      final outNode = nodes.firstWhere(
+        (n) => n.id == conn.outputNodeId,
+        orElse: () => FlowNode(id: '', type: '', position: Offset.zero),
+      );
+      final inNode = nodes.firstWhere(
+        (n) => n.id == conn.inputNodeId,
+        orElse: () => FlowNode(id: '', type: '', position: Offset.zero),
+      );
+
       if (outNode.id.isEmpty || inNode.id.isEmpty) continue;
 
-      final outPos = FlowLayoutUtils.getPortPosition(outNode, conn.outputPortKey, false, widget.schemaMap[outNode.type]);
-      final inPos = FlowLayoutUtils.getPortPosition(inNode, conn.inputPortKey, true, widget.schemaMap[inNode.type]);
+      final outPos = FlowLayoutUtils.getPortPosition(
+        outNode,
+        conn.outputPortKey,
+        false,
+        widget.schemaMap[outNode.type],
+      );
+      final inPos = FlowLayoutUtils.getPortPosition(
+        inNode,
+        conn.inputPortKey,
+        true,
+        widget.schemaMap[inNode.type],
+      );
 
       if (outPos != null && inPos != null) {
         final path = FlowLayoutUtils.generateConnectionPath(outPos, inPos);
@@ -94,7 +116,7 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
             GestureDetector(
               onTap: () => widget.notifier.clearSelection(),
               // NEW: Handle Double Tap
-              onDoubleTapDown: _handleDoubleTap, 
+              onDoubleTapDown: _handleDoubleTap,
               child: InteractiveViewer(
                 transformationController: _transformCtrl,
                 boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -123,8 +145,10 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
                             connections: graph.connections,
                             nodes: graph.nodes,
                             schemaMap: widget.schemaMap,
-                            pendingConnection: widget.notifier.pendingConnection,
-                            pendingCursor: widget.notifier.pendingConnectionPointer,
+                            pendingConnection:
+                                widget.notifier.pendingConnection,
+                            pendingCursor:
+                                widget.notifier.pendingConnectionPointer,
                           ),
                         ),
                       ),
@@ -135,7 +159,8 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
                           child: SchemaNodeWidget(
                             node: node,
                             schema: widget.schemaMap[node.type],
-                            isSelected: widget.notifier.selectedNodeIds.contains(node.id),
+                            isSelected: widget.notifier.selectedNodeIds
+                                .contains(node.id),
                             notifier: widget.notifier,
                             globalToLocal: _globalToLocal,
                             canvasScale: currentScale,
@@ -159,16 +184,27 @@ class GridPainter extends CustomPainter {
   final double scale;
   final Offset offset;
   final FlowGraphSettings settings;
-  GridPainter({required this.scale, required this.offset, required this.settings});
+  GridPainter({
+    required this.scale,
+    required this.offset,
+    required this.settings,
+  });
   @override
   void paint(Canvas canvas, Size size) {
     final bgPaint = Paint()..color = Color(settings.backgroundColorValue);
     canvas.drawRect(Offset.zero & size, bgPaint);
-    final linePaint = Paint()..color = Color(settings.gridColorValue)..strokeWidth = settings.gridThickness;
+    final linePaint =
+        Paint()
+          ..color = Color(settings.gridColorValue)
+          ..strokeWidth = settings.gridThickness;
     final gridSize = settings.gridSpacing;
-    for (double x = 0; x < size.width; x += gridSize) canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
-    for (double y = 0; y < size.height; y += gridSize) canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
+    for (double x = 0; x < size.width; x += gridSize)
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
+    for (double y = 0; y < size.height; y += gridSize)
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
   }
+
   @override
-  bool shouldRepaint(covariant GridPainter old) => old.scale != scale || old.settings != settings;
+  bool shouldRepaint(covariant GridPainter old) =>
+      old.scale != scale || old.settings != settings;
 }

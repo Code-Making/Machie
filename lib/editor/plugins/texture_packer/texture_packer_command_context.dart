@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:machine/editor/models/editor_command_context.dart';
+
 import 'package:meta/meta.dart';
 
+import '../../models/editor_command_context.dart';
+
 /// Defines the primary interaction modes for the Texture Packer editor.
-enum TexturePackerMode {
-  panZoom,
-  slicing,
-  preview,
-}
+enum TexturePackerMode { panZoom, slicing, preview }
 
 @immutable
 class TexturePackerCommandContext extends CommandContext {

@@ -1,46 +1,44 @@
 // FILE: lib/asset_cache/asset_providers.dart
 
 import 'dart:async';
-import 'dart:ui' as ui;
+
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/logs/logs_provider.dart';
-import 'package:machine/project/project_settings_notifier.dart';
+
 import '../data/repositories/project/project_repository.dart';
-import 'asset_models.dart';
+import '../logs/logs_provider.dart';
+import '../project/project_settings_notifier.dart';
 import 'asset_loader_registry.dart';
-import 'package:path/path.dart' as p;
+import 'asset_models.dart';
 
-final resolvedAssetProvider = Provider.family.autoDispose<AssetData?, ResolvedAssetRequest>((ref, request) {
-  final assetMapAsync = ref.watch(assetMapProvider(request.tabId));
-  final assetMap = assetMapAsync.valueOrNull;
-  
-  if (assetMap == null) return null;
+final resolvedAssetProvider = Provider.family
+    .autoDispose<AssetData?, ResolvedAssetRequest>((ref, request) {
+      final assetMapAsync = ref.watch(assetMapProvider(request.tabId));
+      final assetMap = assetMapAsync.valueOrNull;
 
-  final repo = ref.watch(projectRepositoryProvider);
-  if (repo == null) return null;
+      if (assetMap == null) return null;
 
-  String lookupKey;
+      final repo = ref.watch(projectRepositoryProvider);
+      if (repo == null) return null;
 
-  if (request.query.mode == AssetPathMode.projectRelative) {
-    lookupKey = request.query.path.replaceAll(r'\', '/');
-  } else {
-    lookupKey = repo.resolveRelativePath(
-      request.query.contextPath!,
-      request.query.path,
-    );
-  }
+      String lookupKey;
 
-  return assetMap[lookupKey];
-});
+      if (request.query.mode == AssetPathMode.projectRelative) {
+        lookupKey = request.query.path.replaceAll(r'\', '/');
+      } else {
+        lookupKey = repo.resolveRelativePath(
+          request.query.contextPath!,
+          request.query.path,
+        );
+      }
+
+      return assetMap[lookupKey];
+    });
 
 /// It automatically listens for file system events and invalidates itself if the
 /// underlying file is modified or deleted, ensuring the UI stays reactive.
-final assetDataProvider =
-    AsyncNotifierProvider.autoDispose.family<AssetNotifier, AssetData, String>(
-  AssetNotifier.new,
-);
+final assetDataProvider = AsyncNotifierProvider.autoDispose
+    .family<AssetNotifier, AssetData, String>(AssetNotifier.new);
 
 class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
   Timer? _timer;
@@ -64,13 +62,18 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
     });
 
     final repo = ref.watch(projectRepositoryProvider);
-    final projectRoot = ref.watch(currentProjectProvider.select((p) => p?.rootUri));
+    final projectRoot = ref.watch(
+      currentProjectProvider.select((p) => p?.rootUri),
+    );
 
     if (repo == null || projectRoot == null) {
       throw Exception('Cannot load asset without an active project.');
     }
 
-    final file = await repo.fileHandler.resolvePath(projectRoot, projectRelativeUri);
+    final file = await repo.fileHandler.resolvePath(
+      projectRoot,
+      projectRelativeUri,
+    );
 
     if (file == null) {
       throw Exception('Asset not found at path: $projectRelativeUri');
@@ -84,7 +87,10 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
     }
 
     // --- File operation listener remains the same ---
-    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (_, next) {
+    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
+      _,
+      next,
+    ) {
       // ... (existing logic for file changes)
       final event = next.asData?.value;
       if (event == null) return;
@@ -104,13 +110,16 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       }
 
       if (eventUri != null && eventUri == file.uri) {
-        ref.read(talkerProvider).info('Invalidating asset cache for ${file.name} due to file system event.');
+        ref
+            .read(talkerProvider)
+            .info(
+              'Invalidating asset cache for ${file.name} due to file system event.',
+            );
         ref.invalidateSelf();
       }
     });
 
     if (loader is IDependentAssetLoader) {
-      
       final dependencyUris = await loader.getDependencies(ref, file, repo);
 
       final dependencyValues = [
@@ -124,13 +133,14 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       if (dependencyValues.any((v) => !v.hasValue)) {
         return await Completer<AssetData>().future;
       }
-      
     }
 
     try {
       return await loader.load(ref, file, repo);
     } catch (e, st) {
-      ref.read(talkerProvider).handle(e, st, 'Failed to load asset: $projectRelativeUri');
+      ref
+          .read(talkerProvider)
+          .handle(e, st, 'Failed to load asset: $projectRelativeUri');
       return ErrorAssetData(error: e, stackTrace: st);
     }
   }
@@ -138,19 +148,19 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
 
 final assetMapProvider = NotifierProvider.autoDispose
     .family<AssetMapNotifier, AsyncValue<Map<String, AssetData>>, String>(
-  AssetMapNotifier.new,
-);
+      AssetMapNotifier.new,
+    );
 
 class AssetMapNotifier
-    extends AutoDisposeFamilyNotifier<AsyncValue<Map<String, AssetData>>, String> {
-  
+    extends
+        AutoDisposeFamilyNotifier<AsyncValue<Map<String, AssetData>>, String> {
   // This still stores the canonical project-relative URIs
   Set<String> _uris = {};
-  
+
   Set<AssetQuery> _queries = {};
 
   final List<ProviderSubscription> _assetSubscriptions = [];
-  
+
   Timer? _keepAliveTimer;
 
   @override
@@ -180,28 +190,38 @@ class AssetMapNotifier
   }
 
   Future<Map<String, AssetData>> updateUris(Set<AssetQuery> newQueries) async {
-  final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
-  
-  // [DIAGNOSTIC] Log incoming request
-  talker.info('AssetMapNotifier: Update requested. New Query Count: ${newQueries.length}');
-  for (var q in newQueries) {
-    talker.debug('AssetMapNotifier: Query -> ${q.path} (Context: ${q.contextPath})');
-  }
+    final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
 
-  if (const SetEquality().equals(newQueries, _queries)) {
-    talker.debug('AssetMapNotifier: Queries match existing state. Skipping update.'); // [DIAGNOSTIC]
-    return state.valueOrNull ?? const {};
-  }
+    // [DIAGNOSTIC] Log incoming request
+    talker.info(
+      'AssetMapNotifier: Update requested. New Query Count: ${newQueries.length}',
+    );
+    for (var q in newQueries) {
+      talker.debug(
+        'AssetMapNotifier: Query -> ${q.path} (Context: ${q.contextPath})',
+      );
+    }
 
-  talker.info('AssetMapNotifier: Queries changed. Processing update...'); // [DIAGNOSTIC]
+    if (const SetEquality().equals(newQueries, _queries)) {
+      talker.debug(
+        'AssetMapNotifier: Queries match existing state. Skipping update.',
+      ); // [DIAGNOSTIC]
+      return state.valueOrNull ?? const {};
+    }
 
-  _queries = newQueries;
-  
-    
+    talker.info(
+      'AssetMapNotifier: Queries changed. Processing update...',
+    ); // [DIAGNOSTIC]
+
+    _queries = newQueries;
+
     // START OF CHANGES
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) {
-      state = AsyncValue.error('Project repository not available', StackTrace.current);
+      state = AsyncValue.error(
+        'Project repository not available',
+        StackTrace.current,
+      );
       return {};
     }
 
@@ -215,10 +235,12 @@ class AssetMapNotifier
     }
     _uris = newUris;
     // END OF CHANGES
-    
+
     _cleanupSubscriptions();
 
-    state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
+    state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(
+      state,
+    );
 
     return await _fetchAndSetupListeners();
   }
@@ -232,14 +254,15 @@ class AssetMapNotifier
     try {
       final results = <String, AssetData>{};
 
-      final futures = _uris.map((uri) async {
-        try {
-          final data = await ref.read(assetDataProvider(uri).future);
-          results[uri] = data;
-        } catch (e, st) {
-          results[uri] = ErrorAssetData(error: e, stackTrace: st);
-        }
-      }).toList();
+      final futures =
+          _uris.map((uri) async {
+            try {
+              final data = await ref.read(assetDataProvider(uri).future);
+              results[uri] = data;
+            } catch (e, st) {
+              results[uri] = ErrorAssetData(error: e, stackTrace: st);
+            }
+          }).toList();
 
       await Future.wait(futures);
 
@@ -247,41 +270,43 @@ class AssetMapNotifier
 
       // If a file changes on disk later, these listeners will fire.
       for (final uri in _uris) {
-        final sub = ref.listen<AsyncValue<AssetData>>(
-          assetDataProvider(uri),
-          (previous, next) {
-            _onAssetChanged(uri, next);
-          },
-        );
+        final sub = ref.listen<AsyncValue<AssetData>>(assetDataProvider(uri), (
+          previous,
+          next,
+        ) {
+          _onAssetChanged(uri, next);
+        });
         _assetSubscriptions.add(sub);
       }
       return results;
     } catch (e, st) {
-      state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);
+      state = AsyncValue<Map<String, AssetData>>.error(
+        e,
+        st,
+      ).copyWithPrevious(state);
       rethrow;
     }
   }
 
   /// Callback when a single underlying asset changes (e.g. file modified on disk).
   void _onAssetChanged(String uri, AsyncValue<AssetData> nextAssetValue) {
-    
     AssetData? newData;
-    
+
     if (nextAssetValue is AsyncData<AssetData>) {
       newData = nextAssetValue.value;
     } else if (nextAssetValue is AsyncError<AssetData>) {
       newData = ErrorAssetData(
-        error: nextAssetValue.error, 
-        stackTrace: nextAssetValue.stackTrace
+        error: nextAssetValue.error,
+        stackTrace: nextAssetValue.stackTrace,
       );
     }
 
     if (newData != null) {
       final currentMap = state.valueOrNull ?? {};
-      
+
       final newMap = Map<String, AssetData>.from(currentMap);
       newMap[uri] = newData;
-      
+
       state = AsyncValue.data(newMap);
     }
   }

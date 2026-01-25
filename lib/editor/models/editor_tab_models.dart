@@ -10,8 +10,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/dto/project_dto.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
-import 'editor_plugin_models.dart';
 import '../tab_metadata_notifier.dart';
+import 'editor_plugin_models.dart';
 
 import '../../data/content_provider/file_content_provider.dart'; // NEW IMPORT
 

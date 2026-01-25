@@ -1,6 +1,7 @@
 // FILE: lib/editor/plugins/termux_terminal/termux_hot_state.dart
 
 import 'package:flutter/foundation.dart';
+
 import '../../../../data/dto/tab_hot_state_dto.dart';
 
 @immutable

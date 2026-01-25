@@ -23,9 +23,10 @@ class _SpritePickerDialogState extends State<SpritePickerDialog> {
       if (query.isEmpty) {
         _filtered = widget.spriteNames;
       } else {
-        _filtered = widget.spriteNames
-            .where((s) => s.toLowerCase().contains(query.toLowerCase()))
-            .toList();
+        _filtered =
+            widget.spriteNames
+                .where((s) => s.toLowerCase().contains(query.toLowerCase()))
+                .toList();
       }
     });
   }

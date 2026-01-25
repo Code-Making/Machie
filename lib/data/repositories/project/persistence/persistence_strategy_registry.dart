@@ -8,11 +8,10 @@ import 'persistence_strategy_factory.dart';
 /// The UI layer can use this to dynamically build options for the user.
 final persistenceStrategyRegistryProvider =
     Provider<Map<String, PersistenceStrategyFactory>>((ref) {
+      final factories = <PersistenceStrategyFactory>[
+        LocalFolderPersistenceStrategyFactory(),
+        SimpleStatePersistenceStrategyFactory(),
+      ];
 
-  final factories = <PersistenceStrategyFactory>[
-    LocalFolderPersistenceStrategyFactory(),
-    SimpleStatePersistenceStrategyFactory(),
-  ];
-
-  return {for (var factory in factories) factory.strategyInfo.id: factory};
-});
+      return {for (var factory in factories) factory.strategyInfo.id: factory};
+    });

@@ -95,19 +95,11 @@ class ExplorerService {
   }
 
   Future<void> createFile(String parentUri, String name) async {
-    await _repo.createDocumentFile(
-      parentUri,
-      name,
-      isDirectory: false,
-    );
+    await _repo.createDocumentFile(parentUri, name, isDirectory: false);
   }
 
   Future<void> createFolder(String parentUri, String name) async {
-    await _repo.createDocumentFile(
-      parentUri,
-      name,
-      isDirectory: true,
-    );
+    await _repo.createDocumentFile(parentUri, name, isDirectory: true);
   }
 
   Future<void> deleteItem(ProjectDocumentFile item) async {
@@ -137,10 +129,7 @@ class ExplorerService {
       }
 
       if (clipboardItem.operation == ClipboardOperation.copy) {
-        await _repo.copyDocumentFile(
-          sourceFile,
-          destinationFolder.uri,
-        );
+        await _repo.copyDocumentFile(sourceFile, destinationFolder.uri);
       } else {
         await moveItem(sourceFile, destinationFolder);
       }
@@ -163,10 +152,7 @@ class ExplorerService {
       return;
     }
     try {
-      await _repo.moveDocumentFile(
-        source,
-        destinationFolder.uri,
-      );
+      await _repo.moveDocumentFile(source, destinationFolder.uri);
       _talker.info('Moved "${source.name}" into "${destinationFolder.name}"');
     } catch (e, st) {
       _talker.handle(
@@ -185,10 +171,7 @@ class ExplorerService {
     String projectRootUri,
   ) async {
     try {
-      await _repo.copyDocumentFile(
-        pickedFile,
-        projectRootUri,
-      );
+      await _repo.copyDocumentFile(pickedFile, projectRootUri);
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to import file: ${pickedFile.name}');
       MachineToast.error("Failed to import '${pickedFile.name}'.");

@@ -1,31 +1,33 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
-import '../../../project/project_models.dart';
-import '../../models/editor_plugin_models.dart';
-import '../../models/editor_tab_models.dart';
-import '../../../data/file_handler/file_handler.dart';
+import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../project/project_models.dart';
+import '../../../project/project_settings_notifier.dart';
 import '../../../settings/settings_notifier.dart';
-
-import 'termux_terminal_models.dart';
+import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
 import 'termux_hot_state.dart';
 import 'termux_hot_state_adapter.dart';
-import 'widgets/termux_terminal_widget.dart';
+import 'termux_terminal_models.dart';
 import 'widgets/termux_settings_widget.dart';
-import '../../../project/project_settings_notifier.dart';
-import '../../../command/command_widgets.dart';
+import 'widgets/termux_terminal_widget.dart';
 
 class TermuxTerminalPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.termux_terminal';
   static const String hotStateId = 'com.machine.termux_terminal_state';
   static const String termuxSessionUri = 'internal://termux.terminal';
 
-  static const CommandPosition termuxToolbar = AppCommandPositions.pluginToolbar;
+  static const CommandPosition termuxToolbar =
+      AppCommandPositions.pluginToolbar;
 
   @override
   String get id => pluginId;
@@ -61,7 +63,8 @@ class TermuxTerminalPlugin extends EditorPlugin {
   }
 
   TermuxTerminalWidgetState? _getActiveTerminalState(WidgetRef ref) {
-    final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    final activeTab =
+        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (activeTab is TermuxTerminalTab) {
       return activeTab.editorKey.currentState;
     }
@@ -72,9 +75,11 @@ class TermuxTerminalPlugin extends EditorPlugin {
   List<Command> getCommands(Ref ref) {
     // 1. Fetch Effective Settings (User Global or Project Override)
     final effectiveSettings = ref.read(effectiveSettingsProvider);
-    final termuxSettings = effectiveSettings.pluginSettings[TermuxTerminalSettings]
-            as TermuxTerminalSettings? ?? TermuxTerminalSettings();
-    
+    final termuxSettings =
+        effectiveSettings.pluginSettings[TermuxTerminalSettings]
+            as TermuxTerminalSettings? ??
+        TermuxTerminalSettings();
+
     final standardCommands = [
       BaseCommand(
         id: 'termux_esc',
@@ -82,7 +87,8 @@ class TermuxTerminalPlugin extends EditorPlugin {
         icon: const Icon(Icons.keyboard_return),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b'),
       ),
       BaseCommand(
         id: 'termux_tab',
@@ -90,7 +96,8 @@ class TermuxTerminalPlugin extends EditorPlugin {
         icon: const Icon(Icons.keyboard_tab),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\t'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\t'),
       ),
       BaseCommand(
         id: 'termux_ctrl',
@@ -114,7 +121,8 @@ class TermuxTerminalPlugin extends EditorPlugin {
         icon: const Icon(Icons.arrow_upward),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[A'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[A'),
       ),
       BaseCommand(
         id: 'termux_arrow_down',
@@ -122,7 +130,8 @@ class TermuxTerminalPlugin extends EditorPlugin {
         icon: const Icon(Icons.arrow_downward),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[B'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[B'),
       ),
       BaseCommand(
         id: 'termux_arrow_left',
@@ -130,7 +139,8 @@ class TermuxTerminalPlugin extends EditorPlugin {
         icon: const Icon(Icons.arrow_back),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[D'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[D'),
       ),
       BaseCommand(
         id: 'termux_arrow_right',
@@ -138,15 +148,17 @@ class TermuxTerminalPlugin extends EditorPlugin {
         icon: const Icon(Icons.arrow_forward),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[C'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[C'),
       ),
       BaseCommand(
         id: 'termux_ctrl_c',
         label: 'Ctrl+C',
-        icon: const Icon(Icons.cancel), 
+        icon: const Icon(Icons.cancel),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x03'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x03'),
       ),
       BaseCommand(
         id: 'termux_ctrl_x',
@@ -154,27 +166,31 @@ class TermuxTerminalPlugin extends EditorPlugin {
         icon: const Icon(Icons.cut),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x18'),
+        execute:
+            (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x18'),
       ),
     ];
 
     // 2. Dynamic Commands from LIVE settings
-    final customCommands = termuxSettings.customShortcuts.asMap().entries.map((entry) {
-      final index = entry.key;
-      final shortcut = entry.value;
-      
-      return BaseCommand(
-        id: 'termux_custom_$index',
-        label: shortcut.label,
-        icon: Icon(TerminalShortcut.resolveIcon(shortcut.iconName)),
-        sourcePlugin: pluginId,
-        defaultPositions: [termuxToolbar],
-        execute: (ref) async {
-          _getActiveTerminalState(ref)?.sendRawInput('${shortcut.command}\r');
-        },
-      );
-    }).toList();
-    
+    final customCommands =
+        termuxSettings.customShortcuts.asMap().entries.map((entry) {
+          final index = entry.key;
+          final shortcut = entry.value;
+
+          return BaseCommand(
+            id: 'termux_custom_$index',
+            label: shortcut.label,
+            icon: Icon(TerminalShortcut.resolveIcon(shortcut.iconName)),
+            sourcePlugin: pluginId,
+            defaultPositions: [termuxToolbar],
+            execute: (ref) async {
+              _getActiveTerminalState(
+                ref,
+              )?.sendRawInput('${shortcut.command}\r');
+            },
+          );
+        }).toList();
+
     final pickerCommand = BaseCommand(
       id: 'termux_run_shortcut',
       label: 'Run Shortcut...',
@@ -182,8 +198,11 @@ class TermuxTerminalPlugin extends EditorPlugin {
       sourcePlugin: pluginId,
       defaultPositions: [termuxToolbar],
       execute: (ref) async {
-        final settings = ref.read(effectiveSettingsProvider).pluginSettings[TermuxTerminalSettings]
-            as TermuxTerminalSettings?;
+        final settings =
+            ref
+                    .read(effectiveSettingsProvider)
+                    .pluginSettings[TermuxTerminalSettings]
+                as TermuxTerminalSettings?;
         if (settings == null) return;
         final terminal = _getActiveTerminalState(ref);
         if (terminal == null) return;
@@ -191,20 +210,28 @@ class TermuxTerminalPlugin extends EditorPlugin {
         if (context == null) return;
         await showModalBottomSheet(
           context: context,
-          builder: (ctx) => SizedBox(
-            height: 300,
-            child: ListView(
-              children: settings.customShortcuts.map((s) => ListTile(
-                leading: Icon(TerminalShortcut.resolveIcon(s.iconName)),
-                title: Text(s.label),
-                subtitle: Text(s.command),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  terminal.sendRawInput('${s.command}\r');
-                },
-              )).toList(),
-            ),
-          ),
+          builder:
+              (ctx) => SizedBox(
+                height: 300,
+                child: ListView(
+                  children:
+                      settings.customShortcuts
+                          .map(
+                            (s) => ListTile(
+                              leading: Icon(
+                                TerminalShortcut.resolveIcon(s.iconName),
+                              ),
+                              title: Text(s.label),
+                              subtitle: Text(s.command),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                terminal.sendRawInput('${s.command}\r');
+                              },
+                            ),
+                          )
+                          .toList(),
+                ),
+              ),
         );
       },
     );
@@ -229,12 +256,9 @@ class TermuxTerminalPlugin extends EditorPlugin {
           final terminalFile = InternalAppFile(
             uri: termuxSessionUri,
             name: 'Termux Session',
-            modifiedDate: DateTime.now(),      
+            modifiedDate: DateTime.now(),
           );
-          await notifier.openFileInEditor(
-            terminalFile,
-            explicitPlugin: this,
-          );
+          await notifier.openFileInEditor(terminalFile, explicitPlugin: this);
         },
       ),
     ];
@@ -261,7 +285,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
 
     return TermuxTerminalTab(
       plugin: this,
-      initialWorkingDirectory: cachedWd ?? '', 
+      initialWorkingDirectory: cachedWd ?? '',
       initialHistory: history,
       id: id,
       onReadyCompleter: onReadyCompleter,
@@ -271,8 +295,8 @@ class TermuxTerminalPlugin extends EditorPlugin {
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
     return TermuxTerminalWidget(
-      key: (tab as TermuxTerminalTab).editorKey, 
-      tab: tab
+      key: (tab as TermuxTerminalTab).editorKey,
+      tab: tab,
     );
   }
 
@@ -286,7 +310,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
       onChanged: (newSettings) => onChanged(newSettings as PluginSettings),
     );
   }
-  
+
   @override
   Widget buildToolbar(WidgetRef ref) {
     return const BottomToolbar();

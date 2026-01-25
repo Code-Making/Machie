@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../models/editor_tab_models.dart';
+
 import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
 import 'widgets/termux_terminal_widget.dart';
 
 @immutable
@@ -35,10 +36,10 @@ class TerminalShortcut {
   });
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'command': command,
-        'iconName': iconName,
-      };
+    'label': label,
+    'command': command,
+    'iconName': iconName,
+  };
 
   factory TerminalShortcut.fromJson(Map<String, dynamic> json) {
     return TerminalShortcut(
@@ -94,10 +95,12 @@ class TermuxTerminalSettings extends PluginSettings {
   static List<TerminalShortcut> _defaultShortcuts() {
     return [
       TerminalShortcut(
-          label: 'Git Status', command: 'git status', iconName: 'git'),
+        label: 'Git Status',
+        command: 'git status',
+        iconName: 'git',
+      ),
       TerminalShortcut(label: 'LS', command: 'ls -la', iconName: 'list'),
-      TerminalShortcut(
-          label: 'Node', command: 'npm start', iconName: 'play'),
+      TerminalShortcut(label: 'Node', command: 'npm start', iconName: 'play'),
     ];
   }
 
@@ -105,15 +108,16 @@ class TermuxTerminalSettings extends PluginSettings {
   void fromJson(Map<String, dynamic> json) {
     fontSize = (json['fontSize'] as num?)?.toDouble() ?? 14.0;
     fontFamily = json['fontFamily'] as String? ?? 'JetBrainsMono';
-    termuxWorkDir = json['termuxWorkDir'] as String? ??
-        '/data/data/com.termux/files/home';
+    termuxWorkDir =
+        json['termuxWorkDir'] as String? ?? '/data/data/com.termux/files/home';
     shellCommand = json['shellCommand'] as String? ?? 'bash';
     useDarkTheme = json['useDarkTheme'] as bool? ?? true;
 
     if (json['customShortcuts'] != null) {
-      customShortcuts = (json['customShortcuts'] as List)
-          .map((e) => TerminalShortcut.fromJson(e as Map<String, dynamic>))
-          .toList();
+      customShortcuts =
+          (json['customShortcuts'] as List)
+              .map((e) => TerminalShortcut.fromJson(e as Map<String, dynamic>))
+              .toList();
     } else {
       customShortcuts = _defaultShortcuts();
     }
@@ -121,13 +125,13 @@ class TermuxTerminalSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'fontSize': fontSize,
-        'fontFamily': fontFamily,
-        'termuxWorkDir': termuxWorkDir,
-        'shellCommand': shellCommand,
-        'useDarkTheme': useDarkTheme,
-        'customShortcuts': customShortcuts.map((e) => e.toJson()).toList(),
-      };
+    'fontSize': fontSize,
+    'fontFamily': fontFamily,
+    'termuxWorkDir': termuxWorkDir,
+    'shellCommand': shellCommand,
+    'useDarkTheme': useDarkTheme,
+    'customShortcuts': customShortcuts.map((e) => e.toJson()).toList(),
+  };
 
   TermuxTerminalSettings copyWith({
     double? fontSize,

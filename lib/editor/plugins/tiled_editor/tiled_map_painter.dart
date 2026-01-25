@@ -1,22 +1,24 @@
-import 'dart:ui' as ui;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart' hide StringProperty;
 import 'package:flutter/material.dart' hide StringProperty;
+
 import 'package:tiled/tiled.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
-import 'tiled_editor_settings_model.dart';
+
 import '../../../asset_cache/asset_models.dart';
-import 'package:path/path.dart' as p;
-import 'tiled_asset_resolver.dart';
 import '../../../logs/logs_provider.dart';
+import 'tiled_asset_resolver.dart';
+import 'tiled_editor_settings_model.dart';
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
   final TiledAssetResolver resolver;
   final bool showGrid;
   final Matrix4 transform;
-    final Talker? talker; // [DIAGNOSTIC] Add field
-  final Set<String> _loggedErrors = {}; 
+  final Talker? talker; // [DIAGNOSTIC] Add field
+  final Set<String> _loggedErrors = {};
 
   final List<TiledObject> selectedObjects;
   final Rect? previewShape;
@@ -42,12 +44,11 @@ class TiledMapPainter extends CustomPainter {
     this.floatingSelectionPosition,
     this.talker, // [DIAGNOSTIC] Add arg
   });
-  
 
   @override
   void paint(Canvas canvas, Size size) {
     final visibleRect = canvas.getDestinationClipBounds();
-    
+
     _paintLayerGroup(canvas, map.layers, 1.0, visibleRect);
     if (floatingSelection != null && floatingSelectionPosition != null) {
       _paintFloatingSelection(canvas);
@@ -56,10 +57,22 @@ class TiledMapPainter extends CustomPainter {
     _paintObjectPreviews(canvas);
 
     if (showGrid) {
-      final startX = (visibleRect.left / map.tileWidth - 1).floor().clamp(0, map.width);
-      final startY = (visibleRect.top / map.tileHeight - 1).floor().clamp(0, map.height);
-      final endX = (visibleRect.right / map.tileWidth + 1).ceil().clamp(0, map.width);
-      final endY = (visibleRect.bottom / map.tileHeight + 1).ceil().clamp(0, map.height);
+      final startX = (visibleRect.left / map.tileWidth - 1).floor().clamp(
+        0,
+        map.width,
+      );
+      final startY = (visibleRect.top / map.tileHeight - 1).floor().clamp(
+        0,
+        map.height,
+      );
+      final endX = (visibleRect.right / map.tileWidth + 1).ceil().clamp(
+        0,
+        map.width,
+      );
+      final endY = (visibleRect.bottom / map.tileHeight + 1).ceil().clamp(
+        0,
+        map.height,
+      );
       _paintGrid(canvas, startX, startY, endX, endY);
     }
   }
@@ -72,24 +85,28 @@ class TiledMapPainter extends CustomPainter {
     if (atlasProp is! StringProperty || atlasProp.value.isEmpty) return null;
 
     // 2. Check for frame/anim property
-    final frameProp = object.properties['initialFrame'] ?? object.properties['initialAnim'];
+    final frameProp =
+        object.properties['initialFrame'] ?? object.properties['initialAnim'];
     if (frameProp is! StringProperty || frameProp.value.isEmpty) return null;
 
     // 3. Resolve the specific asset
     // The atlas property is relative to the TMX file
-    final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, atlasProp.value);
+    final canonicalKey = resolver.repo.resolveRelativePath(
+      resolver.tmxPath,
+      atlasProp.value,
+    );
     final asset = resolver.getAsset(canonicalKey);
 
     if (asset is! TexturePackerAssetData) return null;
 
     // 4. Find the sprite within that asset
     final spriteName = frameProp.value;
-    
+
     // Direct frame match
     if (asset.frames.containsKey(spriteName)) {
       return asset.frames[spriteName];
     }
-    
+
     // Animation match (get first frame)
     if (asset.animations.containsKey(spriteName)) {
       final firstFrame = asset.animations[spriteName]!.firstOrNull;
@@ -100,11 +117,11 @@ class TiledMapPainter extends CustomPainter {
 
     return null;
   }
-  
+
   void _paintFloatingSelection(Canvas canvas) {
     final selection = floatingSelection!;
     final position = floatingSelectionPosition!;
-    
+
     final Map<ui.Image, List<RSTransform>> transforms = {};
     final Map<ui.Image, List<Rect>> rects = {};
 
@@ -115,7 +132,7 @@ class TiledMapPainter extends CustomPainter {
 
         final tile = map.tileByGid(gid.tile);
         if (tile == null || tile.isEmpty) continue;
-        
+
         final tileset = map.tilesetByTileGId(gid.tile);
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
@@ -124,53 +141,77 @@ class TiledMapPainter extends CustomPainter {
         if (image == null) continue;
 
         final srcRect = tileset.computeDrawRect(tile);
-        final source = Rect.fromLTWH(srcRect.left.toDouble(), srcRect.top.toDouble(), srcRect.width.toDouble(), srcRect.height.toDouble());
+        final source = Rect.fromLTWH(
+          srcRect.left.toDouble(),
+          srcRect.top.toDouble(),
+          srcRect.width.toDouble(),
+          srcRect.height.toDouble(),
+        );
         final tileWidth = (tileset.tileWidth ?? map.tileWidth).toDouble();
         final tileHeight = (tileset.tileHeight ?? map.tileHeight).toDouble();
 
         final dst = Rect.fromLTWH(
           ((position.x + x) * map.tileWidth).toDouble(),
-          ((position.y + y) * map.tileHeight).toDouble() + map.tileHeight - tileHeight,
+          ((position.y + y) * map.tileHeight).toDouble() +
+              map.tileHeight -
+              tileHeight,
           tileWidth,
           tileHeight,
         );
 
         final transform = RSTransform.fromComponents(
-            rotation: 0.0, scale: 1.0, anchorX: 0, anchorY: 0,
-            translateX: dst.left, translateY: dst.top);
-        
+          rotation: 0.0,
+          scale: 1.0,
+          anchorX: 0,
+          anchorY: 0,
+          translateX: dst.left,
+          translateY: dst.top,
+        );
+
         transforms.putIfAbsent(image, () => []).add(transform);
         rects.putIfAbsent(image, () => []).add(source);
       }
     }
-    
+
     final paint = Paint()..filterQuality = FilterQuality.none;
     for (final image in transforms.keys) {
-      canvas.drawAtlas(image, transforms[image]!, rects[image]!, null, BlendMode.src, null, paint);
+      canvas.drawAtlas(
+        image,
+        transforms[image]!,
+        rects[image]!,
+        null,
+        BlendMode.src,
+        null,
+        paint,
+      );
     }
-    
+
     final selectionRect = Rect.fromLTWH(
       (position.x * map.tileWidth).toDouble(),
       (position.y * map.tileHeight).toDouble(),
-      (selection.isNotEmpty ? selection[0].length : 0) * map.tileWidth.toDouble(),
+      (selection.isNotEmpty ? selection[0].length : 0) *
+          map.tileWidth.toDouble(),
       selection.length * map.tileHeight.toDouble(),
     );
-    final borderPaint = Paint()
-      ..color = Colors.amber
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+    final borderPaint =
+        Paint()
+          ..color = Colors.amber
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0;
     canvas.drawRect(selectionRect, borderPaint);
   }
-  
+
   void _paintObjectPreviews(Canvas canvas) {
     if (selectedObjects.isNotEmpty) {
-      final paint = Paint()
-        ..color = Colors.blue.withOpacity(0.3)
-        ..style = PaintingStyle.fill;
-      final strokePaint = Paint()
-        ..color = Colors.blue
-        ..strokeWidth = 2.0
-        ..style = PaintingStyle.stroke;
+      final paint =
+          Paint()
+            ..color = Colors.blue.withOpacity(0.3)
+            ..style = PaintingStyle.fill;
+      final strokePaint =
+          Paint()
+            ..color = Colors.blue
+            ..strokeWidth = 2.0
+            ..style = PaintingStyle.stroke;
 
       for (final obj in selectedObjects) {
         final rect = Rect.fromLTWH(obj.x, obj.y, obj.width, obj.height);
@@ -178,24 +219,27 @@ class TiledMapPainter extends CustomPainter {
         canvas.drawRect(rect, strokePaint);
       }
     }
-    
+
     if (marqueeSelection != null) {
-      final paint = Paint()
-        ..color = Colors.blue.withOpacity(0.2)
-        ..style = PaintingStyle.fill;
-      final strokePaint = Paint()
-        ..color = Colors.blue.withOpacity(0.8)
-        ..strokeWidth = 1.0
-        ..style = PaintingStyle.stroke;
+      final paint =
+          Paint()
+            ..color = Colors.blue.withOpacity(0.2)
+            ..style = PaintingStyle.fill;
+      final strokePaint =
+          Paint()
+            ..color = Colors.blue.withOpacity(0.8)
+            ..strokeWidth = 1.0
+            ..style = PaintingStyle.stroke;
       canvas.drawRect(marqueeSelection!, paint);
       canvas.drawRect(marqueeSelection!, strokePaint);
     }
 
     if (inProgressPoints.isNotEmpty) {
-      final paint = Paint()
-        ..color = Colors.amber
-        ..strokeWidth = 2.0
-        ..style = PaintingStyle.stroke;
+      final paint =
+          Paint()
+            ..color = Colors.amber
+            ..strokeWidth = 2.0
+            ..style = PaintingStyle.stroke;
       final path = Path();
       path.moveTo(inProgressPoints.first.x, inProgressPoints.first.y);
       for (var i = 1; i < inProgressPoints.length; i++) {
@@ -205,14 +249,20 @@ class TiledMapPainter extends CustomPainter {
     }
 
     if (previewShape != null) {
-      final paint = Paint()
-        ..color = Colors.amber.withOpacity(0.5)
-        ..style = PaintingStyle.fill;
+      final paint =
+          Paint()
+            ..color = Colors.amber.withOpacity(0.5)
+            ..style = PaintingStyle.fill;
       canvas.drawRect(previewShape!, paint);
     }
   }
 
-  void _paintLayerGroup(Canvas canvas, List<Layer> layers, double parentOpacity, Rect visibleRect) {
+  void _paintLayerGroup(
+    Canvas canvas,
+    List<Layer> layers,
+    double parentOpacity,
+    Rect visibleRect,
+  ) {
     for (final layer in layers) {
       if (!layer.visible) continue;
 
@@ -224,7 +274,7 @@ class TiledMapPainter extends CustomPainter {
         final paint = Paint()..color = Color.fromRGBO(0, 0, 0, combinedOpacity);
         canvas.saveLayer(visibleRect, paint);
       }
-      
+
       if (layer is Group) {
         canvas.translate(layer.offsetX, layer.offsetY);
         _paintLayerGroup(canvas, layer.layers, combinedOpacity, visibleRect);
@@ -248,9 +298,10 @@ class TiledMapPainter extends CustomPainter {
   }
 
   void _paintGrid(Canvas canvas, int startX, int startY, int endX, int endY) {
-    final paint = Paint()
-      ..color = Color(settings.gridColorValue)
-      ..strokeWidth = settings.gridThickness;
+    final paint =
+        Paint()
+          ..color = Color(settings.gridColorValue)
+          ..strokeWidth = settings.gridThickness;
 
     for (var x = startX; x <= endX; x++) {
       final lineX = (x * map.tileWidth).toDouble();
@@ -273,10 +324,22 @@ class TiledMapPainter extends CustomPainter {
   void _paintTileLayer(Canvas canvas, TileLayer layer) {
     // ... [No changes to existing tile logic] ...
     final visibleRect = canvas.getDestinationClipBounds();
-    final startX = (visibleRect.left / map.tileWidth - 1).floor().clamp(0, layer.width);
-    final startY = (visibleRect.top / map.tileHeight - 1).floor().clamp(0, layer.height);
-    final endX = (visibleRect.right / map.tileWidth + 1).ceil().clamp(0, layer.width);
-    final endY = (visibleRect.bottom / map.tileHeight + 1).ceil().clamp(0, layer.height);
+    final startX = (visibleRect.left / map.tileWidth - 1).floor().clamp(
+      0,
+      layer.width,
+    );
+    final startY = (visibleRect.top / map.tileHeight - 1).floor().clamp(
+      0,
+      layer.height,
+    );
+    final endX = (visibleRect.right / map.tileWidth + 1).ceil().clamp(
+      0,
+      layer.width,
+    );
+    final endY = (visibleRect.bottom / map.tileHeight + 1).ceil().clamp(
+      0,
+      layer.height,
+    );
 
     if (layer.tileData == null) return;
 
@@ -296,7 +359,7 @@ class TiledMapPainter extends CustomPainter {
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
         final image = resolver.getImage(imageSource, tileset: tileset);
-        
+
         final srcRect = tileset.computeDrawRect(tile);
         final source = Rect.fromLTWH(
           srcRect.left.toDouble(),
@@ -314,18 +377,21 @@ class TiledMapPainter extends CustomPainter {
           tileWidth,
           tileHeight,
         );
-        
+
         if (image == null) {
           _drawMissingImagePlaceholder(canvas, dst, imageSource ?? 'Unknown');
           continue;
         }
 
-        final needsFlip = gid.flips.horizontally || gid.flips.vertically || gid.flips.diagonally;
+        final needsFlip =
+            gid.flips.horizontally ||
+            gid.flips.vertically ||
+            gid.flips.diagonally;
 
         if (!needsFlip) {
           transforms.putIfAbsent(image, () => []);
           rects.putIfAbsent(image, () => []);
-          
+
           final transform = RSTransform.fromComponents(
             rotation: 0.0,
             scale: 1.0,
@@ -334,16 +400,34 @@ class TiledMapPainter extends CustomPainter {
             translateX: dst.left,
             translateY: dst.top,
           );
-          
+
           transforms[image]!.add(transform);
           rects[image]!.add(source);
-
         } else {
           canvas.save();
           canvas.translate(dst.left + dst.width / 2, dst.top + dst.height / 2);
 
           if (gid.flips.diagonally) {
-            canvas.transform(Float64List.fromList([0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]));
+            canvas.transform(
+              Float64List.fromList([
+                0,
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+              ]),
+            );
           }
           if (gid.flips.horizontally) {
             canvas.scale(-1.0, 1.0);
@@ -351,9 +435,9 @@ class TiledMapPainter extends CustomPainter {
           if (gid.flips.vertically) {
             canvas.scale(1.0, -1.0);
           }
-          
+
           canvas.translate(-dst.width / 2, -dst.height / 2);
-          
+
           canvas.drawImageRect(
             image,
             source,
@@ -362,7 +446,7 @@ class TiledMapPainter extends CustomPainter {
           );
           canvas.restore();
         }
-        
+
         if (tile.objectGroup != null && tile.objectGroup is ObjectGroup) {
           final collisionGroup = tile.objectGroup as ObjectGroup;
           canvas.save();
@@ -372,7 +456,7 @@ class TiledMapPainter extends CustomPainter {
         }
       }
     }
-    
+
     final paint = Paint()..filterQuality = FilterQuality.none;
     for (final image in transforms.keys) {
       canvas.drawAtlas(
@@ -386,32 +470,43 @@ class TiledMapPainter extends CustomPainter {
       );
     }
   }
-  
+
   void _paintImageLayer(Canvas canvas, ImageLayer layer, Rect visibleRect) {
     if (layer.image.source == null) return;
-    final image = resolver.getImage(layer.image.source); 
+    final image = resolver.getImage(layer.image.source);
 
     if (image == null) {
-        _drawMissingImagePlaceholder(canvas, Rect.fromLTWH(layer.offsetX, layer.offsetY, (layer.image.width ?? 100).toDouble(), (layer.image.height ?? 100).toDouble()), layer.image.source ?? 'Unknown');
-        return;
+      _drawMissingImagePlaceholder(
+        canvas,
+        Rect.fromLTWH(
+          layer.offsetX,
+          layer.offsetY,
+          (layer.image.width ?? 100).toDouble(),
+          (layer.image.height ?? 100).toDouble(),
+        ),
+        layer.image.source ?? 'Unknown',
+      );
+      return;
     }
 
     final invertedMatrix = Matrix4.tryInvert(transform);
     if (invertedMatrix == null) return;
-    
-    final totalOffsetX = layer.offsetX ;
-    final totalOffsetY = - layer.offsetY ;
+
+    final totalOffsetX = layer.offsetX;
+    final totalOffsetY = -layer.offsetY;
 
     final scaleX = (layer.image.width ?? image.width) / image.width;
     final scaleY = (layer.image.height ?? image.height) / image.height;
-    
-    final offsetMatrix = Matrix4.identity()
-    ..translate(totalOffsetX, totalOffsetY)
-    ..scale(scaleX, scaleY, 1);
-    
-    final matrix = Matrix4.copy(invertedMatrix)
-    ..multiply(transform)
-    ..multiply(offsetMatrix);
+
+    final offsetMatrix =
+        Matrix4.identity()
+          ..translate(totalOffsetX, totalOffsetY)
+          ..scale(scaleX, scaleY, 1);
+
+    final matrix =
+        Matrix4.copy(invertedMatrix)
+          ..multiply(transform)
+          ..multiply(offsetMatrix);
 
     final shader = ImageShader(
       image,
@@ -420,114 +515,170 @@ class TiledMapPainter extends CustomPainter {
       matrix.storage,
     );
 
-    final paint = Paint()
-      ..shader = shader
-      ..filterQuality = FilterQuality.none;
+    final paint =
+        Paint()
+          ..shader = shader
+          ..filterQuality = FilterQuality.none;
 
     canvas.drawPaint(paint);
   }
 
-  void _paintObjectGroup(Canvas canvas, ObjectGroup layer, {bool isForTile = false}) {
+  void _paintObjectGroup(
+    Canvas canvas,
+    ObjectGroup layer, {
+    bool isForTile = false,
+  }) {
     // We calculate layer color once
     final layerColor = layer.color.toFlutterColor();
-    
+
     // Sort logic
     var objects = layer.objects;
     if (layer.drawOrder == DrawOrder.topDown) {
       objects = List.from(layer.objects)..sort((a, b) => a.y.compareTo(b.y));
     }
-    
+
     for (final object in objects) {
       if (!object.visible) continue;
 
       canvas.save();
-      
+
       // --- Determine Object Color ---
       // 1. Start with Layer Color
       Color objColor = layerColor;
-      
+
       // 2. Check for displayColor override on the object
       final colorProp = object.properties['displayColor'];
       if (colorProp is StringProperty && colorProp.value.isNotEmpty) {
         objColor = colorProp.value.toFlutterColor();
       }
-      
+
       // Prepare Paints
-      final paint = Paint()
-        ..color = isForTile ? Colors.lightGreen.withOpacity(0.5) : objColor.withOpacity(0.5)
-        ..style = PaintingStyle.fill;
-      
-      final strokePaint = Paint()
-        ..color = isForTile ? Colors.lightGreen : objColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
-      
+      final paint =
+          Paint()
+            ..color =
+                isForTile
+                    ? Colors.lightGreen.withOpacity(0.5)
+                    : objColor.withOpacity(0.5)
+            ..style = PaintingStyle.fill;
+
+      final strokePaint =
+          Paint()
+            ..color = isForTile ? Colors.lightGreen : objColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0;
+
       // Apply rotation
       if (object.rotation != 0) {
-        canvas.translate(object.x + object.width / 2, object.y + object.height / 2);
+        canvas.translate(
+          object.x + object.width / 2,
+          object.y + object.height / 2,
+        );
         canvas.rotate(vector.radians(object.rotation));
-        canvas.translate(-(object.x + object.width / 2), -(object.y + object.height / 2));
+        canvas.translate(
+          -(object.x + object.width / 2),
+          -(object.y + object.height / 2),
+        );
       }
-      
+
       // Sprite Rendering
       bool customDrawDone = false;
       // Replace the old internal lookup with a direct call to the resolver.
       final spriteData = resolver.getSpriteDataForObject(object, map);
 
       if (spriteData != null) {
-          final srcRect = spriteData.sourceRect;
-          final dstRect = Rect.fromLTWH(object.x, object.y, object.width, object.height);
-          
-          final drawRect = (object.width == 0 && object.height == 0)
-              ? Rect.fromLTWH(object.x, object.y - srcRect.height, srcRect.width, srcRect.height)
-              : dstRect;
+        final srcRect = spriteData.sourceRect;
+        final dstRect = Rect.fromLTWH(
+          object.x,
+          object.y,
+          object.width,
+          object.height,
+        );
 
-          canvas.drawImageRect(
-            spriteData.sourceImage, 
-            srcRect, 
-            drawRect, 
-            Paint()..filterQuality = ui.FilterQuality.none
-          );
-          
-          if (selectedObjects.contains(object)) {
-             final selectionStroke = Paint()..color = Colors.blue ..style=PaintingStyle.stroke ..strokeWidth=2;
-             canvas.drawRect(drawRect, selectionStroke);
-          }
-          customDrawDone = true;
+        final drawRect =
+            (object.width == 0 && object.height == 0)
+                ? Rect.fromLTWH(
+                  object.x,
+                  object.y - srcRect.height,
+                  srcRect.width,
+                  srcRect.height,
+                )
+                : dstRect;
+
+        canvas.drawImageRect(
+          spriteData.sourceImage,
+          srcRect,
+          drawRect,
+          Paint()..filterQuality = ui.FilterQuality.none,
+        );
+
+        if (selectedObjects.contains(object)) {
+          final selectionStroke =
+              Paint()
+                ..color = Colors.blue
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 2;
+          canvas.drawRect(drawRect, selectionStroke);
+        }
+        customDrawDone = true;
       } else {
-         // [DIAGNOSTIC] Check why it failed
-         final atlasProp = object.properties['atlas'];
-         if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-            final logKey = "missing_sprite_${object.id}";
-            if (!_loggedErrors.contains(logKey)) {
-                _loggedErrors.add(logKey);
-                talker?.warning("[Painter] Object ${object.id} has atlas '${atlasProp.value}' but getSpriteDataForObject returned null.");
-            }
-         }
+        // [DIAGNOSTIC] Check why it failed
+        final atlasProp = object.properties['atlas'];
+        if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+          final logKey = "missing_sprite_${object.id}";
+          if (!_loggedErrors.contains(logKey)) {
+            _loggedErrors.add(logKey);
+            talker?.warning(
+              "[Painter] Object ${object.id} has atlas '${atlasProp.value}' but getSpriteDataForObject returned null.",
+            );
+          }
+        }
       }
-      
+
       // Shape Rendering
       if (!customDrawDone) {
         if (object.gid != null) {
           _paintTileObject(canvas, object);
         } else {
           if (object.isRectangle) {
-            final rect = Rect.fromLTWH(object.x, object.y, object.width, object.height);
+            final rect = Rect.fromLTWH(
+              object.x,
+              object.y,
+              object.width,
+              object.height,
+            );
             canvas.drawRect(rect, paint);
             canvas.drawRect(rect, strokePaint);
           } else if (object.isPoint) {
-            final rect = Rect.fromLTWH(object.x, object.y, object.width, object.height);
+            final rect = Rect.fromLTWH(
+              object.x,
+              object.y,
+              object.width,
+              object.height,
+            );
             canvas.drawRect(rect, paint);
             canvas.drawRect(rect, strokePaint);
-            
+
             final crossPaint = strokePaint;
             final centerX = object.x + object.width / 2;
             final centerY = object.y + object.height / 2;
-            
-            canvas.drawLine(Offset(centerX, object.y), Offset(centerX, object.y + object.height), crossPaint);
-            canvas.drawLine(Offset(object.x, centerY), Offset(object.x + object.width, centerY), crossPaint);
+
+            canvas.drawLine(
+              Offset(centerX, object.y),
+              Offset(centerX, object.y + object.height),
+              crossPaint,
+            );
+            canvas.drawLine(
+              Offset(object.x, centerY),
+              Offset(object.x + object.width, centerY),
+              crossPaint,
+            );
           } else if (object.isEllipse) {
-            final rect = Rect.fromLTWH(object.x, object.y, object.width, object.height);
+            final rect = Rect.fromLTWH(
+              object.x,
+              object.y,
+              object.width,
+              object.height,
+            );
             canvas.drawOval(rect, paint);
             canvas.drawOval(rect, strokePaint);
           } else if (object.isPolygon || object.isPolyline) {
@@ -551,7 +702,7 @@ class TiledMapPainter extends CustomPainter {
       if (object.text != null) {
         _paintTextObject(canvas, object);
       }
-      
+
       canvas.restore();
     }
   }
@@ -569,15 +720,22 @@ class TiledMapPainter extends CustomPainter {
     if (imageSource == null) return;
 
     final image = resolver.getImage(imageSource, tileset: tileset);
-    
+
     final rect = tileset.computeDrawRect(tile);
     final src = Rect.fromLTWH(
-      rect.left.toDouble(), rect.top.toDouble(),
-      rect.width.toDouble(), rect.height.toDouble(),
+      rect.left.toDouble(),
+      rect.top.toDouble(),
+      rect.width.toDouble(),
+      rect.height.toDouble(),
     );
 
-    final dst = Rect.fromLTWH(object.x, object.y - object.height, object.width, object.height);
-    
+    final dst = Rect.fromLTWH(
+      object.x,
+      object.y - object.height,
+      object.width,
+      object.height,
+    );
+
     if (image == null) {
       _drawMissingImagePlaceholder(canvas, dst, imageSource ?? 'Unknown');
       return;
@@ -585,7 +743,10 @@ class TiledMapPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(dst.left + dst.width / 2, dst.top + dst.height / 2);
-    if (gid.flips.diagonally) canvas.transform(Float64List.fromList([0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]));
+    if (gid.flips.diagonally)
+      canvas.transform(
+        Float64List.fromList([0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
+      );
     if (gid.flips.horizontally) canvas.scale(-1.0, 1.0);
     if (gid.flips.vertically) canvas.scale(1.0, -1.0);
     canvas.translate(-dst.width / 2, -dst.height / 2);
@@ -603,7 +764,7 @@ class TiledMapPainter extends CustomPainter {
     // ... [Kept existing logic] ...
     final textInfo = object.text!;
     var painter = _textPainterCache[object.id];
-    
+
     if (painter == null) {
       final textStyle = TextStyle(
         fontFamily: textInfo.fontFamily,
@@ -621,14 +782,13 @@ class TiledMapPainter extends CustomPainter {
         text: TextSpan(text: textInfo.text, style: textStyle),
         textAlign: textInfo.hAlign.toFlutterTextAlign(),
         textDirection: ui.TextDirection.ltr,
-      )
-      ..layout(maxWidth: object.width > 0 ? object.width : double.infinity);
-      
+      )..layout(maxWidth: object.width > 0 ? object.width : double.infinity);
+
       _textPainterCache[object.id] = painter;
     }
 
     double yOffset;
-    switch(textInfo.vAlign) {
+    switch (textInfo.vAlign) {
       case VAlign.center:
         yOffset = (object.height - painter.height) / 2;
         break;
@@ -651,14 +811,26 @@ class TiledMapPainter extends CustomPainter {
     }
     return true;
   }
-  
-  void _drawMissingImagePlaceholder(Canvas canvas, Rect destinationRect, String path) {
+
+  void _drawMissingImagePlaceholder(
+    Canvas canvas,
+    Rect destinationRect,
+    String path,
+  ) {
     final paint = Paint()..color = Colors.pink.withOpacity(0.8);
     canvas.drawRect(destinationRect, paint);
 
     final errorPaint = Paint()..color = Colors.white;
-    canvas.drawLine(destinationRect.topLeft, destinationRect.bottomRight, errorPaint);
-    canvas.drawLine(destinationRect.bottomLeft, destinationRect.topRight, errorPaint);
+    canvas.drawLine(
+      destinationRect.topLeft,
+      destinationRect.bottomRight,
+      errorPaint,
+    );
+    canvas.drawLine(
+      destinationRect.bottomLeft,
+      destinationRect.topRight,
+      errorPaint,
+    );
   }
 }
 
@@ -681,7 +853,7 @@ extension on ColorData {
 
 extension on HAlign {
   TextAlign toFlutterTextAlign() {
-    switch(this) {
+    switch (this) {
       case HAlign.center:
         return TextAlign.center;
       case HAlign.right:

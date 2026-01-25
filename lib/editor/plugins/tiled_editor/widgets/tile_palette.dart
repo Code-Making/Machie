@@ -1,13 +1,13 @@
 // FILE: lib/editor/plugins/tiled_editor/widgets/tile_palette.dart
 
 import 'dart:ui' as ui;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
 import 'package:tiled/tiled.dart' hide Text;
 import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
-import 'package:path/path.dart' as p;
 
-import 'package:machine/asset_cache/asset_models.dart';
 import '../tiled_asset_resolver.dart';
 
 class TilePalette extends StatefulWidget {
@@ -193,18 +193,23 @@ class _TilePaletteState extends State<TilePalette> {
                   onPressed: widget.onAddTileset,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
                   tooltip: 'Delete Selected Tileset',
-                  onPressed: widget.selectedTileset != null
-                      ? widget.onDeleteSelectedTileset
-                      : null,
+                  onPressed:
+                      widget.selectedTileset != null
+                          ? widget.onDeleteSelectedTileset
+                          : null,
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
                   tooltip: 'Tileset Properties',
-                  onPressed: widget.selectedTileset != null
-                      ? widget.onInspectSelectedTileset
-                      : null,
+                  onPressed:
+                      widget.selectedTileset != null
+                          ? widget.onInspectSelectedTileset
+                          : null,
                 ),
                 IconButton(
                   icon: const Icon(Icons.layers_clear_outlined),
@@ -255,10 +260,10 @@ class _TilePaletteState extends State<TilePalette> {
     if (imageSource == null) {
       return const Center(child: Text('Tileset has no image.'));
     }
-    
+
     // Resolve asset
     final image = widget.resolver.getImage(imageSource, tileset: tileset);
-    
+
     if (image == null) {
       return Center(
         child: Column(
@@ -269,9 +274,9 @@ class _TilePaletteState extends State<TilePalette> {
             const Text('Image not found.'),
             const SizedBox(height: 8),
             ElevatedButton(
-              onPressed: widget.onInspectSelectedTileset, 
+              onPressed: widget.onInspectSelectedTileset,
               child: const Text('Fix Path'),
-            )
+            ),
           ],
         ),
       );
@@ -350,7 +355,11 @@ class _TilesetPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawImage(image, Offset.zero, Paint()..filterQuality = FilterQuality.none);
+    canvas.drawImage(
+      image,
+      Offset.zero,
+      Paint()..filterQuality = FilterQuality.none,
+    );
     final tileWidth = (tileset.tileWidth ?? 0).toDouble();
     final tileHeight = (tileset.tileHeight ?? 0).toDouble();
     if (tileWidth == 0 || tileHeight == 0) return;

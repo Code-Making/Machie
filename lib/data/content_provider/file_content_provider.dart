@@ -9,14 +9,14 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../file_handler/file_handler.dart';
-import '../file_handler/local_file_handler_saf.dart';
-import '../repositories/project/project_repository.dart';
 import '../../editor/models/editor_tab_models.dart';
+import '../../editor/plugins/editor_plugin_registry.dart';
 import '../../explorer/explorer_plugin_registry.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
-import '../../editor/plugins/editor_plugin_registry.dart';
+import '../file_handler/file_handler.dart';
+import '../file_handler/local_file_handler_saf.dart';
+import '../repositories/project/project_repository.dart';
 import 'internal_file_content_provider.dart';
 
 import '../dto/project_dto.dart'; // NEW IMPORT

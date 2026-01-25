@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 
 import '../data/content_provider/file_content_provider.dart';
-import '../project/project_models.dart';
-
 import '../data/dto/app_state_dto.dart';
 import '../data/dto/project_dto.dart';
 import '../editor/tab_metadata_notifier.dart';
+import '../project/project_models.dart';
 
 @immutable
 class AppState {
@@ -32,9 +31,11 @@ class AppState {
     Map<String, TabMetadata> liveTabMetadata,
     FileContentProviderRegistry registry,
   ) {
-    final ProjectDto? projectDto =
-        currentProject?.toDto(liveTabMetadata, registry);
-    
+    final ProjectDto? projectDto = currentProject?.toDto(
+      liveTabMetadata,
+      registry,
+    );
+
     return AppStateDto(
       knownProjects: knownProjects,
       lastOpenedProjectId: lastOpenedProjectId,

@@ -1,8 +1,10 @@
-import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
+
+import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/editor/plugins/tiled_editor/tiled_editor_settings_model.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
+import '../tiled_editor_settings_model.dart';
 
 class TiledEditorSettingsWidget extends ConsumerStatefulWidget {
   final TiledEditorSettings settings;
@@ -15,11 +17,12 @@ class TiledEditorSettingsWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TiledEditorSettingsWidget> createState() => _TiledEditorSettingsWidgetState();
+  ConsumerState<TiledEditorSettingsWidget> createState() =>
+      _TiledEditorSettingsWidgetState();
 }
 
-class _TiledEditorSettingsWidgetState extends ConsumerState<TiledEditorSettingsWidget> {
-  
+class _TiledEditorSettingsWidgetState
+    extends ConsumerState<TiledEditorSettingsWidget> {
   Future<void> _showColorPickerDialog(BuildContext context) async {
     final newColor = await showColorPickerDialog(
       context,
@@ -27,9 +30,7 @@ class _TiledEditorSettingsWidgetState extends ConsumerState<TiledEditorSettingsW
       enableOpacity: true,
     );
 
-    widget.onChanged(
-      widget.settings.copyWith(gridColorValue: newColor.value),
-    );
+    widget.onChanged(widget.settings.copyWith(gridColorValue: newColor.value));
   }
 
   Future<void> _pickSchemaFile(BuildContext context) async {
@@ -39,9 +40,7 @@ class _TiledEditorSettingsWidgetState extends ConsumerState<TiledEditorSettingsW
     );
 
     if (newPath != null) {
-      widget.onChanged(
-        widget.settings.copyWith(schemaFileName: newPath),
-      );
+      widget.onChanged(widget.settings.copyWith(schemaFileName: newPath));
     }
   }
 
@@ -57,7 +56,9 @@ class _TiledEditorSettingsWidgetState extends ConsumerState<TiledEditorSettingsW
           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
           title: const Text('Schema File'),
           subtitle: Text(
-            schemaPath.isEmpty ? 'Not set (defaults to ecs_schema.json)' : schemaPath,
+            schemaPath.isEmpty
+                ? 'Not set (defaults to ecs_schema.json)'
+                : schemaPath,
             style: TextStyle(
               color: schemaPath.isEmpty ? theme.disabledColor : null,
               fontStyle: schemaPath.isEmpty ? FontStyle.italic : null,
@@ -94,7 +95,9 @@ class _TiledEditorSettingsWidgetState extends ConsumerState<TiledEditorSettingsW
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text('Grid Thickness: ${widget.settings.gridThickness.toStringAsFixed(1)}'),
+          child: Text(
+            'Grid Thickness: ${widget.settings.gridThickness.toStringAsFixed(1)}',
+          ),
         ),
         Slider(
           value: widget.settings.gridThickness,
@@ -103,9 +106,7 @@ class _TiledEditorSettingsWidgetState extends ConsumerState<TiledEditorSettingsW
           divisions: 9,
           label: widget.settings.gridThickness.toStringAsFixed(1),
           onChanged: (value) {
-            widget.onChanged(
-              widget.settings.copyWith(gridThickness: value),
-            );
+            widget.onChanged(widget.settings.copyWith(gridThickness: value));
           },
         ),
       ],

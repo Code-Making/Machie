@@ -6,6 +6,7 @@ import 'dart:math';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
 import 'package:re_editor/re_editor.dart';
 
 import '../../../services/language/language_models.dart';
@@ -275,7 +276,14 @@ class CodeEditorUtils {
         final val = int.tryParse(hex, radix: 16);
         if (val != null) {
           final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-          matches.add(ColorMatch(start: m.start, end: m.end, color: color, text: m.group(0)!));
+          matches.add(
+            ColorMatch(
+              start: m.start,
+              end: m.end,
+              color: color,
+              text: m.group(0)!,
+            ),
+          );
         }
       }
     });
@@ -290,7 +298,14 @@ class CodeEditorUtils {
       final val = int.tryParse(hex, radix: 16);
       if (val != null) {
         final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-        matches.add(ColorMatch(start: m.start, end: m.end, color: color, text: m.group(0)!));
+        matches.add(
+          ColorMatch(
+            start: m.start,
+            end: m.end,
+            color: color,
+            text: m.group(0)!,
+          ),
+        );
       }
     });
     colorConstructorRegex.allMatches(text).forEach((m) {
@@ -299,7 +314,12 @@ class CodeEditorUtils {
         final val = int.tryParse(hex.substring(2), radix: 16);
         if (val != null) {
           matches.add(
-            ColorMatch(start: m.start, end: m.end, color: Color(val), text: m.group(0)!),
+            ColorMatch(
+              start: m.start,
+              end: m.end,
+              color: Color(val),
+              text: m.group(0)!,
+            ),
           );
         }
       }
@@ -400,9 +420,11 @@ class CodeEditorUtils {
                 backgroundColor: match.color,
                 color: textColor,
               ),
-              recognizer: onColorCodeTap == null
-                  ? null
-                  : (TapGestureRecognizer()..onTap = () => onColorCodeTap(match)),
+              recognizer:
+                  onColorCodeTap == null
+                      ? null
+                      : (TapGestureRecognizer()
+                        ..onTap = () => onColorCodeTap(match)),
             ),
           );
           lastSplitEnd = effectiveEnd - spanStart;

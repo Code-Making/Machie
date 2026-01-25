@@ -1,8 +1,7 @@
 // lib/editor/plugins/texture_packer/texture_packer_notifier.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:collection/collection.dart';
-import 'package:uuid/uuid.dart';
+
 import 'texture_packer_models.dart';
 
 class TexturePackerNotifier extends ChangeNotifier {
@@ -14,7 +13,7 @@ class TexturePackerNotifier extends ChangeNotifier {
   // Parent Resolution Helpers (Fixes the "Invisible Child" bug)
   // -------------------------------------------------------------------------
 
-  /// Returns a valid container ID. 
+  /// Returns a valid container ID.
   /// If [targetId] is a Folder/Animation/Root, returns [targetId].
   /// If [targetId] is a Sprite (leaf), returns the ID of the Sprite's parent.
   String _resolveValidPackerParent(String? targetId) {
@@ -30,12 +29,14 @@ class TexturePackerNotifier extends ChangeNotifier {
       }
       return null;
     }
+
     targetNode = findNode(project.tree);
 
     if (targetNode == null) return 'root'; // Fallback
 
     // 2. If it is a container, it is a valid parent.
-    if (targetNode.type == PackerItemType.folder || targetNode.type == PackerItemType.animation) {
+    if (targetNode.type == PackerItemType.folder ||
+        targetNode.type == PackerItemType.animation) {
       return targetNode.id;
     }
 
@@ -65,6 +66,7 @@ class TexturePackerNotifier extends ChangeNotifier {
       }
       return null;
     }
+
     targetNode = findNode(project.sourceImagesRoot);
 
     if (targetNode == null) return 'root';
@@ -98,18 +100,21 @@ class TexturePackerNotifier extends ChangeNotifier {
       }
       return null;
     }
+
     return find(project.sourceImagesRoot);
   }
-  
+
   SourceImageConfig? findSourceImageConfig(String id) {
     SourceImageConfig? traverse(SourceImageNode node) {
-      if (node.id == id && node.type == SourceNodeType.image) return node.content;
+      if (node.id == id && node.type == SourceNodeType.image)
+        return node.content;
       for (final child in node.children) {
         final result = traverse(child);
         if (result != null) return result;
       }
       return null;
     }
+
     return traverse(project.sourceImagesRoot);
   }
 
@@ -117,7 +122,7 @@ class TexturePackerNotifier extends ChangeNotifier {
     required String name,
     required SourceNodeType type,
     String? parentId,
-    SourceImageConfig? content, 
+    SourceImageConfig? content,
   }) {
     final newNode = SourceImageNode(name: name, type: type, content: content);
 
@@ -126,7 +131,9 @@ class TexturePackerNotifier extends ChangeNotifier {
 
     SourceImageNode insert(SourceImageNode currentNode) {
       if (currentNode.id == validParentId) {
-        return currentNode.copyWith(children: [...currentNode.children, newNode]);
+        return currentNode.copyWith(
+          children: [...currentNode.children, newNode],
+        );
       }
       return currentNode.copyWith(
         children: currentNode.children.map(insert).toList(),
@@ -144,10 +151,11 @@ class TexturePackerNotifier extends ChangeNotifier {
     if (nodeId == 'root') return;
 
     SourceImageNode removeRecursive(SourceImageNode current) {
-      final newChildren = current.children
-          .where((child) => child.id != nodeId)
-          .map(removeRecursive)
-          .toList();
+      final newChildren =
+          current.children
+              .where((child) => child.id != nodeId)
+              .map(removeRecursive)
+              .toList();
       return current.copyWith(children: newChildren);
     }
 
@@ -156,14 +164,14 @@ class TexturePackerNotifier extends ChangeNotifier {
     );
     notifyListeners();
   }
-  
+
   void moveSourceNode(String nodeId, String newParentId, int newIndex) {
-    if (nodeId == newParentId) return; 
+    if (nodeId == newParentId) return;
     if (nodeId == 'root') return;
 
     // Apply strict parent resolution (e.g. drop on Image -> move to Image's parent)
     final validParentId = _resolveValidSourceParent(newParentId);
-    
+
     // Cycle check
     if (_isSourceDescendant(nodeId, validParentId)) return;
 
@@ -172,13 +180,18 @@ class TexturePackerNotifier extends ChangeNotifier {
     final newRootWithoutNode = result.newRoot;
     final movedNode = result.extractedNode;
 
-    if (movedNode == null) return; 
+    if (movedNode == null) return;
 
     // Validation
     if (!_sourceNodeExists(newRootWithoutNode, validParentId)) return;
 
     // Insertion
-    final finalRoot = _insertSourceNode(newRootWithoutNode, validParentId, newIndex, movedNode);
+    final finalRoot = _insertSourceNode(
+      newRootWithoutNode,
+      validParentId,
+      newIndex,
+      movedNode,
+    );
 
     project = project.copyWith(sourceImagesRoot: finalRoot);
     notifyListeners();
@@ -193,6 +206,7 @@ class TexturePackerNotifier extends ChangeNotifier {
       if (node.id == targetId) return true;
       return node.children.any(contains);
     }
+
     return ancestor.children.any(contains);
   }
 
@@ -204,40 +218,62 @@ class TexturePackerNotifier extends ChangeNotifier {
     return false;
   }
 
-  ({SourceImageNode newRoot, SourceImageNode? extractedNode}) _extractSourceNode(SourceImageNode root, String idToExtract) {
+  ({SourceImageNode newRoot, SourceImageNode? extractedNode})
+  _extractSourceNode(SourceImageNode root, String idToExtract) {
     SourceImageNode? foundNode;
     SourceImageNode traverse(SourceImageNode current) {
       final index = current.children.indexWhere((c) => c.id == idToExtract);
       if (index != -1) {
         foundNode = current.children[index];
-        final newChildren = List<SourceImageNode>.from(current.children)..removeAt(index);
+        final newChildren = List<SourceImageNode>.from(current.children)
+          ..removeAt(index);
         return current.copyWith(children: newChildren);
       }
       final newChildren = current.children.map(traverse).toList();
       return current.copyWith(children: newChildren);
     }
+
     final newRoot = traverse(root);
     return (newRoot: newRoot, extractedNode: foundNode);
   }
 
-  SourceImageNode _insertSourceNode(SourceImageNode root, String parentId, int index, SourceImageNode nodeToInsert) {
+  SourceImageNode _insertSourceNode(
+    SourceImageNode root,
+    String parentId,
+    int index,
+    SourceImageNode nodeToInsert,
+  ) {
     if (root.id == parentId) {
       final safeIndex = index.clamp(0, root.children.length);
-      final newChildren = List<SourceImageNode>.from(root.children)..insert(safeIndex, nodeToInsert);
+      final newChildren = List<SourceImageNode>.from(root.children)
+        ..insert(safeIndex, nodeToInsert);
       return root.copyWith(children: newChildren);
     }
-    final newChildren = root.children.map((child) => _insertSourceNode(child, parentId, index, nodeToInsert)).toList();
+    final newChildren =
+        root.children
+            .map(
+              (child) =>
+                  _insertSourceNode(child, parentId, index, nodeToInsert),
+            )
+            .toList();
     return root.copyWith(children: newChildren);
   }
 
   void updateSlicingConfig(String nodeId, SlicingConfig newConfig) {
     SourceImageNode update(SourceImageNode current) {
-      if (current.id == nodeId && current.type == SourceNodeType.image && current.content != null) {
-        return current.copyWith(content: current.content!.copyWith(slicing: newConfig));
+      if (current.id == nodeId &&
+          current.type == SourceNodeType.image &&
+          current.content != null) {
+        return current.copyWith(
+          content: current.content!.copyWith(slicing: newConfig),
+        );
       }
       return current.copyWith(children: current.children.map(update).toList());
     }
-    project = project.copyWith(sourceImagesRoot: update(project.sourceImagesRoot));
+
+    project = project.copyWith(
+      sourceImagesRoot: update(project.sourceImagesRoot),
+    );
     notifyListeners();
   }
 
@@ -251,8 +287,11 @@ class TexturePackerNotifier extends ChangeNotifier {
       if (currentNode.id == nodeId) {
         return currentNode.copyWith(name: newName);
       }
-      return currentNode.copyWith(children: currentNode.children.map(renameRecursive).toList());
+      return currentNode.copyWith(
+        children: currentNode.children.map(renameRecursive).toList(),
+      );
     }
+
     project = project.copyWith(tree: renameRecursive(project.tree));
     notifyListeners();
   }
@@ -263,7 +302,7 @@ class TexturePackerNotifier extends ChangeNotifier {
     String? parentId,
   }) {
     final newNode = PackerItemNode(name: name, type: type);
-    
+
     // Strict Parent Resolution
     final validParentId = _resolveValidPackerParent(parentId);
 
@@ -273,33 +312,46 @@ class TexturePackerNotifier extends ChangeNotifier {
 
     PackerItemNode insert(PackerItemNode currentNode) {
       if (currentNode.id == safeParentId) {
-        return currentNode.copyWith(children: [...currentNode.children, newNode]);
+        return currentNode.copyWith(
+          children: [...currentNode.children, newNode],
+        );
       }
-      return currentNode.copyWith(children: currentNode.children.map(insert).toList());
+      return currentNode.copyWith(
+        children: currentNode.children.map(insert).toList(),
+      );
     }
-    
+
     project = project.copyWith(tree: insert(project.tree));
     notifyListeners();
     return newNode;
   }
-  
+
   void updateSpriteDefinition(String nodeId, SpriteDefinition definition) {
-      final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
-      newDefinitions[nodeId] = definition;
-      project = project.copyWith(definitions: newDefinitions);
-      notifyListeners();
+    final newDefinitions = Map<String, PackerItemDefinition>.from(
+      project.definitions,
+    );
+    newDefinitions[nodeId] = definition;
+    project = project.copyWith(definitions: newDefinitions);
+    notifyListeners();
   }
 
-  void updateAnimationDefinition(String nodeId, AnimationDefinition definition) {
-      final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
-      newDefinitions[nodeId] = definition;
-      project = project.copyWith(definitions: newDefinitions);
-      notifyListeners();
+  void updateAnimationDefinition(
+    String nodeId,
+    AnimationDefinition definition,
+  ) {
+    final newDefinitions = Map<String, PackerItemDefinition>.from(
+      project.definitions,
+    );
+    newDefinitions[nodeId] = definition;
+    project = project.copyWith(definitions: newDefinitions);
+    notifyListeners();
   }
 
   void deleteNode(String nodeId) {
     if (nodeId == 'root') return;
-    final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
+    final newDefinitions = Map<String, PackerItemDefinition>.from(
+      project.definitions,
+    );
     final List<String> idsToDelete = [];
 
     PackerItemNode? filter(PackerItemNode currentNode) {
@@ -308,20 +360,22 @@ class TexturePackerNotifier extends ChangeNotifier {
           idsToDelete.add(node.id);
           for (final child in node.children) collectIds(child);
         }
+
         collectIds(currentNode);
         return null;
       }
-      final newChildren = currentNode.children.map(filter).whereType<PackerItemNode>().toList();
+      final newChildren =
+          currentNode.children.map(filter).whereType<PackerItemNode>().toList();
       return currentNode.copyWith(children: newChildren);
     }
 
     final newTree = filter(project.tree);
     for (final id in idsToDelete) newDefinitions.remove(id);
-    
+
     project = project.copyWith(tree: newTree, definitions: newDefinitions);
     notifyListeners();
   }
-  
+
   List<PackerItemNode> createBatchSprites({
     required List<String> names,
     required List<SpriteDefinition> definitions,
@@ -330,7 +384,9 @@ class TexturePackerNotifier extends ChangeNotifier {
     if (names.length != definitions.length) return [];
 
     final List<PackerItemNode> newNodes = [];
-    final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
+    final newDefinitions = Map<String, PackerItemDefinition>.from(
+      project.definitions,
+    );
 
     for (int i = 0; i < names.length; i++) {
       final node = PackerItemNode(name: names[i], type: PackerItemType.sprite);
@@ -339,16 +395,24 @@ class TexturePackerNotifier extends ChangeNotifier {
     }
 
     final validParentId = _resolveValidPackerParent(parentId);
-    final safeParentId = _packerNodeExists(project.tree, validParentId) ? validParentId : 'root';
+    final safeParentId =
+        _packerNodeExists(project.tree, validParentId) ? validParentId : 'root';
 
     PackerItemNode insert(PackerItemNode currentNode) {
       if (currentNode.id == safeParentId) {
-        return currentNode.copyWith(children: [...currentNode.children, ...newNodes]);
+        return currentNode.copyWith(
+          children: [...currentNode.children, ...newNodes],
+        );
       }
-      return currentNode.copyWith(children: currentNode.children.map(insert).toList());
+      return currentNode.copyWith(
+        children: currentNode.children.map(insert).toList(),
+      );
     }
 
-    project = project.copyWith(tree: insert(project.tree), definitions: newDefinitions);
+    project = project.copyWith(
+      tree: insert(project.tree),
+      definitions: newDefinitions,
+    );
     notifyListeners();
     return newNodes;
   }
@@ -362,16 +426,18 @@ class TexturePackerNotifier extends ChangeNotifier {
     final animNode = PackerItemNode(name: name, type: PackerItemType.animation);
     final animDef = AnimationDefinition(speed: speed);
 
-    final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
+    final newDefinitions = Map<String, PackerItemDefinition>.from(
+      project.definitions,
+    );
     newDefinitions[animNode.id] = animDef;
 
     final List<PackerItemNode> framesToMove = [];
-    
+
     PackerItemNode removeFramesRecursive(PackerItemNode current) {
       final keptChildren = <PackerItemNode>[];
       for (final child in current.children) {
         if (frameNodeIds.contains(child.id)) {
-          framesToMove.add(child); 
+          framesToMove.add(child);
         } else {
           keptChildren.add(removeFramesRecursive(child));
         }
@@ -380,28 +446,41 @@ class TexturePackerNotifier extends ChangeNotifier {
     }
 
     final treeAfterRemoval = removeFramesRecursive(project.tree);
-    framesToMove.sort((a, b) => frameNodeIds.indexOf(a.id).compareTo(frameNodeIds.indexOf(b.id)));
+    framesToMove.sort(
+      (a, b) =>
+          frameNodeIds.indexOf(a.id).compareTo(frameNodeIds.indexOf(b.id)),
+    );
     final populatedAnimNode = animNode.copyWith(children: framesToMove);
 
     // For animations, we resolve parent just like regular nodes
     final validParentId = _resolveValidPackerParent(parentId);
-    final safeParentId = _packerNodeExists(treeAfterRemoval, validParentId) ? validParentId : 'root';
+    final safeParentId =
+        _packerNodeExists(treeAfterRemoval, validParentId)
+            ? validParentId
+            : 'root';
 
     PackerItemNode insertRecursive(PackerItemNode current) {
       if (current.id == safeParentId) {
-        return current.copyWith(children: [...current.children, populatedAnimNode]);
+        return current.copyWith(
+          children: [...current.children, populatedAnimNode],
+        );
       }
-      return current.copyWith(children: current.children.map(insertRecursive).toList());
+      return current.copyWith(
+        children: current.children.map(insertRecursive).toList(),
+      );
     }
 
-    project = project.copyWith(tree: insertRecursive(treeAfterRemoval), definitions: newDefinitions);
+    project = project.copyWith(
+      tree: insertRecursive(treeAfterRemoval),
+      definitions: newDefinitions,
+    );
     notifyListeners();
   }
 
   void moveNode(String nodeId, String newParentId, int newIndex) {
     if (nodeId == newParentId) return;
     if (nodeId == 'root') return;
-    
+
     // Resolve valid parent (drop on Sprite -> move to Sprite's parent)
     final validParentId = _resolveValidPackerParent(newParentId);
 
@@ -415,7 +494,12 @@ class TexturePackerNotifier extends ChangeNotifier {
 
     if (!_packerNodeExists(newTreeWithoutNode, validParentId)) return;
 
-    final finalTree = _insertPackerNode(newTreeWithoutNode, validParentId, newIndex, movedNode);
+    final finalTree = _insertPackerNode(
+      newTreeWithoutNode,
+      validParentId,
+      newIndex,
+      movedNode,
+    );
 
     project = project.copyWith(tree: finalTree);
     notifyListeners();
@@ -440,6 +524,7 @@ class TexturePackerNotifier extends ChangeNotifier {
       }
       return null;
     }
+
     final ancestor = find(project.tree);
     if (ancestor == null) return false;
 
@@ -447,41 +532,60 @@ class TexturePackerNotifier extends ChangeNotifier {
       if (node.id == targetId) return true;
       return node.children.any(contains);
     }
+
     return ancestor.children.any(contains);
   }
 
-  ({PackerItemNode newRoot, PackerItemNode? extractedNode}) _extractPackerNode(PackerItemNode root, String idToExtract) {
+  ({PackerItemNode newRoot, PackerItemNode? extractedNode}) _extractPackerNode(
+    PackerItemNode root,
+    String idToExtract,
+  ) {
     PackerItemNode? foundNode;
     PackerItemNode traverse(PackerItemNode current) {
       final index = current.children.indexWhere((c) => c.id == idToExtract);
       if (index != -1) {
         foundNode = current.children[index];
-        final newChildren = List<PackerItemNode>.from(current.children)..removeAt(index);
+        final newChildren = List<PackerItemNode>.from(current.children)
+          ..removeAt(index);
         return current.copyWith(children: newChildren);
       }
       final newChildren = current.children.map(traverse).toList();
       return current.copyWith(children: newChildren);
     }
+
     final newRoot = traverse(root);
     return (newRoot: newRoot, extractedNode: foundNode);
   }
 
-  PackerItemNode _insertPackerNode(PackerItemNode root, String parentId, int index, PackerItemNode nodeToInsert) {
+  PackerItemNode _insertPackerNode(
+    PackerItemNode root,
+    String parentId,
+    int index,
+    PackerItemNode nodeToInsert,
+  ) {
     if (root.id == parentId) {
       final safeIndex = index.clamp(0, root.children.length);
-      final newChildren = List<PackerItemNode>.from(root.children)..insert(safeIndex, nodeToInsert);
+      final newChildren = List<PackerItemNode>.from(root.children)
+        ..insert(safeIndex, nodeToInsert);
       return root.copyWith(children: newChildren);
     }
-    final newChildren = root.children.map((child) => _insertPackerNode(child, parentId, index, nodeToInsert)).toList();
+    final newChildren =
+        root.children
+            .map(
+              (child) =>
+                  _insertPackerNode(child, parentId, index, nodeToInsert),
+            )
+            .toList();
     return root.copyWith(children: newChildren);
   }
-  
+
   List<SourceImageNode> getAllSourceImages() {
     final List<SourceImageNode> images = [];
     void traverse(SourceImageNode node) {
       if (node.type == SourceNodeType.image) images.add(node);
       for (final child in node.children) traverse(child);
     }
+
     traverse(project.sourceImagesRoot);
     return images;
   }

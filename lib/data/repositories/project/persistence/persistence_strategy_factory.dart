@@ -1,10 +1,10 @@
 import 'package:shared_preferences/shared_preferences.dart'; // NEW
 
-import '../../../file_handler/file_handler.dart';
-import '../project_state_persistence_strategy.dart';
-import '../local_folder_persistence_strategy.dart';
-import '../simple_state_persistence_strategy.dart';
 import '../../../../project/project_models.dart';
+import '../../../file_handler/file_handler.dart';
+import '../local_folder_persistence_strategy.dart';
+import '../project_state_persistence_strategy.dart';
+import '../simple_state_persistence_strategy.dart';
 
 /// Defines a factory for creating instances of a specific [ProjectStatePersistenceStrategy].
 abstract class PersistenceStrategyFactory {
@@ -19,10 +19,10 @@ abstract class PersistenceStrategyFactory {
   });
 }
 
-
 // --- Concrete Factory Implementations ---
 
-class LocalFolderPersistenceStrategyFactory implements PersistenceStrategyFactory {
+class LocalFolderPersistenceStrategyFactory
+    implements PersistenceStrategyFactory {
   @override
   ProjectStatePersistenceStrategy get strategyInfo =>
       LocalFolderPersistenceStrategy(UnimplementedFileHandler(), '');
@@ -38,7 +38,8 @@ class LocalFolderPersistenceStrategyFactory implements PersistenceStrategyFactor
   }
 }
 
-class SimpleStatePersistenceStrategyFactory implements PersistenceStrategyFactory {
+class SimpleStatePersistenceStrategyFactory
+    implements PersistenceStrategyFactory {
   @override
   ProjectStatePersistenceStrategy get strategyInfo =>
       SimpleStatePersistenceStrategy(null, UnimplementedPrefs(), '');
@@ -67,8 +68,8 @@ class UnimplementedFileHandler implements FileHandler {
       'This FileHandler is a placeholder and should not be used for operations.',
     );
   }
-  
-    @override
+
+  @override
   String resolveRelativePath(String basePath, String relativePath) => '';
 
   @override
@@ -76,7 +77,6 @@ class UnimplementedFileHandler implements FileHandler {
 
   @override
   String getDirectoryName(String path) => '';
-  
 }
 
 /// A placeholder SharedPreferences used only to get descriptive info.

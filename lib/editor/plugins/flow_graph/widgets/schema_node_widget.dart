@@ -1,13 +1,15 @@
 // FILE: lib/editor/plugins/flow_graph/widgets/schema_node_widget.dart
 
-import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'package:collection/collection.dart';
+import 'package:flex_color_picker/flex_color_picker.dart';
+
 import '../flow_graph_notifier.dart';
 import '../models/flow_graph_models.dart';
-import '../models/flow_schema_models.dart';
 import '../models/flow_references.dart';
+import '../models/flow_schema_models.dart';
 import 'property_tiled_object_picker.dart';
 
 class SchemaNodeWidget extends StatelessWidget {
@@ -30,7 +32,7 @@ class SchemaNodeWidget extends StatelessWidget {
 
   bool _isInputConnected(String portKey) {
     return notifier.graph.connections.any(
-      (c) => c.inputNodeId == node.id && c.inputPortKey == portKey
+      (c) => c.inputNodeId == node.id && c.inputPortKey == portKey,
     );
   }
 
@@ -39,16 +41,21 @@ class SchemaNodeWidget extends StatelessWidget {
     if (schema == null) return _buildErrorNode();
 
     final inputKeys = schema!.inputs.map((i) => i.key).toSet();
-    final standaloneProps = schema!.properties.where((p) => !inputKeys.contains(p.key)).toList();
+    final standaloneProps =
+        schema!.properties.where((p) => !inputKeys.contains(p.key)).toList();
 
     return GestureDetector(
       onPanUpdate: (details) {
-        notifier.moveNode(node.id, node.position + (details.delta / canvasScale));
+        notifier.moveNode(
+          node.id,
+          node.position + (details.delta / canvasScale),
+        );
       },
-      onSecondaryTapUp: (details) => _showNodeContextMenu(context, details.globalPosition),
+      onSecondaryTapUp:
+          (details) => _showNodeContextMenu(context, details.globalPosition),
       onTap: () => notifier.selectNode(node.id),
       child: Container(
-        width: 200, 
+        width: 200,
         decoration: BoxDecoration(
           color: const Color(0xFF2D2D2D),
           borderRadius: BorderRadius.circular(8),
@@ -68,21 +75,31 @@ class SchemaNodeWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: _getCategoryColor(schema!.category),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(7),
+                ),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       schema!.label,
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   InkWell(
                     onTap: () => notifier.deleteNode(node.id),
-                    child: const Icon(Icons.close, size: 16, color: Colors.white54),
-                  )
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.white54,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -95,19 +112,28 @@ class SchemaNodeWidget extends StatelessWidget {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: schema!.inputs.map((input) {
-                      final prop = schema!.properties.firstWhereOrNull((p) => p.key == input.key);
-                      final connected = _isInputConnected(input.key);
-                      return _buildInputRow(context, input, prop, connected);
-                    }).toList(),
+                    children:
+                        schema!.inputs.map((input) {
+                          final prop = schema!.properties.firstWhereOrNull(
+                            (p) => p.key == input.key,
+                          );
+                          final connected = _isInputConnected(input.key);
+                          return _buildInputRow(
+                            context,
+                            input,
+                            prop,
+                            connected,
+                          );
+                        }).toList(),
                   ),
                 ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
-                    children: schema!.outputs.map((output) {
-                      return _buildOutputRow(context, output);
-                    }).toList(),
+                    children:
+                        schema!.outputs.map((output) {
+                          return _buildOutputRow(context, output);
+                        }).toList(),
                   ),
                 ),
               ],
@@ -116,9 +142,11 @@ class SchemaNodeWidget extends StatelessWidget {
             // Properties
             if (standaloneProps.isNotEmpty) ...[
               const Divider(color: Colors.white12, height: 16),
-              ...standaloneProps.map((prop) => _buildPropertyField(context, prop)),
+              ...standaloneProps.map(
+                (prop) => _buildPropertyField(context, prop),
+              ),
             ],
-            
+
             const SizedBox(height: 8),
           ],
         ),
@@ -127,7 +155,8 @@ class SchemaNodeWidget extends StatelessWidget {
   }
 
   void _showNodeContextMenu(BuildContext context, Offset globalPos) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
     final RelativeRect position = RelativeRect.fromRect(
       globalPos & const Size(1, 1),
       Offset.zero & overlay.size,
@@ -136,34 +165,42 @@ class SchemaNodeWidget extends StatelessWidget {
     showMenu(
       context: context,
       position: position,
-      items: [
-        const PopupMenuItem(value: 'delete', child: Text('Delete Node')),
-      ],
+      items: [const PopupMenuItem(value: 'delete', child: Text('Delete Node'))],
     ).then((value) {
       if (value == 'delete') notifier.deleteNode(node.id);
     });
   }
 
   // --- Input Row ---
-  Widget _buildInputRow(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
+  Widget _buildInputRow(
+    BuildContext context,
+    FlowPortDefinition port,
+    FlowPropertyDefinition? prop,
+    bool isConnected,
+  ) {
     return SizedBox(
-      height: 32, 
+      height: 32,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildPortTarget(context, port, isConnected), 
-          Expanded(
-            child: _buildInputContent(context, port, prop, isConnected),
-          ),
+          _buildPortTarget(context, port, isConnected),
+          Expanded(child: _buildInputContent(context, port, prop, isConnected)),
         ],
       ),
     );
   }
 
-  Widget _buildInputContent(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
+  Widget _buildInputContent(
+    BuildContext context,
+    FlowPortDefinition port,
+    FlowPropertyDefinition? prop,
+    bool isConnected,
+  ) {
     if (isConnected || prop == null) {
       return Padding(
-        padding: const EdgeInsets.only(left: 0), // Adjusted padding since Target is larger
+        padding: const EdgeInsets.only(
+          left: 0,
+        ), // Adjusted padding since Target is larger
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
@@ -212,13 +249,15 @@ class SchemaNodeWidget extends StatelessWidget {
 
   Widget _buildPortSource(BuildContext context, FlowPortDefinition port) {
     final color = _getPortColor(port);
-    
+
     // Transparent wrapper for larger touch area, visual dot centered
     return Draggable<String>(
       data: node.id,
       feedback: const SizedBox.shrink(),
       hitTestBehavior: HitTestBehavior.opaque,
-      onDragStarted: () => notifier.startConnectionDrag(node.id, port.key, false, port.type),
+      onDragStarted:
+          () =>
+              notifier.startConnectionDrag(node.id, port.key, false, port.type),
       onDragUpdate: (details) {
         final localPos = globalToLocal(details.globalPosition);
         notifier.updateConnectionDrag(localPos);
@@ -228,7 +267,9 @@ class SchemaNodeWidget extends StatelessWidget {
         width: 30, // Larger width for touch
         height: 30, // Larger height for touch
         alignment: Alignment.center,
-        color: Colors.transparent, // Debug: Set to Colors.blue.withOpacity(0.2) to see hit area
+        color:
+            Colors
+                .transparent, // Debug: Set to Colors.blue.withOpacity(0.2) to see hit area
         child: Container(
           width: 12,
           height: 12,
@@ -242,7 +283,11 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPortTarget(BuildContext context, FlowPortDefinition port, bool isConnected) {
+  Widget _buildPortTarget(
+    BuildContext context,
+    FlowPortDefinition port,
+    bool isConnected,
+  ) {
     final color = _getPortColor(port);
 
     return GestureDetector(
@@ -252,8 +297,9 @@ class SchemaNodeWidget extends StatelessWidget {
       child: DragTarget<String>(
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
-          final finalColor = isHovering ? Colors.white : (isConnected ? Colors.white : color);
-          
+          final finalColor =
+              isHovering ? Colors.white : (isConnected ? Colors.white : color);
+
           return Container(
             width: 30, // Larger hit area
             height: 30, // Larger hit area
@@ -266,16 +312,19 @@ class SchemaNodeWidget extends StatelessWidget {
                 color: finalColor,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isHovering ? Colors.white : Colors.black87, 
-                  width: isHovering ? 2.5 : 1.5 // Thicker border on hover
+                  color: isHovering ? Colors.white : Colors.black87,
+                  width: isHovering ? 2.5 : 1.5, // Thicker border on hover
                 ),
-                boxShadow: isHovering ? [
-                  BoxShadow(
-                    color: color.withOpacity(0.8),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  )
-                ] : null,
+                boxShadow:
+                    isHovering
+                        ? [
+                          BoxShadow(
+                            color: color.withOpacity(0.8),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                        : null,
               ),
             ),
           );
@@ -284,9 +333,14 @@ class SchemaNodeWidget extends StatelessWidget {
           final draggingType = notifier.draggingPortType;
           if (draggingType == null) return false;
           if (draggingType == port.type) return true;
-          if (draggingType == FlowPortType.execution && port.type != FlowPortType.execution) return false;
-          if (draggingType != FlowPortType.execution && port.type == FlowPortType.execution) return false;
-          if (draggingType == FlowPortType.any || port.type == FlowPortType.any) return true;
+          if (draggingType == FlowPortType.execution &&
+              port.type != FlowPortType.execution)
+            return false;
+          if (draggingType != FlowPortType.execution &&
+              port.type == FlowPortType.execution)
+            return false;
+          if (draggingType == FlowPortType.any || port.type == FlowPortType.any)
+            return true;
           return false;
         },
         onAccept: (data) => notifier.endConnectionDrag(node.id, port.key),
@@ -295,20 +349,29 @@ class SchemaNodeWidget extends StatelessWidget {
   }
 
   // ... (buildPropertyField, buildInlineProperty, dialogs, colors - UNCHANGED) ...
-  
-  Widget _buildPropertyField(BuildContext context, FlowPropertyDefinition prop) {
+
+  Widget _buildPropertyField(
+    BuildContext context,
+    FlowPropertyDefinition prop,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          Text("${prop.label}: ", style: const TextStyle(fontSize: 11, color: Colors.white54)),
+          Text(
+            "${prop.label}: ",
+            style: const TextStyle(fontSize: 11, color: Colors.white54),
+          ),
           Expanded(child: _buildInlineProperty(context, prop)),
         ],
       ),
     );
   }
 
-  Widget _buildInlineProperty(BuildContext context, FlowPropertyDefinition prop) {
+  Widget _buildInlineProperty(
+    BuildContext context,
+    FlowPropertyDefinition prop,
+  ) {
     final val = node.properties[prop.key] ?? prop.defaultValue;
 
     if (prop.type == FlowPropertyType.tiledObjectRef) {
@@ -316,7 +379,8 @@ class SchemaNodeWidget extends StatelessWidget {
       return PropertyTiledObjectPicker(
         definition: prop,
         value: refValue,
-        onChanged: (newRef) => notifier.updateNodeProperty(node.id, prop.key, newRef),
+        onChanged:
+            (newRef) => notifier.updateNodeProperty(node.id, prop.key, newRef),
       );
     }
 
@@ -334,7 +398,10 @@ class SchemaNodeWidget extends StatelessWidget {
                 color: boolValue ? Colors.greenAccent : Colors.grey,
               ),
               const SizedBox(width: 4),
-              Text(boolValue ? "True" : "False", style: const TextStyle(fontSize: 11, color: Colors.white))
+              Text(
+                boolValue ? "True" : "False",
+                style: const TextStyle(fontSize: 11, color: Colors.white),
+              ),
             ],
           ),
         ),
@@ -346,7 +413,8 @@ class SchemaNodeWidget extends StatelessWidget {
       return GestureDetector(
         onTap: () => _showEditDialog(context, prop, val),
         child: Container(
-          height: 16, width: 30,
+          height: 16,
+          width: 30,
           decoration: BoxDecoration(
             color: color,
             border: Border.all(color: Colors.white30),
@@ -378,7 +446,11 @@ class SchemaNodeWidget extends StatelessWidget {
   }
 
   // Helper methods copied for completeness if full file replace
-  Future<void> _showEditDialog(BuildContext context, FlowPropertyDefinition prop, dynamic currentValue) async {
+  Future<void> _showEditDialog(
+    BuildContext context,
+    FlowPropertyDefinition prop,
+    dynamic currentValue,
+  ) async {
     dynamic result;
     switch (prop.type) {
       case FlowPropertyType.string:
@@ -386,72 +458,128 @@ class SchemaNodeWidget extends StatelessWidget {
       case FlowPropertyType.float:
         result = await showDialog(
           context: context,
-          builder: (ctx) => _ValueEditDialog(
-            title: prop.label,
-            initialValue: currentValue?.toString() ?? '',
-            isNumeric: prop.type != FlowPropertyType.string,
-            isFloat: prop.type == FlowPropertyType.float,
-          ),
+          builder:
+              (ctx) => _ValueEditDialog(
+                title: prop.label,
+                initialValue: currentValue?.toString() ?? '',
+                isNumeric: prop.type != FlowPropertyType.string,
+                isFloat: prop.type == FlowPropertyType.float,
+              ),
         );
-        if (result != null && prop.type == FlowPropertyType.integer) result = int.tryParse(result);
-        if (result != null && prop.type == FlowPropertyType.float) result = double.tryParse(result);
+        if (result != null && prop.type == FlowPropertyType.integer)
+          result = int.tryParse(result);
+        if (result != null && prop.type == FlowPropertyType.float)
+          result = double.tryParse(result);
         break;
       case FlowPropertyType.select:
         result = await showDialog(
           context: context,
-          builder: (ctx) => SimpleDialog(
-            title: Text("Select ${prop.label}"),
-            children: (prop.options ?? []).map((opt) => SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, opt),
-              child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(opt)),
-            )).toList(),
-          ),
+          builder:
+              (ctx) => SimpleDialog(
+                title: Text("Select ${prop.label}"),
+                children:
+                    (prop.options ?? [])
+                        .map(
+                          (opt) => SimpleDialogOption(
+                            onPressed: () => Navigator.pop(ctx, opt),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(opt),
+                            ),
+                          ),
+                        )
+                        .toList(),
+              ),
         );
         break;
       case FlowPropertyType.color:
         final Color current = _parseColor(currentValue) ?? Colors.white;
-        final newColor = await showColorPickerDialog(context, current, enableOpacity: true);
-        result = '#${newColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+        final newColor = await showColorPickerDialog(
+          context,
+          current,
+          enableOpacity: true,
+        );
+        result =
+            '#${newColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
         break;
-      default: break;
+      default:
+        break;
     }
     if (result != null) notifier.updateNodeProperty(node.id, prop.key, result);
   }
 
   Widget _buildErrorNode() {
     return Container(
-      width: 150, padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: Colors.red.shade900, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red)),
-      child: Column(children: [Text(node.type, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)), const Text("Missing Schema", style: TextStyle(fontSize: 10, color: Colors.white70))]),
+      width: 150,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.red.shade900,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red),
+      ),
+      child: Column(
+        children: [
+          Text(
+            node.type,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const Text(
+            "Missing Schema",
+            style: TextStyle(fontSize: 10, color: Colors.white70),
+          ),
+        ],
+      ),
     );
   }
 
   Color _getPortColor(FlowPortDefinition port) {
     if (port.customColor != null) return port.customColor!;
     switch (port.type) {
-      case FlowPortType.execution: return Colors.white;
-      case FlowPortType.string: return const Color(0xFFE91E63);
-      case FlowPortType.number: return const Color(0xFF00E676);
-      case FlowPortType.boolean: return const Color(0xFFD50000);
-      case FlowPortType.vector2: return const Color(0xFFFFEA00);
-      case FlowPortType.tiledObject: return const Color(0xFF2979FF);
-      default: return Colors.grey;
+      case FlowPortType.execution:
+        return Colors.white;
+      case FlowPortType.string:
+        return const Color(0xFFE91E63);
+      case FlowPortType.number:
+        return const Color(0xFF00E676);
+      case FlowPortType.boolean:
+        return const Color(0xFFD50000);
+      case FlowPortType.vector2:
+        return const Color(0xFFFFEA00);
+      case FlowPortType.tiledObject:
+        return const Color(0xFF2979FF);
+      default:
+        return Colors.grey;
     }
   }
 
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
-      case 'logic': return const Color(0xFF1565C0);
-      case 'math': return const Color(0xFF00695C);
-      case 'events': return const Color(0xFFC62828);
-      case 'tiled': return const Color(0xFF2E7D32);
-      case 'debug': return const Color(0xFF424242);
-      default: return const Color(0xFF455A64);
+      case 'logic':
+        return const Color(0xFF1565C0);
+      case 'math':
+        return const Color(0xFF00695C);
+      case 'events':
+        return const Color(0xFFC62828);
+      case 'tiled':
+        return const Color(0xFF2E7D32);
+      case 'debug':
+        return const Color(0xFF424242);
+      default:
+        return const Color(0xFF455A64);
     }
   }
-  
+
   Color? _parseColor(dynamic val) {
-    if (val is String) { try { var hex = val.replaceAll('#', ''); if (hex.length == 6) hex = 'FF$hex'; return Color(int.parse(hex, radix: 16)); } catch (_) {} }
+    if (val is String) {
+      try {
+        var hex = val.replaceAll('#', '');
+        if (hex.length == 6) hex = 'FF$hex';
+        return Color(int.parse(hex, radix: 16));
+      } catch (_) {}
+    }
     return null;
   }
 }
@@ -461,7 +589,12 @@ class _ValueEditDialog extends StatefulWidget {
   final String initialValue;
   final bool isNumeric;
   final bool isFloat;
-  const _ValueEditDialog({required this.title, required this.initialValue, this.isNumeric = false, this.isFloat = false});
+  const _ValueEditDialog({
+    required this.title,
+    required this.initialValue,
+    this.isNumeric = false,
+    this.isFloat = false,
+  });
   @override
   State<_ValueEditDialog> createState() => _ValueEditDialogState();
 }
@@ -469,21 +602,46 @@ class _ValueEditDialog extends StatefulWidget {
 class _ValueEditDialogState extends State<_ValueEditDialog> {
   late TextEditingController _ctrl;
   @override
-  void initState() { super.initState(); _ctrl = TextEditingController(text: widget.initialValue); }
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialValue);
+  }
+
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text("Edit ${widget.title}"),
       content: TextField(
-        controller: _ctrl, autofocus: true,
-        keyboardType: widget.isNumeric ? TextInputType.numberWithOptions(decimal: widget.isFloat) : TextInputType.text,
-        inputFormatters: widget.isNumeric ? [widget.isFloat ? FilteringTextInputFormatter.allow(RegExp(r'[0-9.-]')) : FilteringTextInputFormatter.digitsOnly] : null,
+        controller: _ctrl,
+        autofocus: true,
+        keyboardType:
+            widget.isNumeric
+                ? TextInputType.numberWithOptions(decimal: widget.isFloat)
+                : TextInputType.text,
+        inputFormatters:
+            widget.isNumeric
+                ? [
+                  widget.isFloat
+                      ? FilteringTextInputFormatter.allow(RegExp(r'[0-9.-]'))
+                      : FilteringTextInputFormatter.digitsOnly,
+                ]
+                : null,
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-        FilledButton(onPressed: () => Navigator.pop(context, _ctrl.text), child: const Text("OK")),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel"),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text),
+          child: const Text("OK"),
+        ),
       ],
     );
   }

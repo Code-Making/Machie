@@ -1,27 +1,30 @@
 // FILE: lib/editor/plugins/flow_graph/flow_graph_editor_plugin.dart
 
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/command/command_models.dart';
-import 'package:machine/editor/models/editor_plugin_models.dart';
-import 'package:machine/editor/models/editor_tab_models.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/asset_cache/asset_models.dart';
 
-import 'asset/flow_loaders.dart';
-import 'flow_graph_editor_tab.dart';
-import 'flow_graph_editor_widget.dart';
-import 'models/flow_graph_models.dart';
+import 'package:flutter/material.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../app/app_notifier.dart';
+import '../../../asset_cache/asset_models.dart';
+import '../../../command/command_models.dart';
+import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
-import 'flow_graph_settings_model.dart';
-import 'widgets/flow_graph_settings_widget.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../models/editor_command_context.dart';
+import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
-import '../../../command/command_widgets.dart';
+import 'asset/flow_loaders.dart';
 import 'flow_graph_command_context.dart';
-import '../../models/editor_command_context.dart';
+import 'flow_graph_editor_tab.dart';
+import 'flow_graph_editor_widget.dart';
+import 'flow_graph_settings_model.dart';
+import 'models/flow_graph_models.dart';
+import 'widgets/flow_graph_settings_widget.dart';
+
 import 'widgets/flow_graph_export_dialog.dart'; // Import the new dialog
 
 class FlowGraphEditorPlugin extends EditorPlugin {
@@ -42,21 +45,18 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
-  
-    @override
+  @override
   PluginSettings? get settings => FlowGraphSettings();
 
   @override
   Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) =>
-      FlowGraphSettingsWidget(
-        settings: settings as FlowGraphSettings,
-        onChanged: onChanged,
-      );
+  ) => FlowGraphSettingsWidget(
+    settings: settings as FlowGraphSettings,
+    onChanged: onChanged,
+  );
 
-  
   @override
   List<AssetLoader> get assetLoaders => [
     FlowSchemaLoader(),
@@ -67,7 +67,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   bool supportsFile(DocumentFile file) {
     return file.name.toLowerCase().endsWith('.fg');
   }
-
 
   @override
   Future<EditorTab> createTab(
@@ -94,13 +93,11 @@ class FlowGraphEditorPlugin extends EditorPlugin {
       tab: tab,
     );
   }
-  
+
   @override
   Widget buildToolbar(WidgetRef ref) {
     return const BottomToolbar();
   }
-
-
 
   @override
   List<Command> getCommands(Ref ref) {
@@ -111,14 +108,22 @@ class FlowGraphEditorPlugin extends EditorPlugin {
         icon: const Icon(Icons.save),
         defaultPositions: [AppCommandPositions.appBar],
         sourcePlugin: id,
-        execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
+        execute:
+            (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
         canExecute: (ref) {
-          final tabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+          final tabId = ref.watch(
+            appNotifierProvider.select(
+              (s) => s.value?.currentProject?.session.currentTab?.id,
+            ),
+          );
           if (tabId == null) return false;
-          return ref.watch(tabMetadataProvider.select((m) => m[tabId]))?.isDirty ?? false;
+          return ref
+                  .watch(tabMetadataProvider.select((m) => m[tabId]))
+                  ?.isDirty ??
+              false;
         },
       ),
-      
+
       // NEW: Export Command
       BaseCommand(
         id: 'flow_export',
@@ -131,26 +136,28 @@ class FlowGraphEditorPlugin extends EditorPlugin {
           if (editor?.mounted == true) {
             await showDialog(
               context: editor!.context,
-              builder: (_) => FlowGraphExportDialog(
-                tabId: editor.widget.tab.id,
-                notifier: editor.notifier,
-              ),
+              builder:
+                  (_) => FlowGraphExportDialog(
+                    tabId: editor.widget.tab.id,
+                    notifier: editor.notifier,
+                  ),
             );
           }
         },
       ),
-      
+
       BaseCommand(
         id: 'flow_delete',
         label: 'Delete',
         icon: const Icon(Icons.delete_outline),
         defaultPositions: [AppCommandPositions.appBar],
         sourcePlugin: id,
-        execute: (ref) async => _getEditorState(ref)?.notifier.deleteSelection(),
+        execute:
+            (ref) async => _getEditorState(ref)?.notifier.deleteSelection(),
         canExecute: (ref) {
-           final ctx = ref.watch(activeCommandContextProvider);
-           return ctx is FlowGraphCommandContext && ctx.hasSelection;
-        }
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is FlowGraphCommandContext && ctx.hasSelection;
+        },
       ),
       BaseCommand(
         id: 'flow_add_node',
@@ -162,7 +169,7 @@ class FlowGraphEditorPlugin extends EditorPlugin {
           _getEditorState(ref)?.togglePalette();
         },
       ),
-      
+
       BaseCommand(
         id: 'flow_undo',
         label: 'Undo',
@@ -183,7 +190,8 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   }
 
   FlowGraphEditorWidgetState? _getEditorState(WidgetRef ref) {
-    final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    final tab =
+        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (tab is FlowGraphEditorTab) {
       return tab.editorKey.currentState;
     }

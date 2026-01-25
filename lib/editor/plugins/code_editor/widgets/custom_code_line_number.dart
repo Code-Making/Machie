@@ -3,6 +3,7 @@
 // =========================================
 
 import 'package:flutter/material.dart';
+
 import 'package:re_editor/re_editor.dart';
 
 /// A custom line number widget that supports highlighting the background of specific lines.

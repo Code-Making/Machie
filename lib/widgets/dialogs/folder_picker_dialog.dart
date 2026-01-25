@@ -1,18 +1,23 @@
 // lib/editor/plugins/refactor_editor/folder_picker_dialog.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
+import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project/project_repository.dart';
 import '../../project/services/project_hierarchy_service.dart';
-import '../../data/file_handler/file_handler.dart';
+
 import '../file_list_view.dart'; // Import for FileTypeIcon
 
 // RENAMED: The dialog is now more generic.
 class FileOrFolderPickerDialog extends ConsumerStatefulWidget {
   final String? initialUri; // Add this parameter
-  const FileOrFolderPickerDialog({super.key, this.initialUri}); // Update constructor
+  const FileOrFolderPickerDialog({
+    super.key,
+    this.initialUri,
+  }); // Update constructor
 
   @override
   ConsumerState<FileOrFolderPickerDialog> createState() =>
@@ -22,14 +27,16 @@ class FileOrFolderPickerDialog extends ConsumerStatefulWidget {
 class _FileOrFolderPickerDialogState
     extends ConsumerState<FileOrFolderPickerDialog> {
   late String _currentPathUri;
-  String? _selectedPath; 
+  String? _selectedPath;
 
   @override
   void initState() {
     super.initState();
     // Use the initialUri if provided, otherwise fall back to project root.
-    _currentPathUri = widget.initialUri ??
-        ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
+    _currentPathUri =
+        widget.initialUri ??
+        ref.read(appNotifierProvider).value?.currentProject?.rootUri ??
+        '';
     _selectedPath = null;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

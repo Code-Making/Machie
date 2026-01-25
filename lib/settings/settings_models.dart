@@ -30,7 +30,6 @@ class AppSettings {
   }
 }
 
-
 class GeneralSettings extends MachineSettings {
   bool hideAppBarInFullScreen;
   bool hideTabBarInFullScreen;

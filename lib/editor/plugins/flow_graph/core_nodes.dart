@@ -11,10 +11,19 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Input',
       description: 'Defines a string input parameter for this graph.',
       outputs: const [
-        FlowPortDefinition(key: 'value', label: 'Value', type: FlowPortType.string),
+        FlowPortDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPortType.string,
+        ),
       ],
       properties: const [
-        FlowPropertyDefinition(key: 'name', label: 'Name', type: FlowPropertyType.string, defaultValue: 'myString'),
+        FlowPropertyDefinition(
+          key: 'name',
+          label: 'Name',
+          type: FlowPropertyType.string,
+          defaultValue: 'myString',
+        ),
       ],
     ),
     FlowNodeType(
@@ -23,10 +32,19 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Input',
       description: 'Defines a number input parameter for this graph.',
       outputs: const [
-        FlowPortDefinition(key: 'value', label: 'Value', type: FlowPortType.number),
+        FlowPortDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPortType.number,
+        ),
       ],
       properties: const [
-        FlowPropertyDefinition(key: 'name', label: 'Name', type: FlowPropertyType.string, defaultValue: 'myNumber'),
+        FlowPropertyDefinition(
+          key: 'name',
+          label: 'Name',
+          type: FlowPropertyType.string,
+          defaultValue: 'myNumber',
+        ),
       ],
     ),
     FlowNodeType(
@@ -35,10 +53,19 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Input',
       description: 'Defines a boolean input parameter for this graph.',
       outputs: const [
-        FlowPortDefinition(key: 'value', label: 'Value', type: FlowPortType.boolean),
+        FlowPortDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPortType.boolean,
+        ),
       ],
       properties: const [
-        FlowPropertyDefinition(key: 'name', label: 'Name', type: FlowPropertyType.string, defaultValue: 'myBoolean'),
+        FlowPropertyDefinition(
+          key: 'name',
+          label: 'Name',
+          type: FlowPropertyType.string,
+          defaultValue: 'myBoolean',
+        ),
       ],
     ),
     FlowNodeType(
@@ -47,10 +74,19 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Input',
       description: 'Defines a Tiled Object reference input for this graph.',
       outputs: const [
-        FlowPortDefinition(key: 'value', label: 'Object', type: FlowPortType.tiledObject),
+        FlowPortDefinition(
+          key: 'value',
+          label: 'Object',
+          type: FlowPortType.tiledObject,
+        ),
       ],
       properties: const [
-        FlowPropertyDefinition(key: 'name', label: 'Name', type: FlowPropertyType.string, defaultValue: 'myObjectRef'),
+        FlowPropertyDefinition(
+          key: 'name',
+          label: 'Name',
+          type: FlowPropertyType.string,
+          defaultValue: 'myObjectRef',
+        ),
       ],
     ),
 
@@ -61,10 +97,19 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Constants',
       description: 'Provides a constant string value.',
       outputs: const [
-        FlowPortDefinition(key: 'value', label: 'Value', type: FlowPortType.string),
+        FlowPortDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPortType.string,
+        ),
       ],
       properties: const [
-        FlowPropertyDefinition(key: 'value', label: 'Value', type: FlowPropertyType.string, defaultValue: ''),
+        FlowPropertyDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPropertyType.string,
+          defaultValue: '',
+        ),
       ],
     ),
     FlowNodeType(
@@ -73,10 +118,19 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Constants',
       description: 'Provides a constant number value.',
       outputs: const [
-        FlowPortDefinition(key: 'value', label: 'Value', type: FlowPortType.number),
+        FlowPortDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPortType.number,
+        ),
       ],
       properties: const [
-        FlowPropertyDefinition(key: 'value', label: 'Value', type: FlowPropertyType.float, defaultValue: 0.0),
+        FlowPropertyDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPropertyType.float,
+          defaultValue: 0.0,
+        ),
       ],
     ),
     FlowNodeType(
@@ -85,10 +139,19 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Constants',
       description: 'Provides a constant boolean value.',
       outputs: const [
-        FlowPortDefinition(key: 'value', label: 'Value', type: FlowPortType.boolean),
+        FlowPortDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPortType.boolean,
+        ),
       ],
       properties: const [
-        FlowPropertyDefinition(key: 'value', label: 'Value', type: FlowPropertyType.bool, defaultValue: false),
+        FlowPropertyDefinition(
+          key: 'value',
+          label: 'Value',
+          type: FlowPropertyType.bool,
+          defaultValue: false,
+        ),
       ],
     ),
 
@@ -99,7 +162,12 @@ List<FlowNodeType> getCoreFlowNodes() {
       category: 'Utility',
       description: 'A comment node for documenting the graph.',
       properties: const [
-        FlowPropertyDefinition(key: 'text', label: 'Text', type: FlowPropertyType.string, defaultValue: 'Comment text...'),
+        FlowPropertyDefinition(
+          key: 'text',
+          label: 'Text',
+          type: FlowPropertyType.string,
+          defaultValue: 'Comment text...',
+        ),
       ],
     ),
   ];

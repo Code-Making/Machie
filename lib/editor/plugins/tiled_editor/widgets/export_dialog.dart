@@ -1,16 +1,17 @@
 // FILE: lib/editor/plugins/tiled_editor/widgets/export_dialog.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/editor/plugins/tiled_editor/tiled_export_service.dart';
-import 'package:machine/editor/plugins/tiled_editor/tiled_map_notifier.dart';
-import 'package:machine/utils/toast.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+
+import '../../../../app/app_notifier.dart';
+import '../../../../data/repositories/project/project_repository.dart';
 import '../../../../logs/logs_provider.dart';
+import '../../../../utils/toast.dart';
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../tiled_asset_resolver.dart';
-import 'package:path/path.dart' as p;
+import '../tiled_export_service.dart';
+import '../tiled_map_notifier.dart';
 
 class ExportDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
@@ -35,7 +36,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   bool _packInAtlas = false;
   bool _includeAllAtlasSprites = false;
   bool _exportDependenciesAsJson = true;
-  
+
   String? _destinationFolderUri;
   String _destinationFolderDisplay = 'Not selected';
   bool _isExporting = false;
@@ -49,14 +50,13 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     _mapNameController = TextEditingController(text: widget.initialMapName);
     _atlasNameController = TextEditingController(text: 'packed_atlas');
   }
-  
+
   @override
   void dispose() {
     _mapNameController.dispose();
     _atlasNameController.dispose();
     super.dispose();
   }
-
 
   Future<void> _pickDestinationFolder() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
@@ -68,10 +68,16 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     );
 
     if (selectedRelativePath != null) {
-      final file = await repo.fileHandler.resolvePath(project.rootUri, selectedRelativePath);
+      final file = await repo.fileHandler.resolvePath(
+        project.rootUri,
+        selectedRelativePath,
+      );
       if (file != null) {
         setState(() {
-          _destinationFolderUri = file.isDirectory ? file.uri : repo.fileHandler.getParentUri(file.uri);
+          _destinationFolderUri =
+              file.isDirectory
+                  ? file.uri
+                  : repo.fileHandler.getParentUri(file.uri);
           _destinationFolderDisplay = selectedRelativePath;
         });
       }
@@ -83,16 +89,20 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       MachineToast.error("Please select a destination folder.");
       return;
     }
-    
+
     setState(() => _isExporting = true);
 
     try {
       final resolverAsync = ref.read(tiledAssetResolverProvider(widget.tabId));
       if (!resolverAsync.hasValue) {
-        throw Exception("Assets are not yet loaded. Please wait a moment and try again.");
+        throw Exception(
+          "Assets are not yet loaded. Please wait a moment and try again.",
+        );
       }
 
-      await ref.read(tiledExportServiceProvider).exportMap(
+      await ref
+          .read(tiledExportServiceProvider)
+          .exportMap(
             map: widget.notifier.map,
             resolver: resolverAsync.value!,
             destinationFolderUri: _destinationFolderUri!,
@@ -127,16 +137,25 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Destination', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Destination',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Export to folder'),
-                subtitle: Text(_destinationFolderDisplay, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  _destinationFolderDisplay,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: const Icon(Icons.folder_open_outlined),
                 onTap: _pickDestinationFolder,
               ),
               const Divider(height: 24),
-              const Text('Filenames', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Filenames',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               TextFormField(
                 controller: _mapNameController,
                 decoration: InputDecoration(
@@ -156,7 +175,10 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                   ),
                 ),
               const Divider(height: 24),
-              const Text('Options', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Options',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               SwitchListTile(
                 title: const Text('Export as JSON (.tmj)'),
                 subtitle: const Text('Default is XML (.tmx)'),
@@ -167,7 +189,8 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                 title: const Text('Remove unused tilesets'),
                 subtitle: const Text('Cleans the exported map file'),
                 value: _removeUnusedTilesets,
-                onChanged: (value) => setState(() => _removeUnusedTilesets = value),
+                onChanged:
+                    (value) => setState(() => _removeUnusedTilesets = value),
               ),
               const Divider(),
               SwitchListTile(
@@ -179,16 +202,24 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               if (_packInAtlas)
                 SwitchListTile(
                   title: const Text('Include all atlas sprites'),
-                  subtitle: const Text('Includes unused sprites from linked .tpacker files'),
+                  subtitle: const Text(
+                    'Includes unused sprites from linked .tpacker files',
+                  ),
                   value: _includeAllAtlasSprites,
-                  onChanged: (value) => setState(() => _includeAllAtlasSprites = value),
+                  onChanged:
+                      (value) =>
+                          setState(() => _includeAllAtlasSprites = value),
                 ),
               const Divider(),
               SwitchListTile(
                 title: const Text('Export dependencies as JSON'),
-                subtitle: const Text('Flow Graphs (.fg) and Atlases (.tpacker) will be exported as .json'),
+                subtitle: const Text(
+                  'Flow Graphs (.fg) and Atlases (.tpacker) will be exported as .json',
+                ),
                 value: _exportDependenciesAsJson,
-                onChanged: (value) => setState(() => _exportDependenciesAsJson = value),
+                onChanged:
+                    (value) =>
+                        setState(() => _exportDependenciesAsJson = value),
               ),
             ],
           ),
@@ -200,11 +231,18 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton.icon(
-          onPressed: _isExporting || _destinationFolderUri == null ? null : _startExport,
-          icon: _isExporting
-              ? const SizedBox(
-                  width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.output_outlined),
+          onPressed:
+              _isExporting || _destinationFolderUri == null
+                  ? null
+                  : _startExport,
+          icon:
+              _isExporting
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Icon(Icons.output_outlined),
           label: Text(_isExporting ? 'Exporting...' : 'Export'),
         ),
       ],

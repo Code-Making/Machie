@@ -1,14 +1,16 @@
 // FILE: lib/editor/plugins/texture_packer/widgets/texture_packer_export_dialog.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/editor/plugins/texture_packer/services/pixi_export_service.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
-import 'package:machine/utils/toast.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+
+import '../../../../app/app_notifier.dart';
+import '../../../../data/repositories/project/project_repository.dart';
+import '../../../../utils/toast.dart';
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
+import '../services/pixi_export_service.dart';
 import '../texture_packer_asset_resolver.dart';
+import '../texture_packer_notifier.dart';
 
 class TexturePackerExportDialog extends ConsumerStatefulWidget {
   final String tabId;
@@ -21,11 +23,15 @@ class TexturePackerExportDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TexturePackerExportDialog> createState() => _TexturePackerExportDialogState();
+  ConsumerState<TexturePackerExportDialog> createState() =>
+      _TexturePackerExportDialogState();
 }
 
-class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportDialog> {
-  final TextEditingController _nameController = TextEditingController(text: 'atlas');
+class _TexturePackerExportDialogState
+    extends ConsumerState<TexturePackerExportDialog> {
+  final TextEditingController _nameController = TextEditingController(
+    text: 'atlas',
+  );
   String? _destinationUri;
   String _destinationDisplay = 'Select destination...';
   bool _isExporting = false;
@@ -50,7 +56,10 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
       final file = await repo.fileHandler.resolvePath(project.rootUri, path);
       if (file != null) {
         setState(() {
-          _destinationUri = file.isDirectory ? file.uri : repo.fileHandler.getParentUri(file.uri);
+          _destinationUri =
+              file.isDirectory
+                  ? file.uri
+                  : repo.fileHandler.getParentUri(file.uri);
           _destinationDisplay = path;
         });
       }
@@ -71,18 +80,24 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
 
     try {
       // KEY CHANGE: Use resolver provider instead of raw map
-      final resolverAsync = ref.read(texturePackerAssetResolverProvider(widget.tabId));
-      
+      final resolverAsync = ref.read(
+        texturePackerAssetResolverProvider(widget.tabId),
+      );
+
       if (!resolverAsync.hasValue) {
-        throw Exception('Assets are not fully loaded. Please wait and try again.');
+        throw Exception(
+          'Assets are not fully loaded. Please wait and try again.',
+        );
       }
 
-      await ref.read(pixiExportServiceProvider).export(
-        project: widget.notifier.project,
-        resolver: resolverAsync.value!,
-        destinationFolderUri: _destinationUri!,
-        fileName: _nameController.text.trim(),
-      );
+      await ref
+          .read(pixiExportServiceProvider)
+          .export(
+            project: widget.notifier.project,
+            resolver: resolverAsync.value!,
+            destinationFolderUri: _destinationUri!,
+            fileName: _nameController.text.trim(),
+          );
 
       MachineToast.info('Export successful!');
       if (mounted) Navigator.of(context).pop();
@@ -132,9 +147,14 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
         ),
         FilledButton(
           onPressed: _isExporting ? null : _doExport,
-          child: _isExporting 
-            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Text('Export'),
+          child:
+              _isExporting
+                  ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Text('Export'),
         ),
       ],
     );

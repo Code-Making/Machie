@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart' hide ColorProperty;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../asset_cache/asset_models.dart';
+import '../../../../data/repositories/project/project_repository.dart';
+import '../../../../utils/toast.dart';
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
+import '../../../services/editor_service.dart';
+import '../tiled_editor_widget.dart';
+import 'property_descriptors.dart';
+
 import 'package:flex_color_picker/flex_color_picker.dart'; // <-- IMPORT THE PACKAGE
-import 'package:machine/asset_cache/asset_models.dart';
 import 'package:path/path.dart' as p; // Add path import
 
-import 'property_descriptors.dart';
-import '../tiled_editor_widget.dart';
-import '../../../../widgets/dialogs/folder_picker_dialog.dart';
-import '../image_load_result.dart';
-import '../../../../utils/toast.dart';
 import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'package:machine/asset_cache/asset_models.dart';
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
-import 'package:machine/app/app_notifier.dart'; // For opening files
-import '../../../services/editor_service.dart';
-import 'package:machine/editor/services/editor_service.dart';
-import '../../../../data/repositories/project/project_repository.dart';
+// For opening files
 
 // Add this new stateful widget to the file.
 
@@ -53,8 +52,9 @@ class _PropertyExternalObjectSelectorState
     final object = widget.descriptor.target as TiledObject?;
     if (object == null) return;
 
-    final newMapPath =
-        object.properties.getValue<String>(widget.descriptor.mapFilePropertyName);
+    final newMapPath = object.properties.getValue<String>(
+      widget.descriptor.mapFilePropertyName,
+    );
 
     if (newMapPath != _currentMapPath) {
       _loadObjectsForCurrentMap();
@@ -67,8 +67,9 @@ class _PropertyExternalObjectSelectorState
       setState(() => _objectsFuture = Future.value([]));
       return;
     }
-    _currentMapPath =
-        object.properties.getValue<String>(widget.descriptor.mapFilePropertyName);
+    _currentMapPath = object.properties.getValue<String>(
+      widget.descriptor.mapFilePropertyName,
+    );
 
     setState(() {
       _objectsFuture = _fetchObjectsFromMap(_currentMapPath);
@@ -80,8 +81,9 @@ class _PropertyExternalObjectSelectorState
       return [];
     }
 
-    final map =
-        await widget.descriptor.resolver.loadAndCacheExternalMap(mapPath);
+    final map = await widget.descriptor.resolver.loadAndCacheExternalMap(
+      mapPath,
+    );
     if (map == null) {
       return []; // Return empty list if map fails to load
     }
@@ -99,9 +101,7 @@ class _PropertyExternalObjectSelectorState
 
     collectObjects(map.layers);
     // You might want to filter by a specific class, e.g., "Spawn"
-    return allObjects
-        .where((obj) => obj.type == 'Spawn')
-        .toList();
+    return allObjects.where((obj) => obj.type == 'Spawn').toList();
   }
 
   @override
@@ -126,43 +126,50 @@ class _PropertyExternalObjectSelectorState
         }
 
         final objects = snapshot.data ?? [];
-        final items = objects.map((obj) {
-          final name = obj.name.isNotEmpty ? obj.name : 'Object';
-          return DropdownMenuItem<int>(
-            value: obj.id,
-            child: Text('$name (ID: ${obj.id})'),
-          );
-        }).toList();
+        final items =
+            objects.map((obj) {
+              final name = obj.name.isNotEmpty ? obj.name : 'Object';
+              return DropdownMenuItem<int>(
+                value: obj.id,
+                child: Text('$name (ID: ${obj.id})'),
+              );
+            }).toList();
 
         items.insert(
-            0,
-            const DropdownMenuItem<int>(
-              value: 0,
-              child:
-                  Text('None', style: TextStyle(fontStyle: FontStyle.italic)),
-            ));
+          0,
+          const DropdownMenuItem<int>(
+            value: 0,
+            child: Text('None', style: TextStyle(fontStyle: FontStyle.italic)),
+          ),
+        );
 
         int? currentValue = widget.descriptor.currentValue;
-        if (currentValue != 0 && !items.any((item) => item.value == currentValue)) {
-          items.add(DropdownMenuItem<int>(
-            value: currentValue,
-            child: Text('Invalid ID: $currentValue',
-                style: const TextStyle(color: Colors.red)),
-          ));
+        if (currentValue != 0 &&
+            !items.any((item) => item.value == currentValue)) {
+          items.add(
+            DropdownMenuItem<int>(
+              value: currentValue,
+              child: Text(
+                'Invalid ID: $currentValue',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          );
         }
 
         return DropdownButtonFormField<int>(
           decoration: InputDecoration(labelText: widget.descriptor.label),
           value: currentValue,
           items: items,
-          onChanged: widget.descriptor.isReadOnly
-              ? null
-              : (int? newValue) {
-                  if (newValue != null) {
-                    widget.descriptor.updateValue(newValue);
-                    widget.onUpdate();
-                  }
-                },
+          onChanged:
+              widget.descriptor.isReadOnly
+                  ? null
+                  : (int? newValue) {
+                    if (newValue != null) {
+                      widget.descriptor.updateValue(newValue);
+                      widget.onUpdate();
+                    }
+                  },
         );
       },
     );
@@ -198,50 +205,58 @@ class PropertyTiledObjectSelector extends StatelessWidget {
 
     // An object cannot reference itself, so remove it from the list.
     if (descriptor.target is TiledObject) {
-      allObjects
-          .removeWhere((o) => o.id == (descriptor.target as TiledObject).id);
+      allObjects.removeWhere(
+        (o) => o.id == (descriptor.target as TiledObject).id,
+      );
     }
 
     // Create a list of dropdown items from the collected objects.
-    final items = allObjects.map((obj) {
-      final name = obj.name.isNotEmpty ? obj.name : 'Object';
-      return DropdownMenuItem<int>(
-        value: obj.id,
-        child: Text('$name (ID: ${obj.id})'),
-      );
-    }).toList();
+    final items =
+        allObjects.map((obj) {
+          final name = obj.name.isNotEmpty ? obj.name : 'Object';
+          return DropdownMenuItem<int>(
+            value: obj.id,
+            child: Text('$name (ID: ${obj.id})'),
+          );
+        }).toList();
 
     // Add a "None" option at the top of the list.
     items.insert(
-        0,
-        const DropdownMenuItem<int>(
-          value: 0,
-          child: Text('None', style: TextStyle(fontStyle: FontStyle.italic)),
-        ));
+      0,
+      const DropdownMenuItem<int>(
+        value: 0,
+        child: Text('None', style: TextStyle(fontStyle: FontStyle.italic)),
+      ),
+    );
 
     int? currentValue = descriptor.currentValue;
     // If the currently stored ID points to an object that no longer exists,
     // add a special "Invalid" item to the list so the user knows.
     if (currentValue != 0 && !items.any((item) => item.value == currentValue)) {
-      items.add(DropdownMenuItem<int>(
-        value: currentValue,
-        child: Text('Invalid ID: $currentValue',
-            style: const TextStyle(color: Colors.red)),
-      ));
+      items.add(
+        DropdownMenuItem<int>(
+          value: currentValue,
+          child: Text(
+            'Invalid ID: $currentValue',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
     }
 
     return DropdownButtonFormField<int>(
       decoration: InputDecoration(labelText: descriptor.label),
       value: currentValue,
       items: items,
-      onChanged: descriptor.isReadOnly
-          ? null
-          : (int? newValue) {
-              if (newValue != null) {
-                descriptor.updateValue(newValue);
-                onUpdate();
-              }
-            },
+      onChanged:
+          descriptor.isReadOnly
+              ? null
+              : (int? newValue) {
+                if (newValue != null) {
+                  descriptor.updateValue(newValue);
+                  onUpdate();
+                }
+              },
     );
   }
 }
@@ -355,23 +370,25 @@ class PropertyStringEnumDropdown extends StatelessWidget {
     }
 
     // Filter unique items to prevent dropdown errors
-    final displayOptions = {...options, if(currentValue.isNotEmpty) currentValue}.toList();
+    final displayOptions =
+        {...options, if (currentValue.isNotEmpty) currentValue}.toList();
 
     return DropdownButtonFormField<String>(
       decoration: InputDecoration(labelText: descriptor.label),
       value: currentValue,
-      items: displayOptions.map((String value) {
-        return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
-        );
-      }).toList(),
-      onChanged: descriptor.isReadOnly ? null : (String? newValue) {
-        if (newValue != null) {
-          descriptor.updateValue(newValue);
-          onUpdate();
-        }
-      },
+      items:
+          displayOptions.map((String value) {
+            return DropdownMenuItem<String>(value: value, child: Text(value));
+          }).toList(),
+      onChanged:
+          descriptor.isReadOnly
+              ? null
+              : (String? newValue) {
+                if (newValue != null) {
+                  descriptor.updateValue(newValue);
+                  onUpdate();
+                }
+              },
     );
   }
 }
@@ -418,12 +435,15 @@ class PropertySchemaFileSelector extends ConsumerWidget {
                 context: context,
                 builder: (_) => const FileOrFolderPickerDialog(),
               );
-              
+
               if (newPath != null) {
                 // Ensure we calculate relative to the directory of the context path (TMX file)
                 final contextDir = p.dirname(contextPath);
-                final relativePath = repo.calculateRelativePath(contextDir, newPath);
-                
+                final relativePath = repo.calculateRelativePath(
+                  contextDir,
+                  newPath,
+                );
+
                 descriptor.updateValue(relativePath);
                 onUpdate();
               }
@@ -470,30 +490,35 @@ class PropertyDynamicSelector extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       trailing: const Icon(Icons.arrow_drop_down),
-      onTap: descriptor.isReadOnly ? null : () async {
-        // 1. Fetch options dynamically when clicked
-        final options = descriptor.fetchOptions();
-        
-        if (options.isEmpty) {
-          MachineToast.info('No options found. Ensure the Atlas file is set and valid.');
-          return;
-        }
+      onTap:
+          descriptor.isReadOnly
+              ? null
+              : () async {
+                // 1. Fetch options dynamically when clicked
+                final options = descriptor.fetchOptions();
 
-        // 2. Sort options alphabetically
-        options.sort();
+                if (options.isEmpty) {
+                  MachineToast.info(
+                    'No options found. Ensure the Atlas file is set and valid.',
+                  );
+                  return;
+                }
 
-        // 3. Show searchable dialog (reusing the existing SpritePickerDialog)
-        // We can reuse this dialog because it simply filters a list of strings
-        final selected = await showDialog<String>(
-          context: context,
-          builder: (ctx) => SpritePickerDialog(spriteNames: options),
-        );
+                // 2. Sort options alphabetically
+                options.sort();
 
-        if (selected != null) {
-          descriptor.updateValue(selected);
-          onUpdate();
-        }
-      },
+                // 3. Show searchable dialog (reusing the existing SpritePickerDialog)
+                // We can reuse this dialog because it simply filters a list of strings
+                final selected = await showDialog<String>(
+                  context: context,
+                  builder: (ctx) => SpritePickerDialog(spriteNames: options),
+                );
+
+                if (selected != null) {
+                  descriptor.updateValue(selected);
+                  onUpdate();
+                }
+              },
     );
   }
 }
@@ -536,9 +561,13 @@ class PropertyFlowGraphSelector extends ConsumerWidget {
               onPressed: () {
                 final repo = ref.read(projectRepositoryProvider);
                 if (repo != null) {
-                   final dir = p.dirname(contextPath);
-                   final fullRelativePath = p.normalize(p.join(dir, currentPath));
-                   ref.read(editorServiceProvider).openOrCreate(fullRelativePath);
+                  final dir = p.dirname(contextPath);
+                  final fullRelativePath = p.normalize(
+                    p.join(dir, currentPath),
+                  );
+                  ref
+                      .read(editorServiceProvider)
+                      .openOrCreate(fullRelativePath);
                 }
               },
             ),
@@ -550,7 +579,7 @@ class PropertyFlowGraphSelector extends ConsumerWidget {
                 context: context,
                 builder: (_) => const FileOrFolderPickerDialog(),
               );
-              
+
               if (newPath != null && newPath.endsWith('.fg')) {
                 final repo = ref.read(projectRepositoryProvider);
                 if (repo != null) {
@@ -558,7 +587,10 @@ class PropertyFlowGraphSelector extends ConsumerWidget {
                   // === FIX STARTS HERE ===
                   // Calculate the path relative to the TMX file's DIRECTORY, not the project root.
                   final tmxDir = p.dirname(contextPath);
-                  final relativePath = repo.calculateRelativePath(tmxDir, newPath);
+                  final relativePath = repo.calculateRelativePath(
+                    tmxDir,
+                    newPath,
+                  );
                   descriptor.updateValue(relativePath);
                   // === FIX ENDS HERE ===
                   //
@@ -599,19 +631,21 @@ class PropertyFileListEditor extends StatelessWidget {
 
   Future<void> _addFile(BuildContext context) async {
     final paths = List<String>.from(descriptor.currentValue);
-    
+
     // Returns a project-relative path (e.g. "assets/atlases/items.tpacker")
     final newPath = await showDialog<String>(
       context: context,
       builder: (_) => const FileOrFolderPickerDialog(),
     );
-    
+
     if (newPath != null) {
       // Calculate path relative to the TMX file (e.g. "../atlases/items.tpacker")
       final contextDir = p.dirname(contextPath);
-      final relativePath = p.relative(newPath, from: contextDir).replaceAll(r'\', '/');
+      final relativePath = p
+          .relative(newPath, from: contextDir)
+          .replaceAll(r'\', '/');
 
-      paths.add(relativePath); 
+      paths.add(relativePath);
       descriptor.updateValue(paths);
       onUpdate();
     }
@@ -627,7 +661,7 @@ class PropertyFileListEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final files = descriptor.currentValue;
-    
+
     return ExpansionTile(
       title: Text(descriptor.label),
       subtitle: Text('${files.length} linked'),
@@ -649,7 +683,6 @@ class PropertyFileListEditor extends StatelessWidget {
     );
   }
 }
-
 
 class PropertyFileLinkWithAction extends ConsumerWidget {
   final StringPropertyDescriptor descriptor;
@@ -684,9 +717,11 @@ class PropertyFileLinkWithAction extends ConsumerWidget {
                 // If the path is relative (e.g. "../logic/script.fg"), resolve it first
                 final repo = ref.read(projectRepositoryProvider);
                 if (repo != null) {
-                   final dir = p.dirname(contextPath);
-                   final fullRelativePath = p.normalize(p.join(dir, path));
-                   ref.read(editorServiceProvider).openOrCreate(fullRelativePath);
+                  final dir = p.dirname(contextPath);
+                  final fullRelativePath = p.normalize(p.join(dir, path));
+                  ref
+                      .read(editorServiceProvider)
+                      .openOrCreate(fullRelativePath);
                 }
               },
             ),
@@ -703,8 +738,11 @@ class PropertyFileLinkWithAction extends ConsumerWidget {
               if (newPath != null) {
                 // Calculate path relative to the TMX file
                 final contextDir = p.dirname(contextPath);
-                final relativePath = repo.calculateRelativePath(contextDir, newPath);
-                
+                final relativePath = repo.calculateRelativePath(
+                  contextDir,
+                  newPath,
+                );
+
                 descriptor.updateValue(relativePath);
                 onUpdate();
               }
@@ -741,7 +779,7 @@ class PropertySpriteSelector extends StatelessWidget {
         // We could also add animations: value.animations.keys
       }
     });
-    
+
     allSpriteNames.sort();
 
     final currentVal = descriptor.currentValue;
@@ -795,9 +833,10 @@ class _SpritePickerDialogState extends State<_SpritePickerDialog> {
       if (query.isEmpty) {
         _filtered = widget.spriteNames;
       } else {
-        _filtered = widget.spriteNames
-            .where((s) => s.toLowerCase().contains(query.toLowerCase()))
-            .toList();
+        _filtered =
+            widget.spriteNames
+                .where((s) => s.toLowerCase().contains(query.toLowerCase()))
+                .toList();
       }
     });
   }
@@ -852,7 +891,11 @@ class _SpritePickerDialogState extends State<_SpritePickerDialog> {
 class PropertyIntInput extends StatelessWidget {
   final IntPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyIntInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyIntInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -872,7 +915,11 @@ class PropertyIntInput extends StatelessWidget {
 class PropertyDoubleInput extends StatelessWidget {
   final DoublePropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyDoubleInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyDoubleInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -892,7 +939,11 @@ class PropertyDoubleInput extends StatelessWidget {
 class PropertyStringInput extends StatelessWidget {
   final StringPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyStringInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyStringInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -911,17 +962,24 @@ class PropertyStringInput extends StatelessWidget {
 class PropertyBoolSwitch extends StatelessWidget {
   final BoolPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyBoolSwitch({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyBoolSwitch({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
       title: Text(descriptor.label),
       value: descriptor.currentValue,
-      onChanged: descriptor.isReadOnly ? null : (value) {
-        descriptor.updateValue(value);
-        onUpdate();
-      },
+      onChanged:
+          descriptor.isReadOnly
+              ? null
+              : (value) {
+                descriptor.updateValue(value);
+                onUpdate();
+              },
     );
   }
 }
@@ -944,7 +1002,7 @@ class PropertyImagePathInput extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasError = imageAsset?.hasError ?? false; 
+    final hasError = imageAsset?.hasError ?? false;
     final theme = Theme.of(context);
 
     return ListTile(
@@ -955,7 +1013,9 @@ class PropertyImagePathInput extends ConsumerWidget {
         style: TextStyle(color: hasError ? theme.colorScheme.error : null),
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: Icon(hasError ? Icons.error_outline : Icons.folder_open_outlined),
+      trailing: Icon(
+        hasError ? Icons.error_outline : Icons.folder_open_outlined,
+      ),
       onTap: () async {
         final newPath = await showDialog<String>(
           context: context,
@@ -980,7 +1040,11 @@ class PropertyColorInput extends StatelessWidget {
   final ColorPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
 
-  const PropertyColorInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyColorInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   Color _parseColor(String? hex) {
     if (hex == null || hex.isEmpty) {
@@ -1063,7 +1127,8 @@ class PropertyColorInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentColor = _parseColor(descriptor.currentValue);
-    final isNotSet = currentColor.alpha == 0 && descriptor.currentValue != '#00000000';
+    final isNotSet =
+        currentColor.alpha == 0 && descriptor.currentValue != '#00000000';
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -1076,13 +1141,23 @@ class PropertyColorInput extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isNotSet ? Theme.of(context).scaffoldBackgroundColor : currentColor,
+              color:
+                  isNotSet
+                      ? Theme.of(context).scaffoldBackgroundColor
+                      : currentColor,
               shape: BoxShape.circle,
               border: Border.all(color: Theme.of(context).dividerColor),
             ),
-            child: isNotSet 
-                ? Center(child: Icon(Icons.close, size: 20, color: Theme.of(context).disabledColor))
-                : null,
+            child:
+                isNotSet
+                    ? Center(
+                      child: Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Theme.of(context).disabledColor,
+                      ),
+                    )
+                    : null,
           ),
           if (!isNotSet && !descriptor.isReadOnly) ...[
             const SizedBox(width: 8),
@@ -1097,7 +1172,8 @@ class PropertyColorInput extends StatelessWidget {
           ],
         ],
       ),
-      onTap: descriptor.isReadOnly ? null : () => _showColorPickerDialog(context),
+      onTap:
+          descriptor.isReadOnly ? null : () => _showColorPickerDialog(context),
     );
   }
 }
@@ -1106,25 +1182,30 @@ class PropertyEnumDropdown<T extends Enum> extends StatelessWidget {
   final EnumPropertyDescriptor<T> descriptor;
   final VoidCallback onUpdate;
 
-  const PropertyEnumDropdown({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyEnumDropdown({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
       decoration: InputDecoration(labelText: descriptor.label),
       value: descriptor.currentValue,
-      items: descriptor.allValues.map((T value) {
-        return DropdownMenuItem<T>(
-          value: value,
-          child: Text(value.name),
-        );
-      }).toList(),
-      onChanged: descriptor.isReadOnly ? null : (T? newValue) {
-        if (newValue != null) {
-          descriptor.updateValue(newValue);
-          onUpdate();
-        }
-      },
+      items:
+          descriptor.allValues.map((T value) {
+            return DropdownMenuItem<T>(value: value, child: Text(value.name));
+          }).toList(),
+      onChanged:
+          descriptor.isReadOnly
+              ? null
+              : (T? newValue) {
+                if (newValue != null) {
+                  descriptor.updateValue(newValue);
+                  onUpdate();
+                }
+              },
     );
   }
 }
@@ -1174,12 +1255,14 @@ class _CustomPropertiesEditorState extends State<CustomPropertiesEditor> {
         break;
     }
 
-    final newPropertiesMap = Map<String, Property<Object>>.from(widget.descriptor.currentValue.byName);
+    final newPropertiesMap = Map<String, Property<Object>>.from(
+      widget.descriptor.currentValue.byName,
+    );
     newPropertiesMap[name] = newProperty; // This works for both add and edit
     widget.descriptor.updateValue(CustomProperties(newPropertiesMap));
     widget.onUpdate();
   }
-  
+
   void _addProperty() async {
     // Open the dialog in "add mode"
     final result = await showDialog<Map<String, dynamic>>(
@@ -1212,7 +1295,9 @@ class _CustomPropertiesEditorState extends State<CustomPropertiesEditor> {
   }
 
   void _removeProperty(String name) {
-    final newPropertiesMap = Map<String, Property<Object>>.from(widget.descriptor.currentValue.byName);
+    final newPropertiesMap = Map<String, Property<Object>>.from(
+      widget.descriptor.currentValue.byName,
+    );
     newPropertiesMap.remove(name);
     widget.descriptor.updateValue(CustomProperties(newPropertiesMap));
     widget.onUpdate();
@@ -1306,26 +1391,42 @@ class _AddPropertyDialogState extends State<_AddPropertyDialog> {
                 initialValue: _name, // Use initialValue to support edit mode
                 decoration: const InputDecoration(labelText: 'Name'),
                 autofocus: !_isEditMode,
-                readOnly: _isEditMode, // Name is the key, so it shouldn't be changed
-                validator: (value) => value == null || value.isEmpty ? 'Name cannot be empty' : null,
+                readOnly:
+                    _isEditMode, // Name is the key, so it shouldn't be changed
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Name cannot be empty'
+                            : null,
                 onSaved: (value) => _name = value!,
               ),
               DropdownButtonFormField<PropertyType>(
                 value: _type,
                 decoration: const InputDecoration(labelText: 'Type'),
-                items: PropertyType.values
-                    .where((t) => t != PropertyType.file && t != PropertyType.object)
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.name)))
-                    .toList(),
+                items:
+                    PropertyType.values
+                        .where(
+                          (t) =>
+                              t != PropertyType.file &&
+                              t != PropertyType.object,
+                        )
+                        .map(
+                          (t) =>
+                              DropdownMenuItem(value: t, child: Text(t.name)),
+                        )
+                        .toList(),
                 // Disable type changes in edit mode to avoid complex value conversions
-                onChanged: _isEditMode ? null : (value) {
-                  if (value != null) {
-                    setState(() {
-                      _type = value;
-                      _value = _getDefaultValueForType(value);
-                    });
-                  }
-                },
+                onChanged:
+                    _isEditMode
+                        ? null
+                        : (value) {
+                          if (value != null) {
+                            setState(() {
+                              _type = value;
+                              _value = _getDefaultValueForType(value);
+                            });
+                          }
+                        },
               ),
               _buildValueEditor(),
             ],
@@ -1333,12 +1434,19 @@ class _AddPropertyDialogState extends State<_AddPropertyDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             if (_formKey.currentState!.validate()) {
               _formKey.currentState!.save();
-              Navigator.pop(context, {'name': _name, 'type': _type, 'value': _value});
+              Navigator.pop(context, {
+                'name': _name,
+                'type': _type,
+                'value': _value,
+              });
             }
           },
           child: const Text('Add'),

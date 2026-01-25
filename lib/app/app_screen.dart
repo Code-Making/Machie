@@ -9,13 +9,13 @@ import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../command/command_widgets.dart';
-import '../editor/widgets/editor_widgets.dart';
 import '../editor/models/editor_command_context.dart';
 import '../editor/models/editor_plugin_models.dart';
 import '../editor/tab_metadata_notifier.dart';
-import '../widgets/dialogs/file_explorer_dialogs.dart';
+import '../editor/widgets/editor_widgets.dart';
 import '../explorer/widgets/explorer_host_drawer.dart';
 import '../settings/settings_notifier.dart';
+import '../widgets/dialogs/file_explorer_dialogs.dart';
 import 'app_notifier.dart';
 
 class AppScreen extends ConsumerStatefulWidget {

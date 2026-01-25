@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'llm_editor_models.dart';
@@ -98,13 +99,17 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'LLM Provider'),
           value: widget.settings.selectedProviderId,
-          items: allLlmProviders
-              .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
-              .toList(),
+          items:
+              allLlmProviders
+                  .map(
+                    (p) => DropdownMenuItem(value: p.id, child: Text(p.name)),
+                  )
+                  .toList(),
           onChanged: (value) {
             if (value != null) {
-              final newSettings =
-                  widget.settings.copyWith(selectedProviderId: value);
+              final newSettings = widget.settings.copyWith(
+                selectedProviderId: value,
+              );
               widget.onChanged(newSettings);
             }
           },
@@ -120,9 +125,15 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
           DropdownButtonFormField<LlmModelInfo>(
             decoration: const InputDecoration(labelText: 'Model'),
             value: selectedModelInfo,
-            items: _availableModels
-                .map((m) => DropdownMenuItem(value: m, child: Text(m.displayName)))
-                .toList(),
+            items:
+                _availableModels
+                    .map(
+                      (m) => DropdownMenuItem(
+                        value: m,
+                        child: Text(m.displayName),
+                      ),
+                    )
+                    .toList(),
             onChanged: (value) {
               if (value != null) {
                 final newModels = Map<String, LlmModelInfo?>.from(
@@ -163,9 +174,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
                 widget.settings.apiKeys,
               );
               newApiKeys[widget.settings.selectedProviderId] = value;
-              widget.onChanged(
-                widget.settings.copyWith(apiKeys: newApiKeys),
-              );
+              widget.onChanged(widget.settings.copyWith(apiKeys: newApiKeys));
             },
             onEditingComplete: () {
               // Re-fetch models when the user finishes editing the API key.

@@ -8,7 +8,8 @@ import 'project_state_persistence_strategy.dart';
 
 /// A persistence strategy that saves the project state to a `project.json`
 /// file inside a hidden `.machine` folder within the project's root directory.
-class LocalFolderPersistenceStrategy implements ProjectStatePersistenceStrategy {
+class LocalFolderPersistenceStrategy
+    implements ProjectStatePersistenceStrategy {
   static const _projectDataFolderName = '.machine';
   static const _projectFileName = 'project.json';
 
@@ -27,7 +28,6 @@ class LocalFolderPersistenceStrategy implements ProjectStatePersistenceStrategy 
   String get description =>
       'Saves session data in a hidden ".machine" folder inside the project directory. This is the recommended option.';
 
-
   /// Ensures the `.machine` directory exists and returns its URI.
   Future<String> _getProjectDataPath() async {
     final files = await _fileHandler.listDirectory(
@@ -37,7 +37,8 @@ class LocalFolderPersistenceStrategy implements ProjectStatePersistenceStrategy 
     final machineDir = files.firstWhereOrNull(
       (f) => f.name == _projectDataFolderName && f.isDirectory,
     );
-    final dir = machineDir ??
+    final dir =
+        machineDir ??
         await _fileHandler.createDocumentFile(
           _projectRootUri,
           _projectDataFolderName,
@@ -82,7 +83,7 @@ class LocalFolderPersistenceStrategy implements ProjectStatePersistenceStrategy 
       overwrite: true,
     );
   }
-  
+
   /// For a local folder strategy, clearing is a no-op.
   /// We don't want to delete the .machine folder from the user's project
   /// just because they removed it from the "recent" list.

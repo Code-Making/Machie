@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:collection/collection.dart';
+
 import 'package:uuid/uuid.dart';
 
 /// Enum defining the types of items in the output hierarchy.
@@ -37,11 +37,11 @@ class SlicingConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'tileWidth': tileWidth,
-        'tileHeight': tileHeight,
-        'margin': margin,
-        'padding': padding,
-      };
+    'tileWidth': tileWidth,
+    'tileHeight': tileHeight,
+    'margin': margin,
+    'padding': padding,
+  };
 
   SlicingConfig copyWith({
     int? tileWidth,
@@ -89,10 +89,7 @@ class SourceImageConfig {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'path': path,
-        'slicing': slicing.toJson(),
-      };
+  Map<String, dynamic> toJson() => {'path': path, 'slicing': slicing.toJson()};
 
   SourceImageConfig copyWith({String? path, SlicingConfig? slicing}) {
     return SourceImageConfig(
@@ -120,7 +117,7 @@ class SourceImageNode {
   final String name;
   final SourceNodeType type;
   final List<SourceImageNode> children;
-  
+
   /// Only present if type == SourceNodeType.image
   final SourceImageConfig? content;
 
@@ -137,22 +134,24 @@ class SourceImageNode {
       id: json['id'],
       name: json['name'],
       type: SourceNodeType.values.byName(json['type']),
-      children: (json['children'] as List? ?? [])
-          .map((childJson) => SourceImageNode.fromJson(childJson))
-          .toList(),
-      content: json['content'] != null 
-          ? SourceImageConfig.fromJson(json['content']) 
-          : null,
+      children:
+          (json['children'] as List? ?? [])
+              .map((childJson) => SourceImageNode.fromJson(childJson))
+              .toList(),
+      content:
+          json['content'] != null
+              ? SourceImageConfig.fromJson(json['content'])
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'type': type.name,
-        'children': children.map((child) => child.toJson()).toList(),
-        if (content != null) 'content': content!.toJson(),
-      };
+    'id': id,
+    'name': name,
+    'type': type.name,
+    'children': children.map((child) => child.toJson()).toList(),
+    if (content != null) 'content': content!.toJson(),
+  };
 
   SourceImageNode copyWith({
     String? name,
@@ -191,27 +190,30 @@ class GridRect {
   });
 
   factory GridRect.fromJson(Map<String, dynamic> json) => GridRect(
-        x: json['x'],
-        y: json['y'],
-        width: json['width'] ?? 1,
-        height: json['height'] ?? 1,
-      );
+    x: json['x'],
+    y: json['y'],
+    width: json['width'] ?? 1,
+    height: json['height'] ?? 1,
+  );
 
   Map<String, dynamic> toJson() => {
-        'x': x,
-        'y': y,
-        'width': width,
-        'height': height,
-      };
+    'x': x,
+    'y': y,
+    'width': width,
+    'height': height,
+  };
 }
 
 @immutable
 abstract class PackerItemDefinition {
   const PackerItemDefinition();
-  
+
   Map<String, dynamic> toJson();
 
-  static PackerItemDefinition? fromJson(PackerItemType type, Map<String, dynamic>? json) {
+  static PackerItemDefinition? fromJson(
+    PackerItemType type,
+    Map<String, dynamic>? json,
+  ) {
     if (json == null) return null;
     switch (type) {
       case PackerItemType.sprite:
@@ -228,13 +230,10 @@ abstract class PackerItemDefinition {
 /// Defines a single sprite by referencing a source image ID and a grid rectangle.
 class SpriteDefinition extends PackerItemDefinition {
   /// Reference to a [SourceImageNode.id] where type is image.
-  final String sourceImageId; 
+  final String sourceImageId;
   final GridRect gridRect;
 
-  const SpriteDefinition({
-    required this.sourceImageId,
-    required this.gridRect,
-  });
+  const SpriteDefinition({required this.sourceImageId, required this.gridRect});
 
   factory SpriteDefinition.fromJson(Map<String, dynamic> json) {
     return SpriteDefinition(
@@ -247,32 +246,26 @@ class SpriteDefinition extends PackerItemDefinition {
 
   @override
   Map<String, dynamic> toJson() => {
-        'sourceImageId': sourceImageId,
-        'gridRect': gridRect.toJson(),
-      };
+    'sourceImageId': sourceImageId,
+    'gridRect': gridRect.toJson(),
+  };
 }
 
 /// Defines an animation configuration.
-/// 
-/// Note: Frame data is no longer stored here. 
+///
+/// Note: Frame data is no longer stored here.
 /// Frames are the children [PackerItemNode]s of the node containing this definition.
 class AnimationDefinition extends PackerItemDefinition {
   final double speed; // in frames per second
 
-  const AnimationDefinition({
-    this.speed = 10.0,
-  });
+  const AnimationDefinition({this.speed = 10.0});
 
   factory AnimationDefinition.fromJson(Map<String, dynamic> json) {
-    return AnimationDefinition(
-      speed: json['speed']?.toDouble() ?? 10.0,
-    );
+    return AnimationDefinition(speed: json['speed']?.toDouble() ?? 10.0);
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-        'speed': speed,
-      };
+  Map<String, dynamic> toJson() => {'speed': speed};
 }
 
 //endregion
@@ -301,18 +294,19 @@ class PackerItemNode {
       id: json['id'],
       name: json['name'],
       type: PackerItemType.values.byName(json['type']),
-      children: (json['children'] as List? ?? [])
-          .map((childJson) => PackerItemNode.fromJson(childJson))
-          .toList(),
+      children:
+          (json['children'] as List? ?? [])
+              .map((childJson) => PackerItemNode.fromJson(childJson))
+              .toList(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'type': type.name,
-        'children': children.map((child) => child.toJson()).toList(),
-      };
+    'id': id,
+    'name': name,
+    'type': type.name,
+    'children': children.map((child) => child.toJson()).toList(),
+  };
 
   PackerItemNode copyWith({
     String? name,
@@ -343,10 +337,10 @@ class PackerItemNode {
 class TexturePackerProject {
   /// The root of the Source Image tree (Input files).
   final SourceImageNode sourceImagesRoot;
-  
+
   /// The root of the Packer Item tree (Output sprites/animations).
   final PackerItemNode tree;
-  
+
   /// Definitions map (Node ID -> Definition Data).
   final Map<String, PackerItemDefinition> definitions;
 
@@ -355,19 +349,27 @@ class TexturePackerProject {
     required this.tree,
     this.definitions = const {},
   });
-  
+
   /// Creates an empty, initial project state.
   factory TexturePackerProject.fresh() {
     return TexturePackerProject(
-      sourceImagesRoot: SourceImageNode(name: 'root', type: SourceNodeType.folder, id: 'root'),
-      tree: PackerItemNode(name: 'root', type: PackerItemType.folder, id: 'root'),
+      sourceImagesRoot: SourceImageNode(
+        name: 'root',
+        type: SourceNodeType.folder,
+        id: 'root',
+      ),
+      tree: PackerItemNode(
+        name: 'root',
+        type: PackerItemType.folder,
+        id: 'root',
+      ),
     );
   }
 
   factory TexturePackerProject.fromJson(Map<String, dynamic> json) {
     // Deserialize Output Tree
     final tree = PackerItemNode.fromJson(json['tree']);
-    
+
     // Deserialize Source Image Tree
     SourceImageNode sourceRoot;
     if (json['sourceImagesRoot'] != null) {
@@ -375,13 +377,17 @@ class TexturePackerProject {
     } else {
       // Migration from old List<SourceImageConfig> if needed
       // For now, we return fresh root if not found to ensure non-null
-      sourceRoot = SourceImageNode(name: 'root', type: SourceNodeType.folder, id: 'root');
+      sourceRoot = SourceImageNode(
+        name: 'root',
+        type: SourceNodeType.folder,
+        id: 'root',
+      );
     }
 
     final Map<String, PackerItemDefinition> defs = {};
     if (json['definitions'] != null) {
       final Map<String, dynamic> rawDefs = json['definitions'];
-      
+
       // Helper to find node type by ID from the parsed tree
       PackerItemType? findType(String id) {
         PackerItemNode? find(PackerItemNode node) {
@@ -392,9 +398,10 @@ class TexturePackerProject {
           }
           return null;
         }
+
         return find(tree)?.type;
       }
-      
+
       rawDefs.forEach((id, defJson) {
         final type = findType(id);
         if (type != null) {
@@ -414,11 +421,13 @@ class TexturePackerProject {
   }
 
   Map<String, dynamic> toJson() => {
-        'sourceImagesRoot': sourceImagesRoot.toJson(),
-        'tree': tree.toJson(),
-        'definitions': definitions.map((key, value) => MapEntry(key, value.toJson())),
-      };
-      
+    'sourceImagesRoot': sourceImagesRoot.toJson(),
+    'tree': tree.toJson(),
+    'definitions': definitions.map(
+      (key, value) => MapEntry(key, value.toJson()),
+    ),
+  };
+
   TexturePackerProject copyWith({
     SourceImageNode? sourceImagesRoot,
     PackerItemNode? tree,

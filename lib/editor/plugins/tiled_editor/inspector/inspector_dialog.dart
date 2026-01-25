@@ -1,26 +1,26 @@
 // FILE: lib/editor/plugins/tiled_editor/inspector/inspector_dialog.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tiled/tiled.dart' as tiled;
-import 'package:path/path.dart' as p;
 
-import 'property_descriptors.dart';
-import 'tiled_reflectors.dart';
-import 'property_widgets.dart';
+import '../../../../asset_cache/asset_models.dart';
+import '../../../../logs/logs_provider.dart';
+import '../providers/project_schema_provider.dart';
+import '../tiled_asset_resolver.dart';
 import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import '../tiled_asset_resolver.dart';
-import '../providers/project_schema_provider.dart';
-import '../../../../logs/logs_provider.dart';
+import 'property_descriptors.dart';
+import 'property_widgets.dart';
+import 'tiled_reflectors.dart';
 
 class InspectorDialog extends ConsumerStatefulWidget {
   final Object target;
   final String title;
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
-  
+
   final TiledAssetResolver resolver;
 
   const InspectorDialog({
@@ -43,7 +43,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   bool _isLoadingParams = false;
   String? _currentFlowGraphPath;
 
-
   @override
   void initState() {
     super.initState();
@@ -62,11 +61,11 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     if (flowGraphPath == null || flowGraphPath.isEmpty) {
       return;
     }
-    
+
     setState(() => _isLoadingParams = true);
-    
+
     await widget.resolver.loadAndCacheFlowGraphParameters(flowGraphPath);
-    
+
     if (mounted) {
       setState(() => _isLoadingParams = false);
     }
@@ -84,6 +83,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     super.dispose();
   }
+
   Object _deepCopyTarget(Object target) {
     if (target is tiled.TiledObject) {
       return deepCopyTiledObject(target);
@@ -92,14 +92,15 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return deepCopyLayer(target);
     }
     if (target is tiled.TiledMap) {
-      final newMap = tiled.TiledMap(
-        width: target.width,
-        height: target.height,
-        tileWidth: target.tileWidth,
-        tileHeight: target.tileHeight,
-      )
-        ..backgroundColorHex = target.backgroundColorHex
-        ..renderOrder = target.renderOrder;
+      final newMap =
+          tiled.TiledMap(
+              width: target.width,
+              height: target.height,
+              tileWidth: target.tileWidth,
+              tileHeight: target.tileHeight,
+            )
+            ..backgroundColorHex = target.backgroundColorHex
+            ..renderOrder = target.renderOrder;
       return newMap;
     }
     if (target is tiled.Tileset) {
@@ -115,10 +116,11 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     });
 
     if (widget.target is tiled.TiledObject) {
-       final newPath = (widget.target as tiled.TiledObject).properties.getValue<String>('flowGraph');
-       if (newPath != _currentFlowGraphPath) {
-         _loadFlowGraphParametersIfNeeded();
-       }
+      final newPath = (widget.target as tiled.TiledObject).properties
+          .getValue<String>('flowGraph');
+      if (newPath != _currentFlowGraphPath) {
+        _loadFlowGraphParametersIfNeeded();
+      }
     }
     widget.notifier.notifyChange();
   }
@@ -133,7 +135,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     final descriptors = TiledReflector.getDescriptors(
       obj: widget.target,
       map: widget.notifier.map,
-      schema: schema, 
+      schema: schema,
       resolver: widget.resolver,
       talker: talker,
     );
@@ -146,11 +148,15 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
           shrinkWrap: true,
           children: [
             if (_isLoadingParams)
-              const Center(child: Padding(
-                padding: EdgeInsets.all(8.0),
-                child: CircularProgressIndicator(),
-              )),
-            ...descriptors.map((descriptor) => _buildPropertyWidget(descriptor)),
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ...descriptors.map(
+              (descriptor) => _buildPropertyWidget(descriptor),
+            ),
           ],
         ),
       ),
@@ -163,37 +169,45 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     );
   }
 
-  Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
+  Widget _buildPropertyWidget(
+    PropertyDescriptor descriptor, {
+    PropertyDescriptor? parentDescriptor,
+  }) {
     if (descriptor is ExternalObjectReferencePropertyDescriptor) {
-      return PropertyExternalObjectSelector(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyExternalObjectSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is TiledObjectReferencePropertyDescriptor) {
-      return PropertyTiledObjectSelector(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyTiledObjectSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is ImagePathPropertyDescriptor) {
-      
       final rawPath = descriptor.currentValue;
-      
+
       tiled.Tileset? contextTileset;
       Object? parentObject;
 
       if (parentDescriptor is ObjectPropertyDescriptor) {
-         parentObject = parentDescriptor.target;
-         if (parentObject is tiled.Tileset) {
-           contextTileset = parentObject;
-         }
+        parentObject = parentDescriptor.target;
+        if (parentObject is tiled.Tileset) {
+          contextTileset = parentObject;
+        }
       } else {
         if (widget.target is tiled.Tileset) {
           contextTileset = widget.target as tiled.Tileset;
           parentObject = widget.target;
         }
       }
-      
+
       final image = widget.resolver.getImage(rawPath, tileset: contextTileset);
       final imageAsset = image != null ? ImageAssetData(image: image) : null;
-      
+
       final actualParentObject = parentObject ?? widget.target;
-      
+
       return PropertyImagePathInput(
         descriptor: descriptor,
         onUpdate: _onUpdate,
@@ -245,7 +259,8 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     if (descriptor is StringPropertyDescriptor) {
       // Check for file link convention (e.g. ends with .fg or specific property name)
-      if (descriptor.currentValue.endsWith('.fg') || descriptor.name.contains('graph')) {
+      if (descriptor.currentValue.endsWith('.fg') ||
+          descriptor.name.contains('graph')) {
         return PropertyFileLinkWithAction(
           descriptor: descriptor,
           onUpdate: _onUpdate,
@@ -255,56 +270,85 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertyStringInput(descriptor: descriptor, onUpdate: _onUpdate);
     }
     if (descriptor is EnumPropertyDescriptor<tiled.RenderOrder>) {
-      return PropertyEnumDropdown<tiled.RenderOrder>(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyEnumDropdown<tiled.RenderOrder>(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is EnumPropertyDescriptor<tiled.DrawOrder>) {
-      return PropertyEnumDropdown<tiled.DrawOrder>(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyEnumDropdown<tiled.DrawOrder>(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is EnumPropertyDescriptor<tiled.ObjectAlignment>) {
-      return PropertyEnumDropdown<tiled.ObjectAlignment>(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyEnumDropdown<tiled.ObjectAlignment>(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is EnumPropertyDescriptor<tiled.HAlign>) {
-      return PropertyEnumDropdown<tiled.HAlign>(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyEnumDropdown<tiled.HAlign>(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is EnumPropertyDescriptor<tiled.VAlign>) {
-      return PropertyEnumDropdown<tiled.VAlign>(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyEnumDropdown<tiled.VAlign>(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is CustomPropertiesDescriptor) {
-      return CustomPropertiesEditor(descriptor: descriptor, onUpdate: _onUpdate);
+      return CustomPropertiesEditor(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
     }
     if (descriptor is ObjectPropertyDescriptor) {
       final nestedObject = descriptor.currentValue;
       if (nestedObject == null) return const SizedBox.shrink();
 
       if (nestedObject is tiled.TiledImage) {
-        final imageDescriptors = nestedObject.getDescriptors(descriptor.target!);
+        final imageDescriptors = nestedObject.getDescriptors(
+          descriptor.target!,
+        );
         return ExpansionTile(
           title: Text(descriptor.label),
-          children: imageDescriptors.map((childDesc) => _buildPropertyWidget(childDesc, parentDescriptor: descriptor)).toList(),
+          children:
+              imageDescriptors
+                  .map(
+                    (childDesc) => _buildPropertyWidget(
+                      childDesc,
+                      parentDescriptor: descriptor,
+                    ),
+                  )
+                  .toList(),
         );
       }
       return ListTile(title: Text('${descriptor.label}: Unsupported Type'));
     }
-  
-    
+
     if (descriptor is DynamicEnumPropertyDescriptor) {
       return PropertyDynamicSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
       );
     }
-    
-  if (descriptor is StringEnumPropertyDescriptor) {
+
+    if (descriptor is StringEnumPropertyDescriptor) {
       return PropertyStringComboBox(
-        descriptor: descriptor, 
-        onUpdate: _onUpdate
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
       );
     }
-        
+
     if (descriptor is EnumPropertyDescriptor) {
-       return PropertyEnumDropdown(descriptor: descriptor, onUpdate: _onUpdate);
+      return PropertyEnumDropdown(descriptor: descriptor, onUpdate: _onUpdate);
     }
 
-    return ListTile(title: Text('${descriptor.label}: ${descriptor.currentValue}'));
+    return ListTile(
+      title: Text('${descriptor.label}: ${descriptor.currentValue}'),
+    );
   }
 }

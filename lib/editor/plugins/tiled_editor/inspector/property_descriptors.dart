@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:tiled/tiled.dart' hide Image;
+
 import '../tiled_asset_resolver.dart';
 
 // Add this new class to the file
@@ -91,7 +93,7 @@ class StringEnumPropertyDescriptor extends PropertyDescriptor {
   void updateValue(dynamic newValue) => setter(newValue.toString());
 }
 
-/// A dropdown descriptor where valid values are fetched asynchronously or 
+/// A dropdown descriptor where valid values are fetched asynchronously or
 /// dynamically based on other object state (e.g. animation names from a selected atlas).
 class DynamicEnumPropertyDescriptor extends PropertyDescriptor {
   final String Function() getter;
@@ -151,7 +153,8 @@ class IntPropertyDescriptor extends PropertyDescriptor {
   @override
   int get currentValue => getter();
   @override
-  void updateValue(dynamic newValue) => setter(int.tryParse(newValue.toString()) ?? currentValue);
+  void updateValue(dynamic newValue) =>
+      setter(int.tryParse(newValue.toString()) ?? currentValue);
 }
 
 class DoublePropertyDescriptor extends PropertyDescriptor {
@@ -169,7 +172,8 @@ class DoublePropertyDescriptor extends PropertyDescriptor {
   @override
   double get currentValue => getter();
   @override
-  void updateValue(dynamic newValue) => setter(double.tryParse(newValue.toString()) ?? currentValue);
+  void updateValue(dynamic newValue) =>
+      setter(double.tryParse(newValue.toString()) ?? currentValue);
 }
 
 class StringPropertyDescriptor extends PropertyDescriptor {
@@ -270,7 +274,7 @@ class EnumPropertyDescriptor<T extends Enum> extends PropertyDescriptor {
 
   @override
   T get currentValue => getter();
-  
+
   @override
   void updateValue(dynamic newValue) {
     if (newValue is T) {
@@ -317,7 +321,7 @@ class FileListPropertyDescriptor extends PropertyDescriptor {
 
   @override
   List<String> get currentValue => getter();
-  
+
   @override
   void updateValue(dynamic newValue) {
     if (newValue is List<String>) setter(newValue);

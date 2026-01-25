@@ -37,7 +37,7 @@ class SlicingAppBar extends StatelessWidget implements PreferredSizeWidget {
             onPressed: onConfirm,
           ),
           const SizedBox(width: 16),
-        ]
+        ],
       ],
     );
   }

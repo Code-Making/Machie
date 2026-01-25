@@ -20,9 +20,7 @@ abstract class ExplorerPlugin {
   Widget buildSettingsUI(
     ExplorerPluginSettings settings,
     void Function(ExplorerPluginSettings) onChanged,
-  ) =>
-      const SizedBox.shrink();
-
+  ) => const SizedBox.shrink();
 
   /// A list of [FileContentProvider]s that this plugin introduces.
   /// This allows the explorer to define custom [DocumentFile] types and

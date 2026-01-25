@@ -1,16 +1,18 @@
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_export_dialog.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart';
-import 'package:machine/editor/plugins/flow_graph/flow_graph_notifier.dart';
-import 'package:machine/editor/plugins/flow_graph/services/flow_export_service.dart';
-import 'package:machine/utils/toast.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import 'package:path/path.dart' as p;
+
+import '../../../../app/app_notifier.dart';
+import '../../../../data/repositories/project/project_repository.dart';
+import '../../../../utils/toast.dart';
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../../../tab_metadata_notifier.dart';
+import '../flow_graph_asset_resolver.dart';
+import '../flow_graph_notifier.dart';
+import '../services/flow_export_service.dart';
 
 class FlowGraphExportDialog extends ConsumerStatefulWidget {
   final String tabId;
@@ -23,7 +25,8 @@ class FlowGraphExportDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<FlowGraphExportDialog> createState() => _FlowGraphExportDialogState();
+  ConsumerState<FlowGraphExportDialog> createState() =>
+      _FlowGraphExportDialogState();
 }
 
 class _FlowGraphExportDialogState extends ConsumerState<FlowGraphExportDialog> {
@@ -37,7 +40,10 @@ class _FlowGraphExportDialogState extends ConsumerState<FlowGraphExportDialog> {
   void initState() {
     super.initState();
     final metadata = ref.read(tabMetadataProvider)[widget.tabId];
-    final initialName = metadata != null ? p.basenameWithoutExtension(metadata.file.name) : 'flow';
+    final initialName =
+        metadata != null
+            ? p.basenameWithoutExtension(metadata.file.name)
+            : 'flow';
     _nameController = TextEditingController(text: initialName);
   }
 
@@ -61,7 +67,10 @@ class _FlowGraphExportDialogState extends ConsumerState<FlowGraphExportDialog> {
       final file = await repo.fileHandler.resolvePath(project.rootUri, path);
       if (file != null) {
         setState(() {
-          _destinationUri = file.isDirectory ? file.uri : repo.fileHandler.getParentUri(file.uri);
+          _destinationUri =
+              file.isDirectory
+                  ? file.uri
+                  : repo.fileHandler.getParentUri(file.uri);
           _destinationDisplay = path;
         });
       }
@@ -81,19 +90,25 @@ class _FlowGraphExportDialogState extends ConsumerState<FlowGraphExportDialog> {
     setState(() => _isExporting = true);
 
     try {
-      final resolverAsync = ref.read(flowGraphAssetResolverProvider(widget.tabId));
-      
+      final resolverAsync = ref.read(
+        flowGraphAssetResolverProvider(widget.tabId),
+      );
+
       if (!resolverAsync.hasValue) {
-        throw Exception('Assets are not fully loaded. Please wait and try again.');
+        throw Exception(
+          'Assets are not fully loaded. Please wait and try again.',
+        );
       }
 
-      await ref.read(flowExportServiceProvider).export(
-        graph: widget.notifier.graph,
-        resolver: resolverAsync.value!,
-        destinationFolderUri: _destinationUri!,
-        fileName: _nameController.text.trim(),
-        embedSchema: _embedSchema,
-      );
+      await ref
+          .read(flowExportServiceProvider)
+          .export(
+            graph: widget.notifier.graph,
+            resolver: resolverAsync.value!,
+            destinationFolderUri: _destinationUri!,
+            fileName: _nameController.text.trim(),
+            embedSchema: _embedSchema,
+          );
 
       MachineToast.info('Export successful!');
       if (mounted) Navigator.of(context).pop();
@@ -140,7 +155,7 @@ class _FlowGraphExportDialogState extends ConsumerState<FlowGraphExportDialog> {
             value: _embedSchema,
             onChanged: (val) => setState(() => _embedSchema = val),
             contentPadding: EdgeInsets.zero,
-          )
+          ),
         ],
       ),
       actions: [
@@ -150,9 +165,14 @@ class _FlowGraphExportDialogState extends ConsumerState<FlowGraphExportDialog> {
         ),
         FilledButton(
           onPressed: _isExporting ? null : _doExport,
-          child: _isExporting 
-            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Text('Export'),
+          child:
+              _isExporting
+                  ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Text('Export'),
         ),
       ],
     );

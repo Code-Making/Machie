@@ -113,15 +113,18 @@ class FlowNodeType {
       label: json['label'] ?? json['type'],
       category: json['category'] ?? 'General',
       description: json['description'] ?? '',
-      inputs: (json['inputs'] as List?)
+      inputs:
+          (json['inputs'] as List?)
               ?.map((e) => FlowPortDefinition.fromJson(e))
               .toList() ??
           [],
-      outputs: (json['outputs'] as List?)
+      outputs:
+          (json['outputs'] as List?)
               ?.map((e) => FlowPortDefinition.fromJson(e))
               .toList() ??
           [],
-      properties: (json['properties'] as List?)
+      properties:
+          (json['properties'] as List?)
               ?.map((e) => FlowPropertyDefinition.fromJson(e))
               .toList() ??
           [],

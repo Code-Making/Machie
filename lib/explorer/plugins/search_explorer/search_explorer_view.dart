@@ -7,11 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
 import '../../../project/project_models.dart';
-import '../../../project/services/project_hierarchy_service.dart';
 import '../../../widgets/file_list_view.dart';
 import '../../common/file_explorer_widgets.dart';
 import 'search_explorer_state.dart';
-
 
 class SearchExplorerView extends ConsumerStatefulWidget {
   final Project project;
@@ -72,19 +70,24 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
         Expanded(
           // Use the indexState to show initial loading/error
           child: indexState.when(
-            loading: () => const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("Building file index..."),
-                ],
-              ),
-            ),
-            error: (err, stack) => Center(child: Text('Error building file index: $err')),
+            loading:
+                () => const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text("Building file index..."),
+                    ],
+                  ),
+                ),
+            error:
+                (err, stack) =>
+                    Center(child: Text('Error building file index: $err')),
             data: (allFiles) {
-              if (searchState.query.isNotEmpty && searchState.results.isEmpty && !searchState.isSearching) {
+              if (searchState.query.isNotEmpty &&
+                  searchState.results.isEmpty &&
+                  !searchState.isSearching) {
                 return Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Text('No results found for "${searchState.query}"'),
@@ -104,9 +107,12 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                     relativeTo: projectRootUri,
                   );
                   final pathSegments = relativePath.split('/');
-                  final subtitle = pathSegments.length > 1
-                      ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
-                      : '.';
+                  final subtitle =
+                      pathSegments.length > 1
+                          ? pathSegments
+                              .sublist(0, pathSegments.length - 1)
+                              .join('/')
+                          : '.';
 
                   final fileItemWidget = FileItem(
                     file: file,

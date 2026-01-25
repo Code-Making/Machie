@@ -10,6 +10,7 @@ import 'package:saf_util/saf_util_platform_interface.dart';
 
 import 'file_handler.dart';
 import 'local_file_handler.dart';
+
 import 'package:path/path.dart' as p; // Add this import
 
 class CustomSAFDocumentFile extends ProjectDocumentFile {
@@ -47,7 +48,7 @@ class SafFileHandler implements LocalFileHandler {
   static const String _separator = '%2F';
 
   final String rootUri;
-  
+
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
 
@@ -56,7 +57,6 @@ class SafFileHandler implements LocalFileHandler {
   final p.Context _pathContext = p.Context(style: p.Style.posix);
 
   SafFileHandler(this.rootUri);
-
 
   @override
   Future<List<ProjectDocumentFile>> listDirectory(
@@ -426,12 +426,12 @@ class SafFileHandler implements LocalFileHandler {
     }
     return path.split(_separator).map((s) => Uri.decodeComponent(s)).join('/');
   }
-  
+
   @override
   String resolveRelativePath(String contextPath, String relativePath) {
     // 1. Get directory of the context file (e.g., "maps/level1.tmx" -> "maps")
     final contextDir = _pathContext.dirname(contextPath);
-    
+
     // 2. Join and normalize to handle ".." segments
     final combined = _pathContext.join(contextDir, relativePath);
     return _pathContext.normalize(combined);
@@ -441,7 +441,7 @@ class SafFileHandler implements LocalFileHandler {
   String calculateRelativePath(String fromContext, String toTarget) {
     // 1. Get directory of the context file
     final contextDir = _pathContext.dirname(fromContext);
-    
+
     // 2. Calculate relative path
     return _pathContext.relative(toTarget, from: contextDir);
   }

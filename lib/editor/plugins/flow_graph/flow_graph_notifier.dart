@@ -1,7 +1,9 @@
 // FILE: lib/editor/plugins/flow_graph/flow_graph_notifier.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:uuid/uuid.dart';
+
 import 'models/flow_graph_models.dart';
 import 'models/flow_schema_models.dart';
 
@@ -26,9 +28,11 @@ class _ConnectionAction implements _FlowHistoryAction {
   final bool isAdd;
   _ConnectionAction(this.connection, {required this.isAdd});
   @override
-  void undo(n) => isAdd ? n._removeConnection(connection) : n._addConnection(connection);
+  void undo(n) =>
+      isAdd ? n._removeConnection(connection) : n._addConnection(connection);
   @override
-  void redo(n) => isAdd ? n._addConnection(connection) : n._removeConnection(connection);
+  void redo(n) =>
+      isAdd ? n._addConnection(connection) : n._removeConnection(connection);
 }
 
 class FlowGraphNotifier extends ChangeNotifier {
@@ -41,7 +45,7 @@ class FlowGraphNotifier extends ChangeNotifier {
   final Set<String> _selectedNodeIds = {};
   FlowConnection? _pendingConnection; // Dragging a wire
   Offset? _pendingConnectionPointer;
- 
+
   FlowPortType? _draggingPortType;
 
   FlowGraphNotifier(this._graph);
@@ -65,10 +69,10 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
     // TODO: Add to history
   }
-  
-    void setSchemaPath(String path) {
+
+  void setSchemaPath(String path) {
     if (_graph.schemaPath == path) return;
-    
+
     // Create new graph state with updated schema path
     _graph = FlowGraph(
       nodes: _graph.nodes,
@@ -77,8 +81,8 @@ class FlowGraphNotifier extends ChangeNotifier {
       viewportScale: _graph.viewportScale,
       schemaPath: path,
     );
-    
-    // We don't record history for setting schema typically, 
+
+    // We don't record history for setting schema typically,
     // or we could if we want undo support for it.
     notifyListeners();
   }
@@ -89,11 +93,16 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startConnectionDrag(String nodeId, String portKey, bool isInput, FlowPortType type) {
+  void startConnectionDrag(
+    String nodeId,
+    String portKey,
+    bool isInput,
+    FlowPortType type,
+  ) {
     _pendingConnection = FlowConnection(
-      outputNodeId: nodeId, 
-      outputPortKey: portKey, 
-      inputNodeId: 'CURSOR', 
+      outputNodeId: nodeId,
+      outputPortKey: portKey,
+      inputNodeId: 'CURSOR',
       inputPortKey: 'CURSOR',
     );
     _draggingPortType = type;
@@ -107,22 +116,25 @@ class FlowGraphNotifier extends ChangeNotifier {
   }
 
   void endConnectionDrag(String? targetNodeId, String? targetPortKey) {
-    if (_pendingConnection != null && targetNodeId != null && targetPortKey != null) {
+    if (_pendingConnection != null &&
+        targetNodeId != null &&
+        targetPortKey != null) {
       final newConnection = FlowConnection(
         outputNodeId: _pendingConnection!.outputNodeId,
         outputPortKey: _pendingConnection!.outputPortKey,
         inputNodeId: targetNodeId,
         inputPortKey: targetPortKey,
       );
-      
+
       // Remove existing connection to the same input (single input rule)
-      _graph.connections.removeWhere((c) => 
-          c.inputNodeId == targetNodeId && c.inputPortKey == targetPortKey);
+      _graph.connections.removeWhere(
+        (c) => c.inputNodeId == targetNodeId && c.inputPortKey == targetPortKey,
+      );
 
       if (!_graph.connections.contains(newConnection)) {
         if (newConnection.outputNodeId != newConnection.inputNodeId) {
-           _addConnection(newConnection);
-           _record(_ConnectionAction(newConnection, isAdd: true));
+          _addConnection(newConnection);
+          _record(_ConnectionAction(newConnection, isAdd: true));
         }
       }
     }
@@ -133,22 +145,28 @@ class FlowGraphNotifier extends ChangeNotifier {
   }
 
   void deleteConnection(String inputNodeId, String inputPortKey) {
-    final toRemove = _graph.connections.where((c) => 
-      c.inputNodeId == inputNodeId && c.inputPortKey == inputPortKey
-    ).toList();
-    
+    final toRemove =
+        _graph.connections
+            .where(
+              (c) =>
+                  c.inputNodeId == inputNodeId &&
+                  c.inputPortKey == inputPortKey,
+            )
+            .toList();
+
     for (final c in toRemove) {
       removeConnection(c);
     }
   }
-  
+
   void deleteNode(String nodeId) {
     _graph.nodes.removeWhere((n) => n.id == nodeId);
-    _graph.connections.removeWhere((c) => c.inputNodeId == nodeId || c.outputNodeId == nodeId);
+    _graph.connections.removeWhere(
+      (c) => c.inputNodeId == nodeId || c.outputNodeId == nodeId,
+    );
     _selectedNodeIds.remove(nodeId);
     notifyListeners();
   }
-
 
   void removeConnection(FlowConnection connection) {
     _removeConnection(connection);
@@ -161,7 +179,9 @@ class FlowGraphNotifier extends ChangeNotifier {
     for (final id in _selectedNodeIds) {
       _graph.nodes.removeWhere((n) => n.id == id);
       // Clean connections attached to this node
-      _graph.connections.removeWhere((c) => c.inputNodeId == id || c.outputNodeId == id);
+      _graph.connections.removeWhere(
+        (c) => c.inputNodeId == id || c.outputNodeId == id,
+      );
     }
     _selectedNodeIds.clear();
     notifyListeners();

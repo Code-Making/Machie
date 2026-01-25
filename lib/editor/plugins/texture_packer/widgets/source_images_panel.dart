@@ -1,11 +1,13 @@
 // lib/editor/plugins/texture_packer/widgets/source_images_panel.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_widget.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
-import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
+
+import '../../../../widgets/dialogs/file_explorer_dialogs.dart';
+import '../texture_packer_editor_widget.dart';
+import '../texture_packer_models.dart';
+import '../texture_packer_notifier.dart';
 
 // Reuse DropPosition enum and Painter logic if possible, or define locally
 enum _SourceDropPos { above, inside, below }
@@ -59,17 +61,24 @@ class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
 
     void traverse(SourceImageNode node, int depth, String parentId, int index) {
       if (node.id != 'root') {
-        flatList.add(_FlatSourceNode(
-          node: node,
-          depth: depth,
-          parentId: parentId,
-          indexInParent: index,
-        ));
+        flatList.add(
+          _FlatSourceNode(
+            node: node,
+            depth: depth,
+            parentId: parentId,
+            indexInParent: index,
+          ),
+        );
       }
 
       if (node.id == 'root' || _expandedIds.contains(node.id)) {
         for (int i = 0; i < node.children.length; i++) {
-          traverse(node.children[i], node.id == 'root' ? 0 : depth + 1, node.id, i);
+          traverse(
+            node.children[i],
+            node.id == 'root' ? 0 : depth + 1,
+            node.id,
+            i,
+          );
         }
       }
     }
@@ -103,9 +112,15 @@ class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             child: Row(
               children: [
-                Text('Source Images', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Source Images',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const Spacer(),
-                IconButton(icon: const Icon(Icons.close), onPressed: widget.onClose),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: widget.onClose,
+                ),
               ],
             ),
           ),
@@ -117,9 +132,12 @@ class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
               itemCount: flatList.length + 1,
               itemBuilder: (context, index) {
                 if (index == flatList.length) {
-                  return _SourceRootDropZone(notifier: widget.notifier, rootNode: widget.notifier.project.sourceImagesRoot);
+                  return _SourceRootDropZone(
+                    notifier: widget.notifier,
+                    rootNode: widget.notifier.project.sourceImagesRoot,
+                  );
                 }
-                
+
                 final item = flatList[index];
                 return _SourceItemRow(
                   key: ValueKey(item.node.id),
@@ -195,28 +213,36 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
     Widget content = Container(
       height: 32,
       padding: EdgeInsets.only(left: widget.flatNode.depth * 16.0 + 8.0),
-      color: isSelected ? theme.colorScheme.primaryContainer.withOpacity(0.3) : null,
+      color:
+          isSelected
+              ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+              : null,
       child: Row(
         children: [
           if (_isContainer)
             GestureDetector(
               onTap: widget.onToggleExpand,
-              child: Icon(widget.isExpanded ? Icons.arrow_drop_down : Icons.arrow_right, size: 20),
+              child: Icon(
+                widget.isExpanded ? Icons.arrow_drop_down : Icons.arrow_right,
+                size: 20,
+              ),
             )
           else
             const SizedBox(width: 20),
-          
+
           Icon(
-            _isContainer ? (widget.isExpanded ? Icons.folder_open : Icons.folder) : Icons.image_outlined,
+            _isContainer
+                ? (widget.isExpanded ? Icons.folder_open : Icons.folder)
+                : Icons.image_outlined,
             size: 18,
             color: _isContainer ? Colors.yellow[700] : null,
           ),
           const SizedBox(width: 8),
-          
+
           Expanded(
             child: Text(
               node.name,
-              maxLines: 1, 
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -230,7 +256,10 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
 
     if (_dropPosition != null) {
       content = CustomPaint(
-        foregroundPainter: _SourceDropPainter(position: _dropPosition!, color: theme.colorScheme.primary),
+        foregroundPainter: _SourceDropPainter(
+          position: _dropPosition!,
+          color: theme.colorScheme.primary,
+        ),
         child: content,
       );
     }
@@ -242,7 +271,13 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
         child: Container(
           padding: const EdgeInsets.all(8),
           color: theme.cardColor,
-          child: Row(children: [const Icon(Icons.photo_library), const SizedBox(width: 8), Text(node.name)]),
+          child: Row(
+            children: [
+              const Icon(Icons.photo_library),
+              const SizedBox(width: 8),
+              Text(node.name),
+            ],
+          ),
         ),
       ),
       childWhenDragging: Opacity(opacity: 0.5, child: content),
@@ -292,7 +327,8 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
       builder: (ctx, cand, rej) {
         return InkWell(
           onTap: () {
-            if (!_isContainer) ref.read(activeSourceImageIdProvider.notifier).state = node.id;
+            if (!_isContainer)
+              ref.read(activeSourceImageIdProvider.notifier).state = node.id;
           },
           child: draggable,
         );
@@ -305,13 +341,22 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
       icon: const Icon(Icons.more_vert, size: 16),
       onSelected: (val) async {
         if (val == 'delete') {
-          final confirm = await showConfirmDialog(context, title: 'Remove?', content: 'Links will be broken.');
-          if (confirm) widget.notifier.removeSourceNode(widget.flatNode.node.id);
+          final confirm = await showConfirmDialog(
+            context,
+            title: 'Remove?',
+            content: 'Links will be broken.',
+          );
+          if (confirm)
+            widget.notifier.removeSourceNode(widget.flatNode.node.id);
         }
       },
-      itemBuilder: (_) => [
-        const PopupMenuItem(value: 'delete', child: Text('Remove', style: TextStyle(color: Colors.red))),
-      ],
+      itemBuilder:
+          (_) => [
+            const PopupMenuItem(
+              value: 'delete',
+              child: Text('Remove', style: TextStyle(color: Colors.red)),
+            ),
+          ],
     );
   }
 }
@@ -340,19 +385,25 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
       onLeave: (_) => setState(() => _hover = false),
       onAccept: (id) {
         setState(() => _hover = false);
-        widget.notifier.moveSourceNode(id, 'root', widget.rootNode.children.length);
+        widget.notifier.moveSourceNode(
+          id,
+          'root',
+          widget.rootNode.children.length,
+        );
       },
-      builder: (ctx, cand, rej) => Container(
-        height: 80,
-        color: _hover ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.transparent,
-        alignment: Alignment.center,
-        child: _hover ? const Text("Move to Root") : null,
-      ),
+      builder:
+          (ctx, cand, rej) => Container(
+            height: 80,
+            color:
+                _hover
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                    : Colors.transparent,
+            alignment: Alignment.center,
+            child: _hover ? const Text("Move to Root") : null,
+          ),
     );
   }
 }
-
-
 
 class _SourceDropPainter extends CustomPainter {
   final _SourceDropPos position;
@@ -361,11 +412,24 @@ class _SourceDropPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = color..strokeWidth = 2..style = PaintingStyle.stroke;
-    if (position == _SourceDropPos.above) canvas.drawLine(Offset(0,1), Offset(size.width,1), p);
-    else if (position == _SourceDropPos.below) canvas.drawLine(Offset(0,size.height-1), Offset(size.width,size.height-1), p);
-    else canvas.drawRect(Rect.fromLTWH(1,1,size.width-2,size.height-2), p);
+    final p =
+        Paint()
+          ..color = color
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke;
+    if (position == _SourceDropPos.above)
+      canvas.drawLine(Offset(0, 1), Offset(size.width, 1), p);
+    else if (position == _SourceDropPos.below)
+      canvas.drawLine(
+        Offset(0, size.height - 1),
+        Offset(size.width, size.height - 1),
+        p,
+      );
+    else
+      canvas.drawRect(Rect.fromLTWH(1, 1, size.width - 2, size.height - 2), p);
   }
+
   @override
-  bool shouldRepaint(_SourceDropPainter old) => old.position != position || old.color != color;
+  bool shouldRepaint(_SourceDropPainter old) =>
+      old.position != position || old.color != color;
 }

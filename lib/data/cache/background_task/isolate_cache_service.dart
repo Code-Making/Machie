@@ -51,7 +51,11 @@ class IsolateCacheService implements BackgroundCacheService {
   }
 
   @override
-  Future<void> updateHotState(String projectId, String tabId, Map<String, dynamic> payload) async {
+  Future<void> updateHotState(
+    String projectId,
+    String tabId,
+    Map<String, dynamic> payload,
+  ) async {
     // No-op
   }
 }

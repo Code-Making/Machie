@@ -1,15 +1,16 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:xterm/xterm.dart';
 
-import '../termux_hot_state.dart';
 import '../../../../app/app_notifier.dart';
-import '../../../../settings/settings_notifier.dart';
 import '../../../../logs/logs_provider.dart';
-import '../termux_terminal_models.dart';
-import '../services/termux_bridge_service.dart';
+import '../../../../settings/settings_notifier.dart';
 import '../../../models/editor_tab_models.dart';
+import '../services/termux_bridge_service.dart';
+import '../termux_hot_state.dart';
+import '../termux_terminal_models.dart';
 
 class TermuxInputHandler implements TerminalInputHandler {
   final TerminalInputHandler _delegate = defaultInputHandler;
@@ -40,10 +41,8 @@ class TermuxTerminalWidget extends EditorWidget {
   @override
   final TermuxTerminalTab tab;
 
-  const TermuxTerminalWidget({
-    required super.key,
-    required this.tab,
-  }) : super(tab: tab);
+  const TermuxTerminalWidget({required super.key, required this.tab})
+    : super(tab: tab);
 
   @override
   _TermuxTerminalWidgetState createState() => _TermuxTerminalWidgetState();
@@ -59,10 +58,7 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   @override
   void init() {
     _inputHandler = TermuxInputHandler();
-    _terminal = Terminal(
-      maxLines: 10000,
-      inputHandler: _inputHandler,
-    );
+    _terminal = Terminal(maxLines: 10000, inputHandler: _inputHandler);
     _bridge = ref.read(termuxBridgeServiceProvider);
 
     _bridgeSubscription = _bridge.outputStream.listen((data) {
@@ -88,7 +84,8 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     // IMPORTANT: Watch effectiveSettingsProvider to ensure we get the overrides if they exist
     // This resolves the issue where settings weren't applying.
     final effectiveSettings = ref.read(effectiveSettingsProvider);
-    final settings = effectiveSettings.pluginSettings[TermuxTerminalSettings]
+    final settings =
+        effectiveSettings.pluginSettings[TermuxTerminalSettings]
             as TermuxTerminalSettings? ??
         TermuxTerminalSettings();
 
@@ -107,22 +104,24 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
         workDir = settings.termuxWorkDir;
         if (projectFsPath != null) {
           _terminal.write(
-              '\x1b[33m[Machine] Path "$projectFsPath" not accessible by Termux. Defaulting to Home.\x1b[0m\r\n');
+            '\x1b[33m[Machine] Path "$projectFsPath" not accessible by Termux. Defaulting to Home.\x1b[0m\r\n',
+          );
         }
       }
     }
 
     _activeWorkingDirectory = workDir;
 
-    _bridge.executeCommand(
-      workingDirectory: workDir,
-      shell: settings.shellCommand,
-    ).catchError((e, st) {
-      final errorMessage =
-          "\r\n\x1b[31mError starting Termux session: $e\x1b[0m\r\n";
-      _terminal.write(errorMessage);
-      ref.read(talkerProvider).handle(e, st, "Failed to start Termux session");
-    });
+    _bridge
+        .executeCommand(workingDirectory: workDir, shell: settings.shellCommand)
+        .catchError((e, st) {
+          final errorMessage =
+              "\r\n\x1b[31mError starting Termux session: $e\x1b[0m\r\n";
+          _terminal.write(errorMessage);
+          ref
+              .read(talkerProvider)
+              .handle(e, st, "Failed to start Termux session");
+        });
   }
 
   String? _convertSafToFsPath(String? uriString) {
@@ -167,7 +166,8 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   bool _isPathAccessibleByTermux(String path) {
     if (path.startsWith('/data/data/com.termux/files/')) return true;
-    if (path.startsWith('/storage/emulated/0/')) return true; // Internal Storage
+    if (path.startsWith('/storage/emulated/0/'))
+      return true; // Internal Storage
     if (path.startsWith('/sdcard/')) return true; // Alias
     if (path.startsWith('/storage/'))
       return true; // SD Cards (might fail if read-only)
@@ -238,7 +238,8 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   Widget build(BuildContext context) {
     // Visual settings need to update immediately using effective settings
     final effectiveSettings = ref.watch(effectiveSettingsProvider);
-    final settings = effectiveSettings.pluginSettings[TermuxTerminalSettings]
+    final settings =
+        effectiveSettings.pluginSettings[TermuxTerminalSettings]
             as TermuxTerminalSettings? ??
         TermuxTerminalSettings();
 

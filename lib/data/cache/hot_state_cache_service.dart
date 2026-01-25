@@ -6,11 +6,11 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../logs/logs_provider.dart';
+import '../dto/tab_hot_state_dto.dart';
 import '../repositories/cache/cache_repository.dart';
 import '../repositories/cache/hive_cache_repository.dart';
 import 'type_adapter_registry.dart';
-import '../dto/tab_hot_state_dto.dart';
-import '../../logs/logs_provider.dart';
 
 import 'background_task/background_cache_service.dart'; // <-- Add import
 
@@ -41,7 +41,7 @@ class HotStateCacheService {
     this._talker,
     this._backgroundTaskService, // <-- ADD TO CONSTRUCTOR
   );
-  
+
   /// Initializes and starts the background caching service.
   /// This should be called once during app startup.
   Future<void> initializeAndStart() async {
