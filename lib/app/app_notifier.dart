@@ -138,7 +138,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
         return null;
       }
 
-      final bool wantsToGrant = await showConfirmDialog(
+final bool wantsToGrant = await showConfirmDialog(
         context,
         title: 'Permission Required',
         content:
@@ -146,9 +146,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
 
       if (wantsToGrant == true) {
+        if (!context.mounted) {
+          return;
+        }
         final bool permissionGranted = await _projectService
             .recoverPermissionForProject(e.metadata, context);
-
         if (permissionGranted) {
           _talker.info("Permission re-granted. Retrying project open...");
           return await _openProjectWithRecovery(
@@ -216,16 +218,16 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final metadataMap = ref.read(tabMetadataProvider);
 
     // THE FIX: Filter out any tabs that are associated with a VirtualDocumentFile.
-    final dirtyTabsMetadata =
+final dirtyTabsMetadata =
         tabsToCheck
             .map((tab) => metadataMap[tab.id])
-            .whereNotNull()
+            .nonNulls
             .where(
               (metadata) =>
                   metadata.isDirty && metadata.file is! VirtualDocumentFile,
             )
             .toList();
-
+            
     if (dirtyTabsMetadata.isEmpty) {
       // No dirty (and non-virtual) tabs, so we can proceed without saving.
       return UnsavedChangesAction.discard;
