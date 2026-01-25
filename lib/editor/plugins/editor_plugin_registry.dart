@@ -14,6 +14,8 @@ export '../models/editor_plugin_models.dart';
 import 'flow_graph/flow_graph_editor_plugin.dart';
 import 'termux_terminal/termux_terminal_plugin.dart';
 
+import 'markdown_editor/markdown_editor_plugin.dart'; // Import the new plugin
+
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
     CodeEditorPlugin(),
@@ -25,6 +27,7 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
     TexturePackerPlugin(),
     FlowGraphEditorPlugin(),
     TermuxTerminalPlugin(),
+    MarkdownEditorPlugin(),
   },
 );
 

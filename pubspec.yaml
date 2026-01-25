@@ -80,8 +80,10 @@ dependencies:
   xterm:
     git:
       url: git@github.com:hommes-doutant/xterm.dart.git
-  appflowy_editor: ^0.1.12
- 
+  appflowy_editor: ^4.0.0 # Check for latest version compatible with your constraints
+  appflowy_editor_plugins: ^2.0.0
+  yaml: ^3.1.2 # For parsing Front Matter
+   
 dev_dependencies:
   flutter_test:
     sdk: flutter
