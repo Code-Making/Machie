@@ -604,7 +604,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
       projectHierarchyServiceProvider.notifier,
     );
     var directoryState =
-        ref.read(projectHierarchyServiceProvider)(directoryUri);
+        ref.read(projectHierarchyServiceProvider)[directoryUri];
     if (directoryState == null || directoryState is! AsyncData) {
       await hierarchyNotifier.loadDirectory(directoryUri);
       directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
