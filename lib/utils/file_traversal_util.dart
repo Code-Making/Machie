@@ -20,7 +20,7 @@ class FileTraversalUtil {
     required Set<String> ignoredGlobPatterns,
     required bool useProjectGitignore,
     required Future<void> Function(ProjectDocumentFile file, String displayPath)
-    onFileFound,
+        onFileFound,
   }) async {
     final repo = ref.read(projectRepositoryProvider);
     final projectRootUri =
@@ -35,13 +35,11 @@ class FileTraversalUtil {
 
     if (repo == null || projectRootUri == null) return;
 
-    final hierarchyNotifier = ref.read(
-      projectHierarchyServiceProvider.notifier,
-    );
-
+    // The ProjectHierarchyService is responsible for loading/managing hierarchy state.
+    // We pass the ref down so that recursive calls can access the provider's state.
     await _recursiveTraverse(
       repo: repo,
-      hierarchyNotifier: hierarchyNotifier,
+      ref: ref, // Pass the ref down to allow reading provider state in recursion
       directoryUri: startDirectoryUri,
       projectRootUri: projectRootUri,
       showHidden: showHidden,
@@ -55,7 +53,7 @@ class FileTraversalUtil {
 
   static Future<void> _recursiveTraverse({
     required ProjectRepository repo,
-    required ProjectHierarchyService hierarchyNotifier,
+    required Ref ref, // Changed to receive Ref
     required String directoryUri,
     required String projectRootUri,
     required bool showHidden,
@@ -63,13 +61,18 @@ class FileTraversalUtil {
     required List<_CompiledGlob> accumulatedIgnoreGlobs,
     required bool useProjectGitignore,
     required Future<void> Function(ProjectDocumentFile file, String displayPath)
-    onFileFound,
+        onFileFound,
   }) async {
+    // Get the notifier instance to call its methods (e.g., loadDirectory)
+    final hierarchyService = ref.read(projectHierarchyServiceProvider.notifier);
+    
     // 1. Load directory (Hydrating state as per your architecture)
-    var directoryState = hierarchyNotifier[directoryUri];
+    // Read the current state map from the provider directly
+    var directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     if (directoryState == null || directoryState is! AsyncData) {
-      await hierarchyNotifier.loadDirectory(directoryUri);
-      directoryState = hierarchyNotifier[directoryUri];
+      await hierarchyService.loadDirectory(directoryUri);
+      // After loading, the provider's state has been updated, so re-read it
+      directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     }
     final entries =
         directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
@@ -114,7 +117,7 @@ class FileTraversalUtil {
         subDirectoryFutures.add(
           _recursiveTraverse(
             repo: repo,
-            hierarchyNotifier: hierarchyNotifier,
+            ref: ref, // Pass ref down to children
             directoryUri: entry.uri,
             projectRootUri: projectRootUri,
             showHidden: showHidden,
