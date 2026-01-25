@@ -11,15 +11,15 @@ import '../models/object_class_model.dart';
 import '../tiled_asset_resolver.dart';
 import 'property_descriptors.dart';
 
-extension on CustomProperties {
-  T? getValue<T>(String name) {
-    final prop = this[name];
-    if (prop != null && prop.value is T) {
-      return prop.value as T;
-    }
-    return null;
-  }
-}
+// extension on CustomProperties {
+//   T? getValue<T>(String name) {
+//     final prop = this[name];
+//     if (prop != null && prop.value is T) {
+//       return prop.value as T;
+//     }
+//     return null;
+//   }
+// }
 
 ColorData colorDataFromHex(String hex) {
   var source = hex.replaceAll('#', '');
@@ -655,7 +655,7 @@ extension LayerReflector on Layer {
         EnumPropertyDescriptor<DrawOrder>(
           name: 'drawOrder',
           label: 'Draw Order',
-          getter: () => layer.drawOrder ?? DrawOrder.topDown,
+          getter: () => layer.drawOrder,
           setter: (v) => layer.drawOrder = v,
           allValues: DrawOrder.values,
         ),
