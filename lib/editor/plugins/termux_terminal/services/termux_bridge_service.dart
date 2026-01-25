@@ -2,10 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/services.dart'; // Add this import
 
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../logs/logs_provider.dart';
@@ -18,11 +16,13 @@ final termuxBridgeServiceProvider = Provider<TermuxBridgeService>((ref) {
 
 class TermuxBridgeService {
   final Talker _talker;
-  static const _channel = MethodChannel('com.machine/termux_service');
   ServerSocket? _serverSocket;
   Socket? _clientSocket;
+  static const _channel = MethodChannel('com.machine/termux_service');
+
+  // Buffer for data sent before connection is established
+  final List<List<int>> _writeBuffer = [];
   
-  // Stream for output coming FROM Termux TO the UI
   final StreamController<String> _outputController = StreamController.broadcast();
   Stream<String> get outputStream => _outputController.stream;
 
@@ -30,7 +30,6 @@ class TermuxBridgeService {
 
   TermuxBridgeService(this._talker);
 
-  /// Initializes the TCP listener on a random local port.
   Future<int> initialize() async {
     if (_serverSocket != null) return _serverSocket!.port;
     
@@ -58,22 +57,25 @@ class TermuxBridgeService {
     }
   }
 
-  /// Handles the incoming connection from the Termux `socat` process.
   void _handleClientConnection(Socket client) {
-    // If we already have a client, close the old one (prevent zombie sessions)
     _clientSocket?.destroy();
     _clientSocket = client;
 
-    // Listen for data FROM Termux
+    // Flush pending writes
+    if (_writeBuffer.isNotEmpty) {
+      _talker.info('[TermuxBridge] Flushing ${_writeBuffer.length} buffered packets');
+      for (final data in _writeBuffer) {
+        client.add(data);
+      }
+      _writeBuffer.clear();
+    }
+
     client.listen(
       (Uint8List data) {
         try {
-          // Pass raw bytes or decode partially? xterm.dart handles utf8, but 
-          // usually we pass strings. Using decoding here for simplicity.
           final result = utf8.decode(data, allowMalformed: true);
           _addToOutput(result);
         } catch (e) {
-          // Fallback for tricky binary data if needed
           _addToOutput(String.fromCharCodes(data));
         }
       },
@@ -90,33 +92,49 @@ class TermuxBridgeService {
     );
   }
 
-  /// Writes data FROM the UI TO Termux (Keystrokes).
   void write(String data) {
+    final bytes = utf8.encode(data);
+    
     if (_clientSocket == null) {
-      _talker.warning('[TermuxBridge] Attempted to write to disconnected socket.');
+      // Buffer the data instead of logging a warning
+      _writeBuffer.add(bytes);
       return;
     }
+    
     try {
-      _clientSocket!.add(utf8.encode(data));
+      _clientSocket!.add(bytes);
     } catch (e, st) {
       _talker.handle(e, st, '[TermuxBridge] Write failed');
+      _clientSocket = null; // Assume disconnected
     }
   }
 
-  /// Sends the intent to Termux to start the shell and connect back to us.
   Future<void> executeCommand({
     required String workingDirectory,
     String shell = 'bash',
   }) async {
     final port = await initialize();
 
-    // The socat command to bridge PTY to TCP
+    // UPDATED: Use absolute path for socat to ensure it is found.
+    const socatPath = '/data/data/com.termux/files/usr/bin/socat';
+    
+    // Command Breakdown:
+    // 1. exec '$shell -li': Runs bash/zsh as login shell (interactive).
+    // 2. pty,stderr,setsid,sigint,sane: Sets up a proper PTY environment.
+    // 3. tcp:127.0.0.1:$port: Connects to our Flutter app.
     final bridgeCommand = 
-        "socat EXEC:'$shell -li',pty,stderr,setsid,sigint,sane TCP:127.0.0.1:$port";
+        "$socatPath EXEC:'$shell -li',pty,stderr,setsid,sigint,sane TCP:127.0.0.1:$port";
 
     _talker.info('[TermuxBridge] Calling MethodChannel with port: $port');
 
     try {
+      // We set a timeout for the connection to be established visibly in the terminal
+      Timer(const Duration(seconds: 5), () {
+        if (!isConnected) {
+          _addToOutput('\r\n\x1b[33m[Waiting for Termux... Ensure "socat" is installed via "pkg install socat"]\x1b[0m\r\n');
+        }
+      });
+
       final bool success = await _channel.invokeMethod('startTermuxService', {
         'path': '/data/data/com.termux/files/usr/bin/bash',
         'arguments': ['-c', bridgeCommand],
@@ -126,12 +144,11 @@ class TermuxBridgeService {
       });
 
       if (success) {
-        _addToOutput('\x1b[32m[MethodChannel] Service intent sent...\x1b[0m\r\n');
+        _talker.info('[TermuxBridge] Service intent sent successfully');
       }
     } on PlatformException catch (e, st) {
       _talker.handle(e, st, '[TermuxBridge] MethodChannel Failed');
       _addToOutput('\r\n\x1b[31m[Error] ${e.message}\x1b[0m\r\n');
-      _addToOutput('Check if Termux is installed and has "Run Command" permission.\r\n');
     }
   }
 
@@ -142,14 +159,7 @@ class TermuxBridgeService {
   }
 
   Future<void> dispose() async {
-    _talker.info('[TermuxBridge] Disposing...');
-    try {
-      // Send exit signal if possible to close socat cleanly
-      if (_clientSocket != null) {
-        _clientSocket!.destroy();
-      }
-    } catch (_) {}
-    
+    _clientSocket?.destroy();
     await _serverSocket?.close();
     await _outputController.close();
     _serverSocket = null;

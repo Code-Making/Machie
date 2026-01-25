@@ -10,8 +10,32 @@ import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../../../models/editor_tab_models.dart';
 
+// --- ADDED: Custom Input Handler ---
+class TermuxInputHandler implements TerminalInputHandler {
+  final TerminalInputHandler _delegate = defaultInputHandler;
+  
+  bool ctrlActive = false;
+  bool altActive = false;
+
+  @override
+  String? call(TerminalKeyboardEvent event) {
+    // Apply our virtual modifiers to the event
+    final effectiveEvent = event.copyWith(
+      ctrl: event.ctrl || ctrlActive,
+      alt: event.alt || altActive,
+    );
+    
+    // Pass to the default handler (which handles key mapping)
+    return _delegate(effectiveEvent);
+  }
+}
+
 abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
   void sendRawInput(String data);
+  void toggleCtrl();
+  void toggleAlt();
+  bool get isCtrlActive;
+  bool get isAltActive;
 }
 
 class TermuxTerminalWidget extends EditorWidget {
@@ -30,21 +54,29 @@ class TermuxTerminalWidget extends EditorWidget {
 class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   late final Terminal _terminal;
   late final TermuxBridgeService _bridge;
+  late final TermuxInputHandler _inputHandler; // ADDED
   StreamSubscription? _bridgeSubscription;
 
   @override
   void init() {
-    _terminal = Terminal(maxLines: 10000);
+    super.init();
+    
+    // Initialize our custom handler
+    _inputHandler = TermuxInputHandler();
+
+    _terminal = Terminal(
+      maxLines: 10000,
+      inputHandler: _inputHandler, // Register the handler
+    );
+    
     _bridge = ref.read(termuxBridgeServiceProvider);
     
-    // Listen for output FROM Termux and write it to the UI.
     _bridgeSubscription = _bridge.outputStream.listen((data) {
       if (mounted) {
         _terminal.write(data);
       }
     });
 
-    // Listen for input FROM the UI and write it TO Termux.
     _terminal.onOutput = _onTerminalOutput;
 
     if (widget.tab.initialHistory != null && widget.tab.initialHistory!.isNotEmpty) {
@@ -57,7 +89,6 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     if (!widget.tab.onReady.isCompleted) {
       widget.tab.onReady.complete(this);
     }
-    // Start the persistent shell session once the widget is ready.
     _startTermuxSession();
   }
   
@@ -76,17 +107,46 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     });
   }
 
-  /// Forwards all input from the xterm.dart widget to the bridge service.
   void _onTerminalOutput(String data) {
     _bridge.write(data);
+    
+    // Optional: Reset modifiers after a key is sent (Sticky behavior)
+    // If you want "Lock" behavior, remove these lines.
+    // We'll assume Sticky behavior for better mobile UX.
+    if (_inputHandler.ctrlActive || _inputHandler.altActive) {
+      setState(() {
+        _inputHandler.ctrlActive = false;
+        _inputHandler.altActive = false;
+      });
+    }
   }
 
-  /// Injects raw control characters (like Ctrl+C) into the terminal,
-  /// which then get forwarded to Termux via the `onOutput` callback.
   @override
   void sendRawInput(String data) {
     _terminal.textInput(data);
   }
+
+  // --- ADDED: Toggle Implementation ---
+  @override
+  void toggleCtrl() {
+    setState(() {
+      _inputHandler.ctrlActive = !_inputHandler.ctrlActive;
+    });
+  }
+
+  @override
+  void toggleAlt() {
+    setState(() {
+      _inputHandler.altActive = !_inputHandler.altActive;
+    });
+  }
+
+  @override
+  bool get isCtrlActive => _inputHandler.ctrlActive;
+
+  @override
+  bool get isAltActive => _inputHandler.altActive;
+  // ------------------------------------
 
   @override
   void dispose() {
@@ -94,7 +154,6 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     super.dispose();
   }
 
-  // Unchanged Overrides: These correctly operate on the terminal's buffer.
   @override
   Future<EditorContent> getContent() async {
     final buffer = _terminal.buffer.getText();
