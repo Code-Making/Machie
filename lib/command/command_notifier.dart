@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../app/app_commands.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
+import '../settings/settings_notifier.dart'; // Import for effectiveSettingsProvider
 import 'command_models.dart';
 
 export 'command_models.dart';
@@ -21,7 +22,10 @@ final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
 class CommandNotifier extends StateNotifier<CommandState> {
   final Ref ref;
   final List<Command> _allRegisteredCommands = [];
-  final Map<String, CommandGroup> _pluginDefinedGroups = {}; // Add this to store plugin groups
+  final Map<String, CommandGroup> _pluginDefinedGroups = {}; 
+  
+  // Keep track of plugins for refresh logic
+  final List<EditorPlugin> _plugins; 
 
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
   Map<String, CommandGroup> get pluginDefinedGroups => _pluginDefinedGroups;
@@ -41,18 +45,47 @@ class CommandNotifier extends StateNotifier<CommandState> {
   }
 
   CommandNotifier({required this.ref, required List<EditorPlugin> plugins})
-    : super(const CommandState()) {
+    : _plugins = plugins,
+      super(const CommandState()) {
     _initializeCommands(plugins);
+    
+    // NEW: Listen to effective settings to refresh commands when shortcuts change
+    ref.listen(effectiveSettingsProvider, (previous, next) {
+      // Simple equality check to avoid redundant refreshes if settings objects 
+      // rely on reference equality but content didn't change materially for commands.
+      // However, since we want to catch custom shortcut changes, we just refresh.
+      // The refresh is relatively cheap.
+      _refreshCommands();
+    });
   }
 
   void _initializeCommands(List<EditorPlugin> plugins) async {
+    await _collectCommands(plugins);
+    await _loadFromPrefs();
+  }
+
+  /// Re-fetches commands from plugins and updates the state
+  /// without losing user positioning preferences.
+  Future<void> _refreshCommands() async {
+    await _collectCommands(_plugins);
+    
+    // After collecting new commands, we need to reconcile them with the existing state.
+    // This is similar to _loadFromPrefs but uses the current in-memory state 
+    // instead of reading from disk again (to preserve unsaved state changes).
+    _reconcileState();
+  }
+
+  Future<void> _collectCommands(List<EditorPlugin> plugins) async {
     _allRegisteredCommands.clear();
     _pluginDefinedGroups.clear();
     
     final commandSources = <String, Set<String>>{};
     final allAppCommands = AppCommands.getCommands();
-    final allPluginEditorCommands = plugins.expand((p) => p.getCommands());
+    
+    // UPDATED: Pass 'ref' to getCommands() so plugins can read settings
+    final allPluginEditorCommands = plugins.expand((p) => p.getCommands(ref));
     final allPluginAppCommands = plugins.expand((p) => p.getAppCommands());
+    
     for (final plugin in plugins) {
       for (final group in plugin.getCommandGroups()) {
         _pluginDefinedGroups[group.id] = group.copyWith(
@@ -81,8 +114,71 @@ class CommandNotifier extends StateNotifier<CommandState> {
       commandSources: commandSources,
       availablePositions: allPositions,
     );
-    await _loadFromPrefs();
   }
+
+  /// Reconciles the current _allRegisteredCommands with the existing CommandState.
+  /// Adds new commands to default positions/hidden.
+  /// Removes stale commands from positions.
+  void _reconcileState() {
+     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
+     
+     // 1. Clean up positions: Remove IDs that no longer exist
+     final newPositions = Map<String, List<String>>.from(state.orderedCommandsByPosition);
+     newPositions.forEach((posId, cmdIds) {
+       // Filter out commands that don't exist and aren't groups
+       newPositions[posId] = cmdIds.where((id) {
+         return allKnownCommandIds.contains(id) || state.commandGroups.containsKey(id);
+       }).toList();
+     });
+
+     // 2. Clean up hidden list
+     final newHidden = state.hiddenOrder.where((id) => allKnownCommandIds.contains(id)).toList();
+
+     // 3. Find newly added commands (orphans)
+     final allPlacedItemIds = {
+      ...newPositions.values.expand((ids) => ids),
+      ...newHidden,
+      ...state.commandGroups.values.expand((g) => g.commandIds),
+    };
+    
+    final orphanedCommandIds = allKnownCommandIds.where(
+      (id) => !allPlacedItemIds.contains(id),
+    );
+
+    // 4. Distribute orphans to default positions or hidden
+    for (final commandId in orphanedCommandIds) {
+      final command = _allRegisteredCommands.firstWhereOrNull(
+        (c) => c.id == commandId,
+      );
+      if (command != null) {
+        for (final position in command.defaultPositions) {
+          final positionId = position.id;
+          if (newPositions.containsKey(positionId)) {
+             // Avoid duplicates
+             if (!newPositions[positionId]!.contains(commandId)) {
+                newPositions[positionId]!.add(commandId);
+             }
+          } else {
+            // If default position list doesn't exist yet (unlikely), create it? 
+            // Or fallback to hidden.
+            if (!newHidden.contains(commandId)) {
+              newHidden.add(commandId);
+            }
+          }
+        }
+      }
+    }
+
+    state = state.copyWith(
+      orderedCommandsByPosition: newPositions,
+      hiddenOrder: newHidden,
+    );
+    // Don't save to prefs immediately on refresh, let user action trigger save, 
+    // or save if strictly necessary. For now, in-memory sync is safer.
+  }
+
+  // ... (createGroup, updateGroup, deleteGroup, _getMutableLists, _updateStateWithLists, reorderItemInList, removeItemFromList, addItemToList unchanged) ...
+  // ... (_saveToPrefs unchanged) ...
 
   void createGroup({
     required String name,
@@ -196,7 +292,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     required String itemId,
     required String fromPositionId,
   }) {
-    // Check 1: Is this a mandatory item for a CommandPosition? (Unchanged)
     final position = state.availablePositions.firstWhereOrNull(
       (p) => p.id == fromPositionId,
     );
@@ -204,23 +299,14 @@ class CommandNotifier extends StateNotifier<CommandState> {
       return;
     }
 
-    // --- START: REFINED CHECK FOR PLUGIN GROUPS ---
-    // Check 2: Is this a DEFAULT item inside a plugin-defined group?
     final parentGroup = state.commandGroups[fromPositionId];
     if (parentGroup != null && !parentGroup.isDeletable) {
-      // The parent is a plugin-defined group.
-      // Look up its original definition from when the plugin was loaded.
       final originalPluginGroup = _pluginDefinedGroups[fromPositionId];
-      
-      // If the item we're trying to remove was part of that original definition, block the removal.
       if (originalPluginGroup?.commandIds.contains(itemId) ?? false) {
-        return; // Silently ignore removal of a default/mandatory command from a plugin group.
+        return; 
       }
-      // If we reach here, it means it's a user-added item in a plugin group, so removal is allowed.
     }
-    // --- END: REFINED CHECK ---
 
-    // If neither check fails, proceed with removal.
     final lists = _getMutableLists();
     lists[fromPositionId]?.remove(itemId);
     if (!state.commandGroups.containsKey(itemId)) {
@@ -262,7 +348,8 @@ class CommandNotifier extends StateNotifier<CommandState> {
     );
     await prefs.setString('command_groups', jsonEncode(encodedGroups));
   }
-
+  
+  // _loadFromPrefs remains the same as previous phase, just called at end of init
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
@@ -276,8 +363,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
         final savedGroupData =
             CommandGroup.fromJson(
                 jsonDecode(value as String) as Map<String, dynamic>);
-
-        // If a plugin group has saved state, merge it. Otherwise, it's a user group.
         if (loadedGroups.containsKey(key)) {
           final pluginGroup = loadedGroups[key]!;
           final cleanCommandIds =
@@ -287,7 +372,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
             showLabels: savedGroupData.showLabels,
           );
         } else {
-          // This is a user-created group.
           final cleanCommandIds =
               savedGroupData.commandIds.where(allKnownCommandIds.contains).toList();
           loadedGroups[key] = savedGroupData.copyWith(commandIds: cleanCommandIds);
@@ -323,7 +407,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     newPositions.addAll(loadedPositions);
 
     final allPlacedItemIds = {
-      ...newPositions.values.expand((ids) => ids), // This covers both commands and groups
+      ...newPositions.values.expand((ids) => ids), 
       ...cleanHidden,
       ...loadedGroups.values.expand((g) => g.commandIds),
     };
@@ -365,8 +449,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
             }
           }
         }
-        // If a group has no default position, it will remain "orphaned"
-        // and won't appear anywhere. This is reasonable behavior.
       }
     }
     
@@ -374,16 +456,11 @@ class CommandNotifier extends StateNotifier<CommandState> {
       if (position.mandatoryCommands.isNotEmpty) {
         final positionList = newPositions[position.id]!;
         for (final mandatoryId in position.mandatoryCommands) {
-          
           if (!positionList.contains(mandatoryId)) {
-            
-            
             newPositions.forEach((key, value) {
               value.remove(mandatoryId);
             });
-            
             cleanHidden.remove(mandatoryId);
-            
             positionList.insert(0, mandatoryId);
           }
         }
