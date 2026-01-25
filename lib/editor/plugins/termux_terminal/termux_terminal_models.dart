@@ -6,14 +6,6 @@ import '../../models/editor_tab_models.dart';
 import '../../models/editor_plugin_models.dart';
 import 'widgets/termux_terminal_widget.dart';
 
-// The abstract state for the widget is now fully defined here.
-// Any part of the plugin that needs to interact with the terminal widget
-// can depend on this contract.
-abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
-  /// Sends raw string data directly to the terminal's input handler.
-  /// Useful for control characters like Ctrl+C, Tab, Esc, etc.
-  void sendRawInput(String data);
-}
 
 @immutable
 class TermuxTerminalTab extends EditorTab {
