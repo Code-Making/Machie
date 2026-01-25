@@ -28,7 +28,7 @@ class FlowGraphSettingsWidget extends StatelessWidget {
       enableOpacity: true,
       showColorCode: true,
     );
-    onSave(newColor.value);
+    onSave(newColor.toARGB32());
   }
 
   Future<void> _pickSchemaFile(BuildContext context) async {
