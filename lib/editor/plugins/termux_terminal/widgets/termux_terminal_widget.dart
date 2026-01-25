@@ -4,21 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../termux_hot_state.dart';
-import '../../../../app/app_notifier.dart';
-import '../../../../data/repositories/project/project_repository.dart';
-import '../../../../editor/services/editor_service.dart';
 import '../../../../settings/settings_notifier.dart';
-import '../../../../utils/toast.dart';
-import '../../../tab_metadata_notifier.dart';
-import '../../../../utils/code_themes.dart';
-import '../../../models/editor_command_context.dart';
-import '../../../models/text_editing_capability.dart';
-import '../../../../project/project_settings_notifier.dart';
+import '../../../../logs/logs_provider.dart';
 import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../../../models/editor_tab_models.dart';
-import '../../../../command/command_notifier.dart';
-// Abstract state for type safety, matching the forward declaration in models.
+
 abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
   void sendRawInput(String data);
 }
@@ -40,63 +31,25 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   late final Terminal _terminal;
   late final TermuxBridgeService _bridge;
   StreamSubscription? _bridgeSubscription;
-  final StringBuffer _commandBuffer = StringBuffer();
 
   @override
   void init() {
+    super.init();
     _terminal = Terminal(maxLines: 10000);
     _bridge = ref.read(termuxBridgeServiceProvider);
-    _bridge.initialize();
-
+    
+    // Listen for output FROM Termux and write it to the UI.
     _bridgeSubscription = _bridge.outputStream.listen((data) {
       if (mounted) {
         _terminal.write(data);
       }
     });
 
-    _terminal.onOutput = (data) {
-      _handleTerminalInput(data);
-    };
+    // Listen for input FROM the UI and write it TO Termux.
+    _terminal.onOutput = _onTerminalOutput;
 
     if (widget.tab.initialHistory != null && widget.tab.initialHistory!.isNotEmpty) {
       _terminal.write(widget.tab.initialHistory!);
-    }
-  }
-
-  @override
-  void sendRawInput(String data) {
-    // FIX: Use terminal.textInput() to send control characters and simulate user input.
-    _terminal.textInput(data);
-  }
-
-  void _handleTerminalInput(String data) {
-    for (var charCode in data.runes) {
-      final char = String.fromCharCode(charCode);
-      switch (char) {
-        case '\r': // Enter key
-          _terminal.write('\r\n'); // Echo newline
-          if (_commandBuffer.isNotEmpty) {
-            _bridge.executeCommand(
-              command: _commandBuffer.toString(),
-              workingDirectory: widget.tab.initialWorkingDirectory,
-            );
-            _commandBuffer.clear();
-          }
-          break;
-        case '\x7F': // Backspace
-          if (_commandBuffer.isNotEmpty) {
-            _commandBuffer.clear();
-            _commandBuffer.write(_commandBuffer.toString().substring(0, _commandBuffer.length - 1));
-            // Let the terminal handle backspace visuals
-            _terminal.write('\b \b');
-          }
-          break;
-        default:
-          // Regular character input
-          _commandBuffer.write(char);
-          _terminal.write(char); // Echo character
-          break;
-      }
     }
   }
 
@@ -105,6 +58,35 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     if (!widget.tab.onReady.isCompleted) {
       widget.tab.onReady.complete(this);
     }
+    // Start the persistent shell session once the widget is ready.
+    _startTermuxSession();
+  }
+  
+  void _startTermuxSession() {
+    final settings = ref.read(settingsProvider.select(
+      (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
+    ));
+
+    _bridge.executeCommand(
+      workingDirectory: widget.tab.initialWorkingDirectory,
+      shell: settings.shellCommand,
+    ).catchError((e, st) {
+      final errorMessage = "\r\n\x1b[31mError starting Termux session: $e\x1b[0m\r\n";
+      _terminal.write(errorMessage);
+      ref.read(talkerProvider).handle(e, st, "Failed to start Termux session");
+    });
+  }
+
+  /// Forwards all input from the xterm.dart widget to the bridge service.
+  void _onTerminalOutput(String data) {
+    _bridge.write(data);
+  }
+
+  /// Injects raw control characters (like Ctrl+C) into the terminal,
+  /// which then get forwarded to Termux via the `onOutput` callback.
+  @override
+  void sendRawInput(String data) {
+    _terminal.textInput(data);
   }
 
   @override
@@ -113,9 +95,9 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     super.dispose();
   }
 
+  // Unchanged Overrides: These correctly operate on the terminal's buffer.
   @override
   Future<EditorContent> getContent() async {
-    // FIX: Use the documented `getText()` method, which correctly handles the buffer.
     final buffer = _terminal.buffer.getText();
     return EditorContentString(buffer);
   }
@@ -144,15 +126,14 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
       (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
     ));
 
-    // FIX: The `TerminalTheme` constructor now requires search hit colors.
     const lightTheme = TerminalTheme(
       cursor: Color(0xFF000000),
       selection: Color(0xFFB0B0B0),
       foreground: Color(0xFF000000),
       background: Color(0xFFFFFFFF),
-      searchHitBackground: Color(0xFFFFFFA0), // Required
-      searchHitBackgroundCurrent: Color(0xFFFFFF00), // Required
-      searchHitForeground: Color(0xFF000000), // Required
+      searchHitBackground: Color(0xFFFFFFA0),
+      searchHitBackgroundCurrent: Color(0xFFFFFF00),
+      searchHitForeground: Color(0xFF000000),
       black: Color(0xFF000000),
       red: Color(0xFFC51E14),
       green: Color(0xFF1DC121),
@@ -174,7 +155,6 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     return TerminalView(
       _terminal,
       theme: settings.useDarkTheme ? TerminalThemes.defaultTheme : lightTheme,
-      // FIX: Use `TerminalStyle` instead of Flutter's `TextStyle`.
       textStyle: TerminalStyle(
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
