@@ -69,14 +69,14 @@ class TermuxTerminalPlugin extends EditorPlugin {
   }
 
   @override
-  List<Command> getCommands() {
-    // NOTE: This runs ONCE at startup. 
-    // Shortcuts added here will appear as buttons.
-    // Changes to the shortcut list require an app restart to appear as *buttons*.
-    final termuxSettings = settings as TermuxTerminalSettings;
+  List<Command> getCommands(Ref ref) {
+    // 1. Fetch Effective Settings (User Global or Project Override)
+    final effectiveSettings = ref.read(effectiveSettingsProvider);
+    final termuxSettings = effectiveSettings.pluginSettings[TermuxTerminalSettings]
+            as TermuxTerminalSettings? ?? TermuxTerminalSettings();
     
     final standardCommands = [
-       BaseCommand(
+      BaseCommand(
         id: 'termux_esc',
         label: 'Esc',
         icon: const Icon(Icons.keyboard_return),
@@ -109,17 +109,6 @@ class TermuxTerminalPlugin extends EditorPlugin {
         execute: (ref) async => _getActiveTerminalState(ref)?.toggleAlt(),
       ),
       BaseCommand(
-        id: 'termux_arrows',
-        label: 'Arrows',
-        icon: const Icon(Icons.open_with),
-        sourcePlugin: pluginId,
-        defaultPositions: [termuxToolbar],
-        execute: (ref) async {
-           // Small popup for arrows if space is tight, or just individual buttons
-           // Here we implement individual buttons in the list below for simplicity
-        }
-      ),
-       BaseCommand(
         id: 'termux_arrow_up',
         label: 'Up',
         icon: const Icon(Icons.arrow_upward),
@@ -135,7 +124,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
         defaultPositions: [termuxToolbar],
         execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[B'),
       ),
-       BaseCommand(
+      BaseCommand(
         id: 'termux_arrow_left',
         label: 'Left',
         icon: const Icon(Icons.arrow_back),
@@ -143,7 +132,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
         defaultPositions: [termuxToolbar],
         execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[D'),
       ),
-       BaseCommand(
+      BaseCommand(
         id: 'termux_arrow_right',
         label: 'Right',
         icon: const Icon(Icons.arrow_forward),
@@ -169,7 +158,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
       ),
     ];
 
-    // 2. Dynamic Commands (Initial Load)
+    // 2. Dynamic Commands from LIVE settings
     final customCommands = termuxSettings.customShortcuts.asMap().entries.map((entry) {
       final index = entry.key;
       final shortcut = entry.value;
@@ -185,44 +174,39 @@ class TermuxTerminalPlugin extends EditorPlugin {
         },
       );
     }).toList();
-
-    // 3. The "Run Shortcut..." command (Dynamic Picker)
-    // This allows accessing new shortcuts without restarting the app.
+    
     final pickerCommand = BaseCommand(
-        id: 'termux_run_shortcut',
-        label: 'Run Shortcut...',
-        icon: const Icon(Icons.list_alt),
-        sourcePlugin: pluginId,
-        defaultPositions: [termuxToolbar],
-        execute: (ref) async {
-           final settings = ref.read(effectiveSettingsProvider).pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings?;
-           if (settings == null) return;
-           
-           final terminal = _getActiveTerminalState(ref);
-           if (terminal == null) return;
-           
-           // Show simple dialog
-           final context = ref.read(navigatorKeyProvider).currentContext;
-           if (context == null) return;
-           
-           await showModalBottomSheet(
-             context: context, 
-             builder: (ctx) => SizedBox(
-               height: 300,
-               child: ListView(
-                 children: settings.customShortcuts.map((s) => ListTile(
-                   leading: Icon(TerminalShortcut.resolveIcon(s.iconName)),
-                   title: Text(s.label),
-                   subtitle: Text(s.command),
-                   onTap: () {
-                     Navigator.pop(ctx);
-                     terminal.sendRawInput('${s.command}\r');
-                   },
-                 )).toList(),
-               ),
-             )
-           );
-        },
+      id: 'termux_run_shortcut',
+      label: 'Run Shortcut...',
+      icon: const Icon(Icons.list_alt),
+      sourcePlugin: pluginId,
+      defaultPositions: [termuxToolbar],
+      execute: (ref) async {
+        final settings = ref.read(effectiveSettingsProvider).pluginSettings[TermuxTerminalSettings]
+            as TermuxTerminalSettings?;
+        if (settings == null) return;
+        final terminal = _getActiveTerminalState(ref);
+        if (terminal == null) return;
+        final context = ref.read(navigatorKeyProvider).currentContext;
+        if (context == null) return;
+        await showModalBottomSheet(
+          context: context,
+          builder: (ctx) => SizedBox(
+            height: 300,
+            child: ListView(
+              children: settings.customShortcuts.map((s) => ListTile(
+                leading: Icon(TerminalShortcut.resolveIcon(s.iconName)),
+                title: Text(s.label),
+                subtitle: Text(s.command),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  terminal.sendRawInput('${s.command}\r');
+                },
+              )).toList(),
+            ),
+          ),
+        );
+      },
     );
 
     return [...standardCommands, ...customCommands, pickerCommand];
