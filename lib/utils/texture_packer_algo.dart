@@ -101,9 +101,9 @@ class MaxRectsPacker {
       } else {
         // Could not fit item. For now, we just skip it or throw.
         // In a production app, we might grow the atlas or start a second page.
-        print(
-          'Warning: Could not fit item of size ${item.width}x${item.height} in atlas.',
-        );
+        // print(
+        //   'Warning: Could not fit item of size ${item.width}x${item.height} in atlas.',
+        // );
       }
     }
 
