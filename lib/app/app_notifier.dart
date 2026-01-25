@@ -138,19 +138,24 @@ class AppNotifier extends AsyncNotifier<AppState> {
         return null;
       }
 
-final bool wantsToGrant = await showConfirmDialog(
+      final bool wantsToGrant = await showConfirmDialog(
         context,
         title: 'Permission Required',
         content:
             'Access to the project folder "${e.metadata.name}" has been lost. Please re-grant access.',
       );
+      
+      if (context == null || !context.mounted) {
+        _talker.error(
+          "Permission denied for project '${e.metadata.name}', but no UI context was available to ask for permission again. Aborting open.",
+        );
+        return null;
+      }
 
       if (wantsToGrant == true) {
-        if (!context.mounted) {
-          return;
-        }
         final bool permissionGranted = await _projectService
             .recoverPermissionForProject(e.metadata, context);
+
         if (permissionGranted) {
           _talker.info("Permission re-granted. Retrying project open...");
           return await _openProjectWithRecovery(
@@ -227,7 +232,7 @@ final dirtyTabsMetadata =
                   metadata.isDirty && metadata.file is! VirtualDocumentFile,
             )
             .toList();
-            
+
     if (dirtyTabsMetadata.isEmpty) {
       // No dirty (and non-virtual) tabs, so we can proceed without saving.
       return UnsavedChangesAction.discard;
