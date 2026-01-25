@@ -61,9 +61,9 @@ class AndroidForegroundCacheService implements BackgroundCacheService {
   }
 
   @override
-  Future<void> stop() async {
+Future<void> stop() async {
     _talker.info('[BackgroundCacheService] Stopping foreground service...');
-    if (await FlutterForegroundTask.stopService() == ServiceRequestSuccess) {
+    if (await FlutterForegroundTask.stopService() is ServiceRequestSuccess) {
       _talker.info('[BackgroundCacheService] Service stopped successfully.');
     }
   }
