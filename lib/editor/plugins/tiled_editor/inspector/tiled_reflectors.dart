@@ -1,6 +1,6 @@
 // FILE: lib/editor/plugins/tiled_editor/inspector/tiled_reflectors.dart
 
-import 'package:flutter/material.dart' hide StringProperty, ColorProperty;
+import 'package:flutter/material.dart' hide ColorProperty;
 
 import 'package:tiled/tiled.dart';
 

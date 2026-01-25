@@ -221,7 +221,6 @@ abstract class PackerItemDefinition {
       case PackerItemType.animation:
         return AnimationDefinition.fromJson(json);
       case PackerItemType.folder:
-      default:
         return null;
     }
   }
