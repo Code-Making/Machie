@@ -95,12 +95,12 @@ class GeneralSettings extends MachineSettings {
   @override
   GeneralSettings clone() {
     return GeneralSettings(
-      hideAppBarInFullScreen: this.hideAppBarInFullScreen,
-      hideTabBarInFullScreen: this.hideTabBarInFullScreen,
-      hideBottomToolbarInFullScreen: this.hideBottomToolbarInFullScreen,
-      themeMode: this.themeMode,
-      accentColorValue: this.accentColorValue,
-      showHiddenFiles: this.showHiddenFiles,
+      hideAppBarInFullScreen: hideAppBarInFullScreen,
+      hideTabBarInFullScreen: hideTabBarInFullScreen,
+      hideBottomToolbarInFullScreen: hideBottomToolbarInFullScreen,
+      themeMode: themeMode,
+      accentColorValue: accentColorValue,
+      showHiddenFiles: showHiddenFiles,
     );
   }
 }

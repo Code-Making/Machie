@@ -75,8 +75,9 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
 
     try {
       final gitRepo = await _gitRepoFuture;
-      if (gitRepo == null)
+      if (gitRepo == null) {
         return null; // Git repo not available for this project.
+      }
 
       // Parse the virtual URI: "git://<commitHash>/<pathInRepo>"
       final uriContent = dto.fileUri.substring('git://'.length);

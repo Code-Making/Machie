@@ -166,11 +166,13 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   bool _isPathAccessibleByTermux(String path) {
     if (path.startsWith('/data/data/com.termux/files/')) return true;
-    if (path.startsWith('/storage/emulated/0/'))
+    if (path.startsWith('/storage/emulated/0/')) {
       return true; // Internal Storage
+    }
     if (path.startsWith('/sdcard/')) return true; // Alias
-    if (path.startsWith('/storage/'))
+    if (path.startsWith('/storage/')) {
       return true; // SD Cards (might fail if read-only)
+    }
     return false;
   }
 

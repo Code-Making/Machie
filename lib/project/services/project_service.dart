@@ -12,7 +12,6 @@ import '../../data/repositories/project/project_repository.dart';
 import '../../editor/plugins/editor_plugin_registry.dart';
 import '../../editor/tab_metadata_notifier.dart';
 import '../../explorer/explorer_plugin_registry.dart';
-import '../../settings/settings_notifier.dart';
 import '../project_models.dart';
 import '../project_settings_models.dart';
 import '../project_type_handler_registry.dart';

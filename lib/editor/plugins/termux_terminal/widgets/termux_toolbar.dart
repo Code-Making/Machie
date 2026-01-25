@@ -18,7 +18,7 @@ TermuxTerminalWidgetState? _getActiveTerminalState(WidgetRef ref) {
     ),
   );
   if (activeTab is! TermuxTerminalTab) return null;
-  return activeTab.editorKey.currentState as TermuxTerminalWidgetState?;
+  return activeTab.editorKey.currentState;
 }
 
 // Helper to force rebuild the toolbar when the terminal state changes (optional but good for UX)

@@ -36,8 +36,9 @@ class PixiExportService {
 
     SourceImageConfig? findSourceConfig(String id) {
       SourceImageConfig? traverse(SourceImageNode node) {
-        if (node.id == id && node.type == SourceNodeType.image)
+        if (node.id == id && node.type == SourceNodeType.image) {
           return node.content;
+        }
         for (final child in node.children) {
           final result = traverse(child);
           if (result != null) return result;
@@ -77,7 +78,9 @@ class PixiExportService {
           }
         }
       } else {
-        for (final child in node.children) collectSprites(child);
+        for (final child in node.children) {
+          collectSprites(child);
+        }
       }
     }
 
@@ -163,7 +166,9 @@ class PixiExportService {
           animationsData[node.name] = frameNames;
         }
       }
-      for (final child in node.children) collectAnimations(child);
+      for (final child in node.children) {
+        collectAnimations(child);
+      }
     }
 
     collectAnimations(project.tree);

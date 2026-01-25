@@ -334,13 +334,16 @@ class SchemaNodeWidget extends StatelessWidget {
           if (draggingType == null) return false;
           if (draggingType == port.type) return true;
           if (draggingType == FlowPortType.execution &&
-              port.type != FlowPortType.execution)
+              port.type != FlowPortType.execution) {
             return false;
+          }
           if (draggingType != FlowPortType.execution &&
-              port.type == FlowPortType.execution)
+              port.type == FlowPortType.execution) {
             return false;
-          if (draggingType == FlowPortType.any || port.type == FlowPortType.any)
+          }
+          if (draggingType == FlowPortType.any || port.type == FlowPortType.any) {
             return true;
+          }
           return false;
         },
         onAccept: (data) => notifier.endConnectionDrag(node.id, port.key),
@@ -466,10 +469,12 @@ class SchemaNodeWidget extends StatelessWidget {
                 isFloat: prop.type == FlowPropertyType.float,
               ),
         );
-        if (result != null && prop.type == FlowPropertyType.integer)
+        if (result != null && prop.type == FlowPropertyType.integer) {
           result = int.tryParse(result);
-        if (result != null && prop.type == FlowPropertyType.float)
+        }
+        if (result != null && prop.type == FlowPropertyType.float) {
           result = double.tryParse(result);
+        }
         break;
       case FlowPropertyType.select:
         result = await showDialog(

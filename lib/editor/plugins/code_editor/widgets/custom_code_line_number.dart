@@ -67,8 +67,7 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
 
   CustomCodeLineNumberRenderObject({
     required super.controller,
-    required CodeIndicatorValueNotifier
-    notifier, // Receive as a normal parameter
+    required super.notifier, // Receive as a normal parameter
     required super.textStyle,
     required super.focusedTextStyle,
     required super.minNumberCount,
@@ -76,8 +75,7 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
     required Color highlightColor,
   }) : _highlightedLines = highlightedLines,
        _highlightColor = highlightColor,
-       _notifier = notifier, // Initialize our local reference
-       super(notifier: notifier) // Also pass it to the superclass constructor
+       _notifier = notifier // Also pass it to the superclass constructor
        {
     _highlightPaint = Paint()..color = _highlightColor;
   }

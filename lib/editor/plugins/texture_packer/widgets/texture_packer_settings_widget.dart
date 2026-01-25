@@ -100,8 +100,9 @@ class TexturePackerSettingsWidget extends StatelessWidget {
           keyboardType: TextInputType.number,
           onChanged: (v) {
             final val = double.tryParse(v);
-            if (val != null)
+            if (val != null) {
               onChanged(settings.copyWith(defaultAnimationSpeed: val));
+            }
           },
         ),
       ],

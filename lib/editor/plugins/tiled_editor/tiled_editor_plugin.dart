@@ -126,11 +126,12 @@ class TiledEditorPlugin extends EditorPlugin {
     final tab =
         ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (tab is TiledEditorTab) {
-      return tab.editorKey.currentState as TiledEditorWidgetState?;
+      return tab.editorKey.currentState;
     }
     return null;
   }
 
+  @override
   List<CommandGroup> getCommandGroups() {
     // This map is needed for the dynamic icon
     const objectToolIcons = {

@@ -36,7 +36,7 @@ class FileExplorerSettings implements ExplorerPluginSettings {
 
   @override
   FileExplorerSettings clone() {
-    return FileExplorerSettings(viewMode: this.viewMode);
+    return FileExplorerSettings(viewMode: viewMode);
   }
 }
 

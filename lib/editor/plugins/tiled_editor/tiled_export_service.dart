@@ -539,7 +539,9 @@ class TiledExportService {
   void _traverseMapObjects(TiledMap map, void Function(TiledObject) callback) {
     void visitLayer(Layer layer) {
       if (layer is Group) {
-        for (final child in layer.layers) visitLayer(child);
+        for (final child in layer.layers) {
+          visitLayer(child);
+        }
       } else if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
           callback(obj);
@@ -579,7 +581,9 @@ class TiledExportService {
 
     void scanTileLayers(Layer layer) {
       if (layer is Group) {
-        for (final child in layer.layers) scanTileLayers(child);
+        for (final child in layer.layers) {
+          scanTileLayers(child);
+        }
       } else if (layer is TileLayer && layer.tileData != null) {
         for (final row in layer.tileData!) {
           for (final gidData in row) {
@@ -588,7 +592,6 @@ class TiledExportService {
             if (cleanGid == 0) continue;
 
             final tileset = map.tilesetByTileGId(cleanGid);
-            if (tileset == null) continue;
 
             final localId = cleanGid - tileset.firstGid!;
             final uniqueKey = 'tile_${tileset.name}_$localId';
@@ -621,7 +624,9 @@ class TiledExportService {
       }
     }
 
-    for (final layer in map.layers) scanTileLayers(layer);
+    for (final layer in map.layers) {
+      scanTileLayers(layer);
+    }
 
     _traverseMapObjects(map, (obj) {
       // 1. Tile Objects
@@ -629,34 +634,32 @@ class TiledExportService {
         final cleanGid = _getCleanGid(obj.gid!);
         if (cleanGid != 0) {
           final tileset = map.tilesetByTileGId(cleanGid);
-          if (tileset != null) {
-            final localId = cleanGid - tileset.firstGid!;
-            final uniqueKey = 'tile_${tileset.name}_$localId';
+          final localId = cleanGid - tileset.firstGid!;
+          final uniqueKey = 'tile_${tileset.name}_$localId';
 
-            if (!seenKeys.contains(uniqueKey)) {
-              final tile = map.tileByGid(cleanGid);
-              final imageSource = tile?.image?.source ?? tileset.image?.source;
-              if (imageSource != null) {
-                final image = resolver.getImage(imageSource, tileset: tileset);
-                if (image != null) {
-                  final rect = tileset.computeDrawRect(
-                    tile ?? Tile(localId: localId),
-                  );
-                  addAsset(
-                    uniqueKey,
-                    image,
-                    ui.Rect.fromLTWH(
-                      rect.left.toDouble(),
-                      rect.top.toDouble(),
-                      rect.width.toDouble(),
-                      rect.height.toDouble(),
-                    ),
-                  );
-                }
+          if (!seenKeys.contains(uniqueKey)) {
+            final tile = map.tileByGid(cleanGid);
+            final imageSource = tile?.image?.source ?? tileset.image?.source;
+            if (imageSource != null) {
+              final image = resolver.getImage(imageSource, tileset: tileset);
+              if (image != null) {
+                final rect = tileset.computeDrawRect(
+                  tile ?? Tile(localId: localId),
+                );
+                addAsset(
+                  uniqueKey,
+                  image,
+                  ui.Rect.fromLTWH(
+                    rect.left.toDouble(),
+                    rect.top.toDouble(),
+                    rect.width.toDouble(),
+                    rect.height.toDouble(),
+                  ),
+                );
               }
             }
           }
-        }
+                }
       }
 
       // 2. Sprite Objects
@@ -717,7 +720,9 @@ class TiledExportService {
 
     void scanImageLayers(Layer layer) {
       if (layer is Group) {
-        for (final child in layer.layers) scanImageLayers(child);
+        for (final child in layer.layers) {
+          scanImageLayers(child);
+        }
       } else if (layer is ImageLayer && layer.image.source != null) {
         final image = resolver.getImage(layer.image.source);
         if (image != null) {
@@ -739,7 +744,9 @@ class TiledExportService {
       }
     }
 
-    for (final layer in map.layers) scanImageLayers(layer);
+    for (final layer in map.layers) {
+      scanImageLayers(layer);
+    }
 
     return assets;
   }
@@ -789,7 +796,9 @@ class TiledExportService {
         });
 
     double totalArea = 0;
-    for (var a in sortedAssets) totalArea += (a.width * a.height);
+    for (var a in sortedAssets) {
+      totalArea += (a.width * a.height);
+    }
 
     int potSize = _nextPowerOfTwo(sqrt(totalArea).ceil());
     if (potSize < 256) potSize = 256;
@@ -986,7 +995,9 @@ class TiledExportService {
 
     void processLayer(Layer layer) {
       if (layer is Group) {
-        for (final child in layer.layers) processLayer(child);
+        for (final child in layer.layers) {
+          processLayer(child);
+        }
       } else if (layer is TileLayer && layer.tileData != null) {
         for (int y = 0; y < layer.height; y++) {
           for (int x = 0; x < layer.width; x++) {
@@ -1185,7 +1196,9 @@ class TiledExportService {
                   // Recurse to ensure the sprite itself is added to 'frames'
                   traverseAndCollect(animChild);
                 } else {
-                  for (final c in animChild.children) collectFrames(c);
+                  for (final c in animChild.children) {
+                    collectFrames(c);
+                  }
                 }
               }
 
@@ -1422,7 +1435,9 @@ class TiledExportService {
 
     void processLayer(Layer layer) async {
       if (layer is Group) {
-        for (final child in layer.layers) processLayer(child);
+        for (final child in layer.layers) {
+          processLayer(child);
+        }
       } else if (layer is ImageLayer && layer.image.source != null) {
         final rawSource = layer.image.source!;
         final canonicalKey = repo.resolveRelativePath(
@@ -1452,7 +1467,9 @@ class TiledExportService {
       }
     }
 
-    for (final layer in mapToExport.layers) processLayer(layer);
+    for (final layer in mapToExport.layers) {
+      processLayer(layer);
+    }
   }
 
   TiledMap _deepCopyMap(TiledMap original) {

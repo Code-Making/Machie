@@ -294,7 +294,7 @@ class _TilesetHistoryAction implements _HistoryAction {
 }
 
 class TiledMapNotifier extends ChangeNotifier {
-  TiledMap _map;
+  final TiledMap _map;
 
   final _undoStack = <_HistoryAction>[];
   final _redoStack = <_HistoryAction>[];
@@ -483,8 +483,9 @@ class TiledMapNotifier extends ChangeNotifier {
       for (int x = 0; x < rect.width; x++) {
         final mapX = startX + x;
         final mapY = startY + y;
-        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height)
+        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height) {
           continue;
+        }
 
         final tileX = (rect.left + x).toInt();
         final tileY = (rect.top + y).toInt();
@@ -509,8 +510,9 @@ class TiledMapNotifier extends ChangeNotifier {
       for (int x = 0; x < rect.width; x++) {
         final mapX = startX + x;
         final mapY = startY + y;
-        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height)
+        if (mapX < 0 || mapX >= _map.width || mapY < 0 || mapY >= _map.height) {
           continue;
+        }
         layer.tileData![mapY][mapX] = Gid.fromInt(0);
       }
     }
@@ -602,7 +604,7 @@ class TiledMapNotifier extends ChangeNotifier {
           continue;
         }
         row.add(layer!.tileData![mapY][mapX]);
-        layer!.tileData![mapY][mapX] = Gid.fromInt(0);
+        layer.tileData![mapY][mapX] = Gid.fromInt(0);
       }
       _floatingSelection!.add(row);
     }
@@ -626,8 +628,9 @@ class TiledMapNotifier extends ChangeNotifier {
         _map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
     if (layer?.tileData == null ||
         _floatingSelection == null ||
-        _floatingSelectionPosition == null)
+        _floatingSelectionPosition == null) {
       return;
+    }
 
     beginTileStroke(layerId);
 
@@ -997,13 +1000,16 @@ Property<Object> deepCopyProperty(Property<dynamic> p) {
   }
 
   // Fallback if needed, though usually the specific ones cover most cases
-  if (p.value is String)
+  if (p.value is String) {
     return StringProperty(name: p.name, value: p.value as String);
+  }
   if (p.value is int) return IntProperty(name: p.name, value: p.value as int);
-  if (p.value is double)
+  if (p.value is double) {
     return FloatProperty(name: p.name, value: p.value as double);
-  if (p.value is bool)
+  }
+  if (p.value is bool) {
     return BoolProperty(name: p.name, value: p.value as bool);
+  }
 
   return Property(name: p.name, type: p.type, value: p.value);
 }

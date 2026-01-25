@@ -24,5 +24,5 @@ class FlowGraphAssetData extends AssetData {
   /// but the graph itself is still valid (nodes will be "unknown").
   final FlowSchemaAssetData? schema;
 
-  FlowGraphAssetData({required this.graph, this.schema});
+  const FlowGraphAssetData({required this.graph, this.schema});
 }

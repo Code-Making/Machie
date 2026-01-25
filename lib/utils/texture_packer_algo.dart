@@ -223,7 +223,9 @@ class MaxRectsPacker {
   double _nextPowerOfTwo(double v) {
     int val = v.ceil();
     int power = 1;
-    while (power < val) power *= 2;
+    while (power < val) {
+      power *= 2;
+    }
     return power.toDouble();
   }
 }

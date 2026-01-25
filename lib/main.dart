@@ -12,7 +12,6 @@ import 'command/command_notifier.dart';
 import 'data/cache/hot_state_cache_service.dart';
 import 'data/shared_preferences.dart';
 import 'logs/logs_provider.dart';
-import 'project/project_settings_notifier.dart';
 import 'settings/settings_notifier.dart';
 import 'settings/settings_screen.dart';
 

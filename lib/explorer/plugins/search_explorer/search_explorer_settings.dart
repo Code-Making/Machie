@@ -41,6 +41,7 @@ class SearchExplorerSettings implements ExplorerPluginSettings {
   };
 
   // Implement the clone method
+  @override
   SearchExplorerSettings clone() {
     return SearchExplorerSettings(
       supportedExtensions: Set<String>.from(supportedExtensions),

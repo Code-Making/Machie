@@ -327,8 +327,9 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
       builder: (ctx, cand, rej) {
         return InkWell(
           onTap: () {
-            if (!_isContainer)
+            if (!_isContainer) {
               ref.read(activeSourceImageIdProvider.notifier).state = node.id;
+            }
           },
           child: draggable,
         );
@@ -346,8 +347,9 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
             title: 'Remove?',
             content: 'Links will be broken.',
           );
-          if (confirm)
+          if (confirm) {
             widget.notifier.removeSourceNode(widget.flatNode.node.id);
+          }
         }
       },
       itemBuilder:
@@ -417,9 +419,9 @@ class _SourceDropPainter extends CustomPainter {
           ..color = color
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke;
-    if (position == _SourceDropPos.above)
+    if (position == _SourceDropPos.above) {
       canvas.drawLine(Offset(0, 1), Offset(size.width, 1), p);
-    else if (position == _SourceDropPos.below)
+    } else if (position == _SourceDropPos.below)
       canvas.drawLine(
         Offset(0, size.height - 1),
         Offset(size.width, size.height - 1),

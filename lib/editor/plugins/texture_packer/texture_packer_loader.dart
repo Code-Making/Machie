@@ -56,7 +56,9 @@ class TexturePackerAssetLoader
             dependencies.add(resolvedPath);
           }
         }
-        for (final child in node.children) collectPaths(child);
+        for (final child in node.children) {
+          collectPaths(child);
+        }
       }
 
       collectPaths(project.sourceImagesRoot);
@@ -90,7 +92,9 @@ class TexturePackerAssetLoader
       if (node.type == SourceNodeType.image && node.content != null) {
         sourceNodes.add(node);
       }
-      for (final child in node.children) collectNodes(child);
+      for (final child in node.children) {
+        collectNodes(child);
+      }
     }
 
     collectNodes(project.sourceImagesRoot);
@@ -157,7 +161,9 @@ class TexturePackerAssetLoader
           }
         }
       } else {
-        for (final child in node.children) collectSprites(child);
+        for (final child in node.children) {
+          collectSprites(child);
+        }
       }
     }
 
@@ -184,7 +190,7 @@ class TexturePackerAssetLoader
               .key;
 
       final name = spriteNames[nodeId] ?? 'unknown';
-      final def = item.data as SpriteDefinition;
+      final def = item.data;
 
       // We still need the source image reference for the in-memory asset
       // In a real game engine, this would point to the packed atlas,
@@ -216,7 +222,9 @@ class TexturePackerAssetLoader
           animations[node.name] = frameNames;
         }
       }
-      for (final child in node.children) collectAnimations(child);
+      for (final child in node.children) {
+        collectAnimations(child);
+      }
     }
 
     collectAnimations(project.tree);

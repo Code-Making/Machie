@@ -44,8 +44,9 @@ class TiledObjectReference extends Equatable {
   static TiledObjectReference? fromDynamic(dynamic value) {
     if (value == null) return null;
     if (value is TiledObjectReference) return value;
-    if (value is Map<String, dynamic>)
+    if (value is Map<String, dynamic>) {
       return TiledObjectReference.fromJson(value);
+    }
     if (value is String) {
       try {
         return TiledObjectReference.fromJson(jsonDecode(value));

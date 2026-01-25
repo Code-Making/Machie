@@ -41,7 +41,7 @@ class SimpleStatePersistenceStrategy
   Future<ProjectDto> load() async {
     // Prioritize the rehydration JSON if it exists (for hot starts).
     if (_rehydrationJson != null) {
-      return ProjectDto.fromJson(_rehydrationJson!);
+      return ProjectDto.fromJson(_rehydrationJson);
     }
 
     // Otherwise, load from long-term SharedPreferences storage.

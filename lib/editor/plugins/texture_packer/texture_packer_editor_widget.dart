@@ -147,7 +147,9 @@ class TexturePackerEditorWidgetState
           );
         }
       }
-      for (final child in node.children) collectPaths(child);
+      for (final child in node.children) {
+        collectPaths(child);
+      }
     }
 
     collectPaths(_notifier.project.sourceImagesRoot);
@@ -200,8 +202,9 @@ class TexturePackerEditorWidgetState
 
   Point<int>? _pixelToGridPoint(Offset positionInImage, SlicingConfig slicing) {
     if (positionInImage.dx < slicing.margin ||
-        positionInImage.dy < slicing.margin)
+        positionInImage.dy < slicing.margin) {
       return null;
+    }
 
     final effectiveX = positionInImage.dx - slicing.margin;
     final effectiveY = positionInImage.dy - slicing.margin;
@@ -214,8 +217,9 @@ class TexturePackerEditorWidgetState
     final gridY = (effectiveY / cellH).floor();
 
     if (effectiveX % cellW >= slicing.tileWidth ||
-        effectiveY % cellH >= slicing.tileHeight)
+        effectiveY % cellH >= slicing.tileHeight) {
       return null;
+    }
 
     return Point(gridX, gridY);
   }

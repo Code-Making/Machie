@@ -125,8 +125,9 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         icon: const Icon(Icons.arrow_downward, size: 20),
         sourcePlugin: id,
         canExecuteFor: (ref, activeTab, targetTab) {
-          if (activeTab is! CodeEditorTab || activeTab.id == targetTab.id)
+          if (activeTab is! CodeEditorTab || activeTab.id == targetTab.id) {
             return false;
+          }
 
           final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
           if (activeFile == null) return false;

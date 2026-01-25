@@ -51,11 +51,6 @@ class ActiveExplorerNotifier {
     final currentSettings = _ref.read(activeExplorerSettingsProvider);
     final newSettings = updater(currentSettings);
 
-    if (newSettings is! MachineSettings) {
-      // Should theoretically not happen if types align
-      return;
-    }
-
     _ref
         .read(settingsProvider.notifier)
         .updateExplorerPluginSettings(

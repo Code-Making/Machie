@@ -8,7 +8,6 @@ import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
-import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../project/project_models.dart';
 import '../../../project/project_settings_notifier.dart';

@@ -114,7 +114,7 @@ class TexturePackerPlugin extends EditorPlugin {
     final tab =
         ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (tab is TexturePackerTab) {
-      return tab.editorKey.currentState as TexturePackerEditorWidgetState?;
+      return tab.editorKey.currentState;
     }
     return null;
   }

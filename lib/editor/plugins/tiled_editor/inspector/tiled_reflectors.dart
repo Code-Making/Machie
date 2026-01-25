@@ -72,9 +72,9 @@ class TiledReflector {
     if (obj is TiledObject) {
       return _getTiledObjectDescriptors(obj, map, schema, resolver, talker);
     }
-    if (obj is TiledMap) return (obj as TiledMap).getDescriptors();
-    if (obj is Layer) return (obj as Layer).getDescriptors();
-    if (obj is Tileset) return (obj as Tileset).getDescriptors();
+    if (obj is TiledMap) return (obj).getDescriptors();
+    if (obj is Layer) return (obj).getDescriptors();
+    if (obj is Tileset) return (obj).getDescriptors();
 
     return [];
   }
@@ -662,7 +662,7 @@ extension LayerReflector on Layer {
         ColorPropertyDescriptor(
           name: 'color',
           label: 'Display Color',
-          getter: () => layer.color?.toHex(prefix: '#', includeAlpha: true),
+          getter: () => layer.color.toHex(prefix: '#', includeAlpha: true),
           setter: (v) => layer.color = colorDataFromHex(v),
         ),
       ]);

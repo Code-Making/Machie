@@ -743,10 +743,11 @@ class TiledMapPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(dst.left + dst.width / 2, dst.top + dst.height / 2);
-    if (gid.flips.diagonally)
+    if (gid.flips.diagonally) {
       canvas.transform(
         Float64List.fromList([0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
       );
+    }
     if (gid.flips.horizontally) canvas.scale(-1.0, 1.0);
     if (gid.flips.vertically) canvas.scale(1.0, -1.0);
     canvas.translate(-dst.width / 2, -dst.height / 2);

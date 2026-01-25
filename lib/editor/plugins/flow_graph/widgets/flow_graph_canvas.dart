@@ -198,10 +198,12 @@ class GridPainter extends CustomPainter {
           ..color = Color(settings.gridColorValue)
           ..strokeWidth = settings.gridThickness;
     final gridSize = settings.gridSpacing;
-    for (double x = 0; x < size.width; x += gridSize)
+    for (double x = 0; x < size.width; x += gridSize) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
-    for (double y = 0; y < size.height; y += gridSize)
+    }
+    for (double y = 0; y < size.height; y += gridSize) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
+    }
   }
 
   @override

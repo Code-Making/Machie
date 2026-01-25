@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
-import '../editor/plugins/editor_plugin_registry.dart';
 import '../explorer/explorer_plugin_registry.dart';
 import '../settings/settings_notifier.dart';
 import 'project_models.dart';

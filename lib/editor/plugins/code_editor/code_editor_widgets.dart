@@ -623,8 +623,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       } else if (originalText.startsWith('Color.fromRGBO')) {
         // Convert alpha to opacity. Format to avoid excessive decimals.
         String opacity = (result.alpha / 255.0).toStringAsPrecision(2);
-        if (opacity.endsWith('.0'))
+        if (opacity.endsWith('.0')) {
           opacity = opacity.substring(0, opacity.length - 2);
+        }
         newColorString =
             'Color.fromRGBO(${result.red}, ${result.green}, ${result.blue}, $opacity)';
       } else if (originalText.startsWith('Color(')) {

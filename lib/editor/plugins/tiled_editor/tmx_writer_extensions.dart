@@ -35,10 +35,12 @@ extension TiledMapWriter on TiledMap {
       'map',
       nest: () {
         builder.attribute('version', version);
-        if (tiledVersion != null)
+        if (tiledVersion != null) {
           builder.attribute('tiledversion', tiledVersion!);
-        if (orientation != null)
+        }
+        if (orientation != null) {
           builder.attribute('orientation', orientation!.name);
+        }
         builder.attribute(
           'renderorder',
           renderOrder.name.replaceAll(RegExp(r'(?=[A-Z])'), '-').toLowerCase(),
@@ -49,10 +51,12 @@ extension TiledMapWriter on TiledMap {
         builder.attribute('tileheight', tileHeight);
         builder.attribute('infinite', infinite ? '1' : '0');
         if (nextLayerId != null) builder.attribute('nextlayerid', nextLayerId!);
-        if (nextObjectId != null)
+        if (nextObjectId != null) {
           builder.attribute('nextobjectid', nextObjectId!);
-        if (backgroundColorHex != null)
+        }
+        if (backgroundColorHex != null) {
           builder.attribute('backgroundcolor', backgroundColorHex!);
+        }
 
         properties.writeTo(builder);
 
@@ -166,8 +170,9 @@ extension LayerWriter on Layer {
   void _writeCommonAttributes(XmlBuilder builder) {
     if (id != null) builder.attribute('id', id!);
     builder.attribute('name', name);
-    if (class_ != null && class_!.isNotEmpty)
+    if (class_ != null && class_!.isNotEmpty) {
       builder.attribute('class', class_!);
+    }
     if (offsetX != 0) builder.attribute('offsetx', offsetX);
     if (offsetY != 0) builder.attribute('offsety', offsetY);
     if (opacity < 1) builder.attribute('opacity', opacity);
@@ -204,12 +209,15 @@ extension TileLayerWriter on TileLayer {
                 }
 
                 int outputGid = gid.tile;
-                if (gid.flips.horizontally)
+                if (gid.flips.horizontally) {
                   outputGid |= Gid.flippedHorizontallyFlag;
-                if (gid.flips.vertically)
+                }
+                if (gid.flips.vertically) {
                   outputGid |= Gid.flippedVerticallyFlag;
-                if (gid.flips.diagonally)
+                }
+                if (gid.flips.diagonally) {
                   outputGid |= Gid.flippedDiagonallyFlag;
+                }
                 gids.add(outputGid);
               }
             }
@@ -228,17 +236,13 @@ extension ObjectGroupWriter on ObjectGroup {
       nest: () {
         if (!isForTile) {
           _writeCommonAttributes(builder);
-          if (color != null) {
-            // Tiled supports #RRGGBB or #AARRGGBB
-            builder.attribute('color', color!.toHex(includeAlpha: true));
-          }
-          if (drawOrder != null) {
-            builder.attribute(
-              'draworder',
-              drawOrder!.name.replaceAll('Order', ''),
-            );
-          }
-        }
+          // Tiled supports #RRGGBB or #AARRGGBB
+          builder.attribute('color', color.toHex(includeAlpha: true));
+                  builder.attribute(
+            'draworder',
+            drawOrder.name.replaceAll('Order', ''),
+          );
+                }
         properties.writeTo(builder);
 
         for (final object in objects) {
@@ -302,9 +306,9 @@ extension TiledObjectWriter on TiledObject {
 
         properties.writeTo(builder);
 
-        if (isEllipse)
+        if (isEllipse) {
           builder.element('ellipse');
-        else if (isPoint)
+        } else if (isPoint)
           builder.element('point');
         else if (isPolygon) {
           builder.element(
@@ -337,8 +341,9 @@ extension TextWriter on Text {
     builder.element(
       'text',
       nest: () {
-        if (fontFamily != 'sans-serif')
+        if (fontFamily != 'sans-serif') {
           builder.attribute('fontfamily', fontFamily);
+        }
         if (pixelSize != 16) builder.attribute('pixelsize', pixelSize);
         if (wrap) builder.attribute('wrap', '1');
         if (color != '#000000') builder.attribute('color', color);

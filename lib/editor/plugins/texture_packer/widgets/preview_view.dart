@@ -371,8 +371,9 @@ class _PreviewViewState extends ConsumerState<PreviewView>
     TexturePackerAssetResolver resolver,
     PreviewState state,
   ) {
-    if (items.isEmpty)
+    if (items.isEmpty) {
       return _buildPlaceholder('Empty Folder', 'No items to display.');
+    }
 
     return Wrap(
       spacing: 8,

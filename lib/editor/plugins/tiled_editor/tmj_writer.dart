@@ -119,8 +119,9 @@ class TmjWriter {
       final gids =
           layer.tileData?.expand((row) => row).map((gid) {
             int outputGid = gid.tile;
-            if (gid.flips.horizontally)
+            if (gid.flips.horizontally) {
               outputGid |= Gid.flippedHorizontallyFlag;
+            }
             if (gid.flips.vertically) outputGid |= Gid.flippedVerticallyFlag;
             if (gid.flips.diagonally) outputGid |= Gid.flippedDiagonallyFlag;
             return outputGid;
@@ -128,11 +129,9 @@ class TmjWriter {
       common['data'] = gids ?? [];
     } else if (layer is ObjectGroup) {
       common['type'] = 'objectgroup';
-      common['draworder'] = layer.drawOrder?.toJson() ?? 'topdown';
-      if (layer.color != null) {
-        common['color'] = layer.color!.toJson();
-      }
-      common['objects'] =
+      common['draworder'] = layer.drawOrder.toJson() ?? 'topdown';
+      common['color'] = layer.color.toJson();
+          common['objects'] =
           layer.objects.map((o) => _buildObjectJson(o)).toList();
     } else if (layer is ImageLayer) {
       common['type'] = 'imagelayer';

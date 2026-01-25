@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../explorer/explorer_plugin_models.dart';
-import '../project/project_settings_notifier.dart';
-import 'settings_models.dart';
 import 'settings_notifier.dart';
 
 class SettingOverrideWidget extends ConsumerWidget {

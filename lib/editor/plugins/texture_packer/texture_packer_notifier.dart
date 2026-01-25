@@ -106,8 +106,9 @@ class TexturePackerNotifier extends ChangeNotifier {
 
   SourceImageConfig? findSourceImageConfig(String id) {
     SourceImageConfig? traverse(SourceImageNode node) {
-      if (node.id == id && node.type == SourceNodeType.image)
+      if (node.id == id && node.type == SourceNodeType.image) {
         return node.content;
+      }
       for (final child in node.children) {
         final result = traverse(child);
         if (result != null) return result;
@@ -358,7 +359,9 @@ class TexturePackerNotifier extends ChangeNotifier {
       if (currentNode.id == nodeId) {
         void collectIds(PackerItemNode node) {
           idsToDelete.add(node.id);
-          for (final child in node.children) collectIds(child);
+          for (final child in node.children) {
+            collectIds(child);
+          }
         }
 
         collectIds(currentNode);
@@ -370,7 +373,9 @@ class TexturePackerNotifier extends ChangeNotifier {
     }
 
     final newTree = filter(project.tree);
-    for (final id in idsToDelete) newDefinitions.remove(id);
+    for (final id in idsToDelete) {
+      newDefinitions.remove(id);
+    }
 
     project = project.copyWith(tree: newTree, definitions: newDefinitions);
     notifyListeners();
@@ -583,7 +588,9 @@ class TexturePackerNotifier extends ChangeNotifier {
     final List<SourceImageNode> images = [];
     void traverse(SourceImageNode node) {
       if (node.type == SourceNodeType.image) images.add(node);
-      for (final child in node.children) traverse(child);
+      for (final child in node.children) {
+        traverse(child);
+      }
     }
 
     traverse(project.sourceImagesRoot);

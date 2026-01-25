@@ -83,7 +83,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   Offset? _dragStartMapPosition;
   Map<int, Point>? _initialObjectPositions;
 
-  List<Point> _inProgressPoints = [];
+  final List<Point> _inProgressPoints = [];
   Rect? _previewShape;
   Rect? _marqueeSelection;
 
@@ -709,8 +709,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final assetData = await ref.read(
         assetDataProvider(relativeImagePath).future,
       );
-      if (assetData is! ImageAssetData)
+      if (assetData is! ImageAssetData) {
         throw Exception("Failed to load image asset");
+      }
       final image = assetData.image;
 
       final tileWidth = result['tileWidth'] as int;
@@ -807,8 +808,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
     final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
     final resolver = resolverState.valueOrNull;
-    if (_notifier == null || _selectedTileset == null || resolver == null)
+    if (_notifier == null || _selectedTileset == null || resolver == null) {
       return;
+    }
 
     showDialog(
       context: context,
@@ -1103,8 +1105,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     if (isZoomMode ||
         _selectedTileset == null ||
         _selectedTileRect == null ||
-        _selectedLayerId == -1)
+        _selectedLayerId == -1) {
       return;
+    }
 
     final inverseMatrix = _transformationController.value.clone()..invert();
     final mapPosition = MatrixUtils.transformPoint(
@@ -1461,8 +1464,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         };
       });
     } else {
-      if (_dragStartMapPosition == null || _initialObjectPositions == null)
+      if (_dragStartMapPosition == null || _initialObjectPositions == null) {
         return;
+      }
 
       var delta = mapPosition - _dragStartMapPosition!;
       if (_isSnapToGridEnabled) {
@@ -1649,10 +1653,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_loadingError != null)
+    if (_loadingError != null) {
       return Center(child: Text('Error loading map: $_loadingError'));
-    if (notifier == null)
+    }
+    if (notifier == null) {
       return const Center(child: Text('Could not load map.'));
+    }
     final tiledSettings =
         ref.watch(
           effectiveSettingsProvider.select(

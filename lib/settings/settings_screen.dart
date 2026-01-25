@@ -8,7 +8,6 @@ import '../command/command_notifier.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
 import '../explorer/explorer_plugin_registry.dart';
 import '../project/project_settings_models.dart';
-import '../project/project_settings_notifier.dart';
 import '../project/project_type_handler.dart';
 import '../project/project_type_handler_registry.dart';
 import 'setting_override_widget.dart';
@@ -132,10 +131,10 @@ class _ExpandableSettingsList extends StatelessWidget {
   final List<Widget> items;
 
   const _ExpandableSettingsList({
-    Key? key,
+    super.key,
     required this.title,
     required this.items,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -622,7 +621,7 @@ class CommandSettingsScreen extends ConsumerWidget {
                 );
               }
               itemWidget = ListTile(
-                key: ValueKey(command!.id + positionId),
+                key: ValueKey(command.id + positionId),
                 leading: const Icon(Icons.drag_handle),
                 title: Row(
                   children: [
