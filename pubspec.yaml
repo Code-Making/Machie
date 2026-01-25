@@ -80,6 +80,7 @@ dependencies:
   xterm:
     git:
       url: git@github.com:hommes-doutant/xterm.dart.git
+  appflowy_editor: ^0.1.12
  
 dev_dependencies:
   flutter_test:
