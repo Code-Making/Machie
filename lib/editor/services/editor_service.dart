@@ -98,7 +98,7 @@ class EditorService {
             'Disk Hash: $currentDiskHash',
           );
           final context = _ref.read(navigatorKeyProvider).currentContext;
-          if (context != null) {
+          if (context != null && context.mounted) {
             final resolution = await showCacheConflictDialog(
               context,
               fileName: file.name,
@@ -286,6 +286,9 @@ class EditorService {
       // File exists, open it directly.
       return await appNotifier.openFileInEditor(file);
     } else {
+              if (context == null || !context.mounted) {
+                return false;
+              }
       // File does not exist, ask to create it.
       final shouldCreate = await showCreateFileConfirmationDialog(
         context,

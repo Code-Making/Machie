@@ -107,7 +107,7 @@ class ProjectService {
     final editorPlugins = _ref.read(activePluginsProvider);
     final allKnownAppSettings = [
       GeneralSettings(),
-      ...editorPlugins.map((p) => p.settings).whereNotNull(),
+      ...editorPlugins.map((p) => p.settings).nonNulls,
     ];
     final Map<Type, MachineSettings> pluginOverrides = {};
     for (final entry in dto.pluginSettingsOverrides.entries) {

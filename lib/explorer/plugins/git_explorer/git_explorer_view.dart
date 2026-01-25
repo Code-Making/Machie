@@ -272,7 +272,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
       initialChildSize: 0.8,
       maxChildSize: 0.9,
       builder:
-          (_, __) => Scaffold(
+      (_, _) => Scaffold(
             appBar: AppBar(
               primary: false,
               automaticallyImplyLeading: false,
