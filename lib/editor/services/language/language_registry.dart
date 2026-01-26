@@ -23,7 +23,40 @@ import 'language_models.dart';
 class Languages {
   Languages._();
 
-  // ... [Static getters remain unchanged] ...
+  // --- 1. Pre-compiled Regex Patterns (Performance Optimization) ---
+  
+  // Dart
+  static final _dartImportRegex = RegExp(r'''import\s+['"][^'"]+['"]''');
+  static final _dartExportRegex = RegExp(r'''export\s+['"][^'"]+['"]''');
+  static final _dartPartRegex = RegExp(r'''part\s+(?:of\s+)?['"][^'"]+['"]''');
+  static final _dartLogRegex = RegExp(r'([\w\-\./\\]+\.dart):(\d+)(?::(\d+))?');
+
+  // JavaScript / TypeScript
+  static final _jsFromRegex = RegExp(r'''from\s+['"][^'"]+['"]''');
+  static final _jsImportRegex = RegExp(r'''import\s+['"][^'"]+['"]''');
+  static final _jsRequireRegex = RegExp(r'''require\s*\(\s*['"][^'"]+['"]\s*\)''');
+
+  // HTML
+  static final _htmlSrcRegex = RegExp(r'''src=["'][^"']+["']''');
+  static final _htmlHrefRegex = RegExp(r'''href=["'][^"']+["']''');
+
+  // CSS
+  static final _cssImportRegex = RegExp(r'''@import\s+["'][^"']+["']''');
+  static final _cssUrlRegex = RegExp(r'''url\s*\(\s*["']?[^"')]+["']?\s*\)''');
+
+  // C++
+  static final _cppIncludeRegex = RegExp(r'''#include\s+["'][^"']+["']''');
+
+  // Markdown
+  static final _mdLinkRegex = RegExp(r'\]\(([^)]+)\)');
+
+  // LaTeX
+  static final _latexInputRegex = RegExp(r'''\\input\{([^}]+)\}''');
+  static final _latexIncludeRegex = RegExp(r'''\\include\{([^}]+)\}''');
+  static final _latexGraphicsRegex = RegExp(r'''\\includegraphics(?:\[.*\])?\{([^}]+)\}''');
+
+  // --- Public API ---
+
   static LanguageConfig getForFile(String filename) {
     final ext = filename.split('.').last.toLowerCase();
     return _byExtension[ext] ?? _plaintext;
@@ -49,20 +82,24 @@ class Languages {
     for (var lang in _allLanguages) lang.id: lang,
   };
 
-  // --- Helper for legacy regex migration (used by other languages) ---
+  /// Extracts content between quotes (' or ") found in the regex match.
   static List<LinkSpan> _parseQuotedLinks(String line, List<RegExp> patterns) {
     final spans = <LinkSpan>[];
     for (final regex in patterns) {
       for (final match in regex.allMatches(line)) {
         final text = match.group(0)!;
+        
         int quoteStart = text.indexOf("'");
         if (quoteStart == -1) quoteStart = text.indexOf('"');
         if (quoteStart == -1) continue;
+
         final quoteChar = text[quoteStart];
         final quoteEnd = text.indexOf(quoteChar, quoteStart + 1);
         if (quoteEnd == -1) continue;
+
         final absoluteStart = match.start + quoteStart + 1;
         final absoluteEnd = match.start + quoteEnd;
+
         if (absoluteEnd > absoluteStart) {
           spans.add(LinkSpan(
             start: absoluteStart,
@@ -75,7 +112,6 @@ class Languages {
     return spans;
   }
 
-  // --- Shared Resolver for JS/TS ---
   static List<String> _jsResolutionStrategy(String path) {
     if (path.endsWith('.ts') || path.endsWith('.tsx') || 
         path.endsWith('.js') || path.endsWith('.jsx')) {
@@ -117,34 +153,13 @@ class Languages {
       final spans = DefaultParsers.parseAll(line);
       final trimmed = line.trimLeft();
 
-      // 1. Efficient Pruning for Imports
+      // 1. Efficient Pruning for Imports (No regex creation)
       if (trimmed.startsWith('import ') || trimmed.startsWith('export ') || trimmed.startsWith('part ')) {
-        // Find quotes
-        int startQuote = line.indexOf("'");
-        if (startQuote == -1) startQuote = line.indexOf('"');
-        
-        if (startQuote != -1) {
-          final quoteChar = line[startQuote];
-          final endQuote = line.indexOf(quoteChar, startQuote + 1);
-          
-          if (endQuote != -1) {
-            spans.add(LinkSpan(
-              start: startQuote + 1,
-              end: endQuote,
-              target: line.substring(startQuote + 1, endQuote),
-            ));
-          }
-        }
-      }
-      
-      // 2. Analysis Logs (Only if line contains typical log pattern)
-      // We look for the colon separator indicating a line number.
+        spans.addAll(_parseQuotedLinks(line, [_dartImportRegex, _dartExportRegex, _dartPartRegex]));
+      } 
+      // 2. Analysis Logs (Using static final regex)
       else if (line.contains('.dart:')) {
-        // Simplified Regex: Capture any path ending in .dart, followed by :line and optional :col
-        // Example: /lib/main.dart:10:5
-        final logRegex = RegExp(r'([\w\-\./\\]+\.dart):(\d+)(?::(\d+))?');
-        final match = logRegex.firstMatch(line);
-        
+        final match = _dartLogRegex.firstMatch(line);
         if (match != null) {
           spans.add(LinkSpan(
             start: match.start,
@@ -153,7 +168,6 @@ class Languages {
           ));
         }
       }
-
       return spans;
     },
   );
@@ -171,11 +185,8 @@ class Languages {
       importResolver: _jsResolutionStrategy,
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        spans.addAll(_parseQuotedLinks(line, [
-          RegExp(r'''from\s+['"][^'"]+['"]'''),
-          RegExp(r'''import\s+['"][^'"]+['"]'''),
-          RegExp(r'''require\s*\(\s*['"][^'"]+['"]\s*\)'''),
-        ]));
+        // Using static final regexes
+        spans.addAll(_parseQuotedLinks(line, [_jsFromRegex, _jsImportRegex, _jsRequireRegex]));
         return spans;
       },
     ),
@@ -189,11 +200,7 @@ class Languages {
       importResolver: _jsResolutionStrategy,
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        spans.addAll(_parseQuotedLinks(line, [
-          RegExp(r'''from\s+['"][^'"]+['"]'''),
-          RegExp(r'''import\s+['"][^'"]+['"]'''),
-          RegExp(r'''require\s*\(\s*['"][^'"]+['"]\s*\)'''),
-        ]));
+        spans.addAll(_parseQuotedLinks(line, [_jsFromRegex, _jsImportRegex, _jsRequireRegex]));
         return spans;
       },
     ),
@@ -205,10 +212,7 @@ class Languages {
       comments: const CommentConfig(blockBegin: '<!--', blockEnd: '-->'),
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        spans.addAll(_parseQuotedLinks(line, [
-          RegExp(r'''src=["'][^"']+["']'''),
-          RegExp(r'''href=["'][^"']+["']'''),
-        ]));
+        spans.addAll(_parseQuotedLinks(line, [_htmlSrcRegex, _htmlHrefRegex]));
         return spans;
       },
     ),
@@ -221,10 +225,7 @@ class Languages {
       importFormatter: (path) => "@import '$path';",
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        spans.addAll(_parseQuotedLinks(line, [
-          RegExp(r'''@import\s+["'][^"']+["']'''),
-          RegExp(r'''url\s*\(\s*["']?[^"')]+["']?\s*\)'''),
-        ]));
+        spans.addAll(_parseQuotedLinks(line, [_cssImportRegex, _cssUrlRegex]));
         return spans;
       },
     ),
@@ -237,9 +238,7 @@ class Languages {
       importFormatter: (path) => '#include "$path"',
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        spans.addAll(_parseQuotedLinks(line, [
-          RegExp(r'''#include\s+["'][^"']+["']''')
-        ]));
+        spans.addAll(_parseQuotedLinks(line, [_cppIncludeRegex]));
         return spans;
       },
     ),
@@ -251,8 +250,8 @@ class Languages {
       comments: const CommentConfig(singleLine: '>'),
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        final linkRegex = RegExp(r'\]\(([^)]+)\)');
-        for (final m in linkRegex.allMatches(line)) {
+        // Using static final regex
+        for (final m in _mdLinkRegex.allMatches(line)) {
           final matchText = m.group(0)!;
           final openParenIndex = matchText.lastIndexOf('(');
           if (openParenIndex != -1) {
@@ -275,12 +274,9 @@ class Languages {
       importFormatter: (path) => '\\input{$path}',
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        final latexPatterns = [
-          RegExp(r'''\\input\{([^}]+)\}'''),
-          RegExp(r'''\\include\{([^}]+)\}'''),
-          RegExp(r'''\\includegraphics(?:\[.*\])?\{([^}]+)\}'''),
-        ];
-        for (final regex in latexPatterns) {
+        final patterns = [_latexInputRegex, _latexIncludeRegex, _latexGraphicsRegex];
+        
+        for (final regex in patterns) {
           for (final m in regex.allMatches(line)) {
             final matchText = m.group(0)!;
             final openBrace = matchText.lastIndexOf('{');
@@ -297,7 +293,6 @@ class Languages {
         return spans;
       },
     ),
-    // Standard configurations
     LanguageConfig(
       id: 'python',
       name: 'Python',
