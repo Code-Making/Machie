@@ -44,6 +44,11 @@ class CodeEditorSettings extends PluginSettings {
   bool fontLigatures;
   String scratchpadFilename;
   String? scratchpadLocalPath;
+  
+  // --- NEW SETTINGS ---
+  bool enableBracketMatching;
+  bool enableColorPreviews;
+  bool enableLinks;
 
   CodeEditorSettings({
     this.wordWrap = false,
@@ -54,6 +59,10 @@ class CodeEditorSettings extends PluginSettings {
     this.fontLigatures = true,
     this.scratchpadFilename = 'scratchpad.dart',
     this.scratchpadLocalPath,
+    // Defaults
+    this.enableBracketMatching = true,
+    this.enableColorPreviews = true,
+    this.enableLinks = true,
   });
 
   @override
@@ -66,6 +75,10 @@ class CodeEditorSettings extends PluginSettings {
     'fontLigatures': fontLigatures,
     'scratchpadFilename': scratchpadFilename,
     'scratchpadLocalPath': scratchpadLocalPath,
+    // Serialize new settings
+    'enableBracketMatching': enableBracketMatching,
+    'enableColorPreviews': enableColorPreviews,
+    'enableLinks': enableLinks,
   };
 
   @override
@@ -78,6 +91,10 @@ class CodeEditorSettings extends PluginSettings {
     fontLigatures = json['fontLigatures'] ?? true;
     scratchpadFilename = json['scratchpadFilename'] ?? 'scratchpad.dart';
     scratchpadLocalPath = json['scratchpadLocalPath'] as String?;
+    // Deserialize new settings
+    enableBracketMatching = json['enableBracketMatching'] ?? true;
+    enableColorPreviews = json['enableColorPreviews'] ?? true;
+    enableLinks = json['enableLinks'] ?? true;
   }
 
   CodeEditorSettings copyWith({
@@ -91,6 +108,9 @@ class CodeEditorSettings extends PluginSettings {
     String? scratchpadFilename,
     String? scratchpadLocalPath,
     bool setScratchpadLocalPathToNull = false,
+    bool? enableBracketMatching,
+    bool? enableColorPreviews,
+    bool? enableLinks,
   }) {
     return CodeEditorSettings(
       wordWrap: wordWrap ?? this.wordWrap,
@@ -104,6 +124,9 @@ class CodeEditorSettings extends PluginSettings {
           setScratchpadLocalPathToNull
               ? null
               : (scratchpadLocalPath ?? this.scratchpadLocalPath),
+      enableBracketMatching: enableBracketMatching ?? this.enableBracketMatching,
+      enableColorPreviews: enableColorPreviews ?? this.enableColorPreviews,
+      enableLinks: enableLinks ?? this.enableLinks,
     );
   }
 
@@ -118,6 +141,9 @@ class CodeEditorSettings extends PluginSettings {
       fontLigatures: fontLigatures,
       scratchpadFilename: scratchpadFilename,
       scratchpadLocalPath: scratchpadLocalPath,
+      enableBracketMatching: enableBracketMatching,
+      enableColorPreviews: enableColorPreviews,
+      enableLinks: enableLinks,
     );
   }
 }

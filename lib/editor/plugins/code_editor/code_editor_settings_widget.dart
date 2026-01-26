@@ -126,6 +126,40 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
                 currentSettings.copyWith(fontLigatures: value),
               ),
         ),
+        
+                Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Text(
+            "Editor Features",
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+        SwitchListTile(
+          title: const Text('Bracket Matching'),
+          subtitle: const Text('Highlight matching parenthesis and braces'),
+          value: currentSettings.enableBracketMatching,
+          onChanged: (value) => widget.onChanged(
+            currentSettings.copyWith(enableBracketMatching: value),
+          ),
+        ),
+        SwitchListTile(
+          title: const Text('Color Previews'),
+          subtitle: const Text('Highlight color codes (e.g. #FF0000)'),
+          value: currentSettings.enableColorPreviews,
+          onChanged: (value) => widget.onChanged(
+            currentSettings.copyWith(enableColorPreviews: value),
+          ),
+        ),
+        SwitchListTile(
+          title: const Text('Link Detection'),
+          subtitle: const Text('Make imports and URLs clickable'),
+          value: currentSettings.enableLinks,
+          onChanged: (value) => widget.onChanged(
+            currentSettings.copyWith(enableLinks: value),
+          ),
+        ),
+        const Divider(),
+        
 
         // Font Family
         Padding(

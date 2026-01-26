@@ -916,7 +916,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    // REFACTORED: Use the unified pipeline with the new callback signatures
+    // 1. Fetch settings (should be efficient as it's a select or read)
+    final settings = ref.read(effectiveSettingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?
+    )) ?? CodeEditorSettings();
+
+    // 2. Pass flags to Utils
     return CodeEditorUtils.buildHighlightingSpan(
       context: context,
       index: index,
@@ -924,9 +929,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       textSpan: textSpan,
       style: style,
       bracketHighlightState: _bracketHighlightNotifier.value,
-      onLinkTap: _onLinkTap, // New handler
-      onColorTap: _onColorCodeTap, // Updated handler
+      onLinkTap: _onLinkTap,
+      onColorTap: _onColorCodeTap,
       languageConfig: _languageConfig,
+      // --- Passing Flags ---
+      enableBracketMatching: settings.enableBracketMatching,
+      enableColorPreviews: settings.enableColorPreviews,
+      enableLinks: settings.enableLinks,
     );
   }
 

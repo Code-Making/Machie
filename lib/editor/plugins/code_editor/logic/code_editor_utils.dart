@@ -112,21 +112,35 @@ class CodeEditorUtils {
   /// Changes:
   /// 1. Uses [languageConfig.parser] to find all decorations (links, colors).
   /// 2. Uses generic [_applyParsedSpans] to render them.
-  static TextSpan buildHighlightingSpan({
+static TextSpan buildHighlightingSpan({
     required BuildContext context,
     required int index,
     required CodeLine codeLine,
     required TextSpan textSpan,
     required TextStyle style,
     required BracketHighlightState bracketHighlightState,
-    required void Function(LinkSpan) onLinkTap, // Updated Signature
-    void Function(int lineIndex, ColorSpan span)? onColorTap, // Updated Signature
+    required void Function(LinkSpan) onLinkTap,
+    void Function(int lineIndex, ColorSpan span)? onColorTap,
     required LanguageConfig languageConfig,
+    // --- New Parameters ---
+    required bool enableBracketMatching,
+    required bool enableColorPreviews,
+    required bool enableLinks,
   }) {
     // 1. Get raw data from the language parser
     final parsedSpans = languageConfig.parser(codeLine.text);
 
-    // 2. Apply all semantic decorations (Links, Colors) in one pass
+    // 2. Filter spans based on settings
+    // This is more efficient than passing booleans into every sub-function.
+    if (!enableLinks || !enableColorPreviews) {
+      parsedSpans.removeWhere((span) {
+        if (span is LinkSpan) return !enableLinks;
+        if (span is ColorSpan) return !enableColorPreviews;
+        return false;
+      });
+    }
+
+    // 3. Apply filtered decorations
     final decoratedSpan = _applyParsedSpans(
       textSpan,
       parsedSpans,
@@ -135,15 +149,17 @@ class CodeEditorUtils {
       onColorTap: onColorTap != null ? (span) => onColorTap(index, span) : null,
     );
 
-    // 3. Highlight matching brackets (Overlay logic)
-    final finalSpan = _highlightBrackets(
-      index,
-      decoratedSpan,
-      style,
-      bracketHighlightState,
-    );
+    // 4. Highlight matching brackets (if enabled)
+    if (enableBracketMatching) {
+      return _highlightBrackets(
+        index,
+        decoratedSpan,
+        style,
+        bracketHighlightState,
+      );
+    }
 
-    return finalSpan;
+    return decoratedSpan;
   }
 
   /// The Core Rendering Engine.
