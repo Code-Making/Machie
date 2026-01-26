@@ -379,7 +379,8 @@ class _HierarchyRowState extends State<_HierarchyRow> {
     );
 
     return DragTarget<_LayerPanelDragData>(
-      onWillAcceptWithDetails: (data) {
+onWillAcceptWithDetails: (details) {
+        final data = details.data;
         if (data == null) return false;
         if (data.type == 'layer' && widget.node.isLayer) {
           return data.id != widget.node.layer!.id;
@@ -407,8 +408,9 @@ class _HierarchyRowState extends State<_HierarchyRow> {
         }
       },
       onLeave: (_) => setState(() => _dropPosition = null),
-      onAccept: (data) {
+onAcceptWithDetails: (details) {
         setState(() => _dropPosition = null);
+        final data = details.data;
         if (data.type == 'layer' && widget.node.isLayer) {
           int targetIndex = widget.node.index;
           if (_dropPosition == _DropPosition.above) {
@@ -423,7 +425,7 @@ class _HierarchyRowState extends State<_HierarchyRow> {
           widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
         }
       },
-      builder: (ctx, _, __) => InkWell(onTap: widget.onTap, child: draggable),
+      builder: (ctx, _, _) => InkWell(onTap: widget.onTap, child: draggable),
     );
   }
 

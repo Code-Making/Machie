@@ -329,7 +329,7 @@ class SchemaNodeWidget extends StatelessWidget {
             ),
           );
         },
-        onWillAcceptWithDetails: (data) {
+        onWillAccept: (data) {
           final draggingType = notifier.draggingPortType;
           if (draggingType == null) return false;
           if (draggingType == port.type) return true;

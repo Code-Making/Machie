@@ -312,7 +312,7 @@ class _HierarchyItemRowState extends ConsumerState<_HierarchyItemRow> {
 
     // Wrap with DragTarget
     return DragTarget<String>(
-      onWillAcceptWithDetails: (draggedId) {
+      onWillAccept: (draggedId) {
         if (draggedId == null || draggedId == node.id) return false;
         // NOTE: Cycle detection is strict in Notifier, but we can do a quick check here if we had access to tree
         return true;
@@ -440,8 +440,8 @@ class _HierarchyRootDropZoneState extends State<_HierarchyRootDropZone> {
   @override
   Widget build(BuildContext context) {
     return DragTarget<String>(
-      // Corrected: Use onWillAcceptWithDetails to detect entry and set hover state
-      onWillAcceptWithDetails: (data) {
+      // Corrected: Use onWillAccept to detect entry and set hover state
+      onWillAccept: (data) {
         if (data != null) {
           setState(() => _isHovered = true);
           return true;
