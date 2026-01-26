@@ -48,14 +48,14 @@ extension on ColorData {
 
 extension on Color {
   String toHex({String prefix = '#', bool includeAlpha = true}) {
-    final rr = r.toRadixString(16).padLeft(2, '0');
-    final gg = g.toRadixString(16).padLeft(2, '0');
-    final bb = b.toRadixString(16).padLeft(2, '0');
+    final rr = (r * 255.0).round() & 0xff;
+    final gg = (g * 255.0).round() & 0xff;
+    final bb = (b * 255.0).round() & 0xff;
     if (includeAlpha) {
-      final aa = a.toRadixString(16).padLeft(2, '0');
-      return '$prefix$aa$rr$gg$bb';
+      final aa = (a * 255.0).round() & 0xff;
+      return '$prefix${aa.toRadixString(16).padLeft(2, '0')}${rr.toRadixString(16).padLeft(2, '0')}${gg.toRadixString(16).padLeft(2, '0')}${bb.toRadixString(16).padLeft(2, '0')}';
     }
-    return '$prefix$rr$gg$bb';
+    return '$prefix${rr.toRadixString(16).padLeft(2, '0')}${gg.toRadixString(16).padLeft(2, '0')}${bb.toRadixString(16).padLeft(2, '0')}';
   }
 }
 
