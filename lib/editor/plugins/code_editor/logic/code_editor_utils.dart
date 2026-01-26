@@ -9,6 +9,8 @@ import 'package:re_editor/re_editor.dart';
 
 import '../../../../services/language/language_models.dart';
 import 'code_editor_types.dart';
+import '../../../services/language/language_models.dart';
+import '../../../services/language/parsed_span_models.dart';
 
 class CodeEditorUtils {
   
