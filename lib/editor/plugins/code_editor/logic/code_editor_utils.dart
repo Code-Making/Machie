@@ -1,648 +1,477 @@
-// lib/editor/plugins/code_editor/code_editor_plugin.dart
+// lib/editor/plugins/code_editor/logic/code_editor_utils.dart
 
-import 'dart:async';
+import 'dart:math';
+import 'dart:ui'; // For Color
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../../../app/app_notifier.dart';
-import '../../../command/command_models.dart';
-import '../../../command/command_widgets.dart';
-import '../../../data/cache/type_adapters.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../data/repositories/project/project_repository.dart';
-import '../../../editor/services/editor_service.dart';
-import '../../../logs/logs_provider.dart';
-import '../../../project/project_models.dart';
-import '../../../settings/settings_notifier.dart';
-import '../../../utils/toast.dart';
-import '../../models/editor_command_context.dart';
-import '../../models/editor_plugin_models.dart';
-import '../../models/editor_tab_models.dart';
-import '../../models/text_editing_capability.dart';
-import '../../services/language/language_registry.dart';
-import '../../services/language/language_models.dart'; // Needed for LinkSpan
-import '../../tab_metadata_notifier.dart';
-import 'code_editor_hot_state_adapter.dart';
-import 'code_editor_hot_state_dto.dart';
-import 'code_editor_models.dart';
-import 'code_editor_settings_widget.dart';
-import 'code_editor_widgets.dart';
+import 'code_editor_types.dart';
+import '../../../services/language/language_models.dart';
+import '../../../services/language/parsed_span_models.dart';
 
-class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
-  static const String pluginId = 'com.machine.code_editor';
-  static const String hotStateId = 'com.machine.code_editor_state';
-  static const CommandPosition selectionToolbar = CommandPosition(
-    id: 'com.machine.code_editor.selection_toolbar',
-    label: 'Code Selection Toolbar',
-    icon: Icons.edit_attributes,
-  );
-  @override
-  String get id => pluginId;
-  @override
-  String get name => 'Code Editor';
-  @override
-  Widget get icon => const Icon(Icons.code);
-  @override
-  final PluginSettings? settings = CodeEditorSettings();
-  @override
-  Widget buildSettingsUI(
-    PluginSettings settings,
-    void Function(PluginSettings) onChanged,
-  ) => CodeEditorSettingsUI(
-    settings: settings as CodeEditorSettings,
-    onChanged: onChanged,
-  );
-  @override
-  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
-
-  @override
-  Type? get hotStateDtoRuntimeType => CodeEditorHotStateDto;
-
-  @override
-  Widget wrapCommandToolbar(Widget toolbar) {
-    return CodeEditorTapRegion(child: toolbar);
-  }
-
-  @override
-  Future<void> dispose() async {}
-  @override
-  void disposeTab(EditorTab tab) {}
-
-  @override
-  int get priority => 0;
-
-  @override
-  bool supportsFile(DocumentFile file) {
-    return Languages.isSupported(file.name);
-  }
-
-  @override
-  bool canOpenFileContent(String content, DocumentFile file) {
-    return true;
-  }
-
-  @override
-  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) {
-    return [
-      BaseFileContextCommand(
-        id: 'add_import',
-        label: 'Add Import',
-        icon: const Icon(Icons.arrow_downward),
-        sourcePlugin: id,
-        canExecuteFor: (ref, item) {
-          final activeTab =
-              ref
-                  .read(appNotifierProvider)
-                  .value
-                  ?.currentProject
-                  ?.session
-                  .currentTab;
-          if (activeTab is! CodeEditorTab) return false;
-
-          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
-          if (activeFile == null) return false;
-
-          final config = Languages.getForFile(activeFile.name);
-          return config.importFormatter != null;
-        },
-        executeFor: (ref, item) async {
-          await _executeAddImport(ref, item);
-        },
-      ),
-    ];
-  }
-
-  @override
-  List<TabContextCommand> getTabContextMenuCommands() {
-    return [
-      BaseTabContextCommand(
-        id: 'add_import_from_tab',
-        label: 'Add Import From Tab',
-        icon: const Icon(Icons.arrow_downward, size: 20),
-        sourcePlugin: id,
-        canExecuteFor: (ref, activeTab, targetTab) {
-          if (activeTab is! CodeEditorTab || activeTab.id == targetTab.id) {
-            return false;
-          }
-
-          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
-          if (activeFile == null) return false;
-
-          final config = Languages.getForFile(activeFile.name);
-          return config.importFormatter != null;
-        },
-        executeFor: (ref, activeTab, targetTab) async {
-          final targetFile = ref.read(tabMetadataProvider)[targetTab.id]?.file;
-          if (targetFile != null) {
-            await _executeAddImport(ref, targetFile);
-          }
-        },
-      ),
-    ];
-  }
-
-  Future<void> _executeAddImport(WidgetRef ref, DocumentFile targetFile) async {
-    final activeTab =
-        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-    if (activeTab == null) return;
-
-    final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
-    final repo = ref.read(projectRepositoryProvider);
-
-    final editorState = activeTab.editorKey.currentState;
-    if (activeFile == null || repo == null || editorState is! TextEditable) {
-      return;
+class CodeEditorUtils {
+  
+  // --- Bracket Matching Logic (Unchanged) ---
+  
+  static BracketHighlightState calculateBracketHighlights(
+    CodeLineEditingController controller,
+  ) {
+    // ... [Previous implementation of calculateBracketHighlights matches here] ...
+    // (Kept separate as it depends on cursor position, not just line content)
+    final selection = controller.selection;
+    if (!selection.isCollapsed) {
+      return const BracketHighlightState();
     }
-    final editable = editorState as TextEditable;
-
-    final config = Languages.getForFile(activeFile.name);
-    final formatter = config.importFormatter;
-
-    if (formatter == null) {
-      MachineToast.error("Imports are not supported for ${config.name}");
-      return;
-    }
-
-    final relativePath = _calculateRelativePath(
-      from: activeFile.uri,
-      to: targetFile.uri,
-      fileHandler: repo.fileHandler,
-      ref: ref,
-    );
-
-    if (relativePath == null) {
-      MachineToast.error('Could not calculate relative path.');
-      return;
-    }
-
-    final currentContent = await editable.getTextContent();
-    final lines = currentContent.split('\n');
-
-    int lastImportIndex = -1;
-    bool alreadyExists = false;
-
-    // --- REFACTORED: Use Parser and Heuristics ---
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      if (line.trim().isEmpty) continue;
-
-      // 1. Check for duplicate using the Language parser
-      final spans = config.parser(line);
-      for (final span in spans) {
-        if (span is LinkSpan) {
-          // If the link target matches our path, it's a duplicate.
-          // Note: This relies on the parser extracting the exact relative path string.
-          if (span.target == relativePath) {
-            alreadyExists = true;
+    final position = selection.base;
+    final brackets = {'(': ')', '[': ']', '{': '}'};
+    final line = controller.codeLines[position.index].text;
+    Set<CodeLinePosition> newPositions = {};
+    Set<int> newHighlightedLines = {};
+    for (int offset in [position.offset, position.offset - 1]) {
+      if (offset >= 0 && offset < line.length) {
+        final char = line[offset];
+        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+          final currentPosition = CodeLinePosition(
+            index: position.index,
+            offset: offset,
+          );
+          final matchPosition = _findMatchingBracket(
+            controller.codeLines,
+            currentPosition,
+            brackets,
+          );
+          if (matchPosition != null) {
+            newPositions.add(currentPosition);
+            newPositions.add(matchPosition);
+            newHighlightedLines.add(currentPosition.index);
+            newHighlightedLines.add(matchPosition.index);
             break;
           }
         }
       }
-      if (alreadyExists) break;
-
-      // 2. Find insertion point (heuristic)
-      // Since regex patterns are gone from config, we check for common import keywords
-      // to determine if we are still in the "import block".
-      if (_isImportLine(line)) {
-        lastImportIndex = i;
-      } else if (!line.trim().startsWith('//') &&
-          !line.trim().startsWith('/*') &&
-          !line.trim().startsWith('*')) {
-        // If we hit code that isn't an import or a comment, stop searching for the block end.
-        // This prevents inserting imports in the middle of a function if "import" is used as a variable name.
-        // (A naive optimization).
-      }
     }
-
-    if (alreadyExists) {
-      MachineToast.info('Import already exists.');
-      return;
-    }
-
-    final importStatement = formatter(relativePath);
-    final insertionLine = lastImportIndex + 1;
-
-    editable.insertTextAtLine(insertionLine, "$importStatement\n");
-    MachineToast.info("Added: $importStatement");
-  }
-
-  /// Heuristic to detect import lines across supported languages.
-  bool _isImportLine(String line) {
-    final trimmed = line.trim();
-    return trimmed.startsWith('import ') ||
-        trimmed.startsWith('export ') ||
-        trimmed.startsWith('part ') ||
-        trimmed.startsWith('require(') ||
-        trimmed.startsWith('#include ') ||
-        trimmed.startsWith('@import ') ||
-        trimmed.startsWith(r'\input') ||
-        trimmed.startsWith(r'\include') ||
-        trimmed.startsWith(r'\usepackage');
-  }
-
-  String? _calculateRelativePath({
-    required String from,
-    required String to,
-    required FileHandler fileHandler,
-    required WidgetRef ref,
-  }) {
-    try {
-      final fromDirUri = fileHandler.getParentUri(from);
-      final fromPath = fileHandler.getPathForDisplay(fromDirUri);
-      final toPath = fileHandler.getPathForDisplay(to);
-
-      final fromSegments =
-          fromPath.split('/').where((s) => s.isNotEmpty).toList();
-      final toSegments = toPath.split('/').where((s) => s.isNotEmpty).toList();
-
-      int commonLength = 0;
-      while (commonLength < fromSegments.length &&
-          commonLength < toSegments.length &&
-          fromSegments[commonLength] == toSegments[commonLength]) {
-        commonLength++;
-      }
-
-      final upCount = fromSegments.length - commonLength;
-      final upPath = List.filled(upCount, '..');
-      final downPath = toSegments.sublist(commonLength);
-      final relativePathSegments = [...upPath, ...downPath];
-
-      if (relativePathSegments.isEmpty && toSegments.isNotEmpty) {
-        return toSegments.last;
-      }
-
-      return relativePathSegments.join('/');
-    } catch (e) {
-      ref.read(talkerProvider).error("Failed to calculate relative path: $e");
-      return null;
-    }
-  }
-
-  // ... [Rest of the file: hotStateDtoType, adapter, createTab, buildEditor, toolbar, etc. unchanged] ...
-  
-  @override
-  String get hotStateDtoType => hotStateId;
-
-  @override
-  TypeAdapter<TabHotStateDto> get hotStateAdapter =>
-      CodeEditorHotStateAdapter();
-
-  @override
-  List<CommandPosition> getCommandPositions() {
-    return [selectionToolbar];
-  }
-
-  @override
-  Future<EditorTab> createTab(
-    DocumentFile file,
-    EditorInitData initData, {
-    String? id,
-    Completer<EditorWidgetState>? onReadyCompleter,
-  }) async {
-    final stringContent = initData.initialContent as EditorContentString;
-    final initialContent = stringContent.content;
-    final initialBaseContentHash = initData.baseContentHash;
-    String? cachedContent;
-    String? initialLanguageId;
-
-    if (initData.hotState is CodeEditorHotStateDto) {
-      final hotState = initData.hotState as CodeEditorHotStateDto;
-      cachedContent = hotState.content;
-      initialLanguageId = hotState.languageId;
-    }
-
-    return CodeEditorTab(
-      plugin: this,
-      initialContent: initialContent,
-      cachedContent: cachedContent,
-      initialLanguageId: initialLanguageId,
-      initialBaseContentHash: initialBaseContentHash,
-      id: id,
-      onReadyCompleter: onReadyCompleter,
+    return BracketHighlightState(
+      bracketPositions: newPositions,
+      highlightedLines: newHighlightedLines,
     );
   }
 
-  @override
-  EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
-    final codeTab = tab as CodeEditorTab;
-    return CodeEditorMachine(key: codeTab.editorKey, tab: codeTab);
-  }
-
-  CodeEditorMachineState? _getActiveEditorState(WidgetRef ref) {
-    final tab = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab,
-      ),
-    );
-    if (tab is! CodeEditorTab) return null;
-    return tab.editorKey.currentState;
-  }
-
-  @override
-  Widget buildToolbar(WidgetRef ref) {
-    return CodeEditorTapRegion(child: const BottomToolbar());
-  }
-
-  @override
-  List<Command> getAppCommands() => [
-    BaseCommand(
-      id: 'open_scratchpad',
-      label: 'Open Scratchpad',
-      icon: const Icon(Icons.edit_note),
-      defaultPositions: [AppCommandPositions.appBar],
-      sourcePlugin: 'App',
-      canExecute: (ref) => true,
-      execute: (ref) async {
-        final settings =
-            ref
-                    .read(effectiveSettingsProvider)
-                    .pluginSettings[CodeEditorSettings]
-                as CodeEditorSettings?;
-
-        final localPath = settings?.scratchpadLocalPath;
-
-        if (localPath != null && localPath.trim().isNotEmpty) {
-          final repo = ref.read(projectRepositoryProvider);
-          if (repo == null) {
-            MachineToast.error(
-              "A project must be open to use a local scratchpad file.",
+  static CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
+    // ... [Previous implementation] ...
+    final line = codeLines[position.index].text;
+    final char = line[position.offset];
+    final isOpen = brackets.keys.contains(char);
+    final target = isOpen
+            ? brackets[char]
+            : brackets.keys.firstWhere(
+              (k) => brackets[k] == char,
+              orElse: () => '',
             );
-            return;
-          }
+    if (target?.isEmpty ?? true) return null;
 
-          try {
-            final fileUri = Uri.file(localPath.trim()).toString();
-            final file = await repo.fileHandler.getFileMetadata(fileUri);
+    int stack = 1;
+    int index = position.index;
+    int offset = position.offset;
+    final direction = isOpen ? 1 : -1;
 
-            if (file != null) {
-              await ref
-                  .read(appNotifierProvider.notifier)
-                  .openFileInEditor(file, explicitPlugin: this);
-            } else {
-              MachineToast.error(
-                'Could not find local scratchpad file at: $localPath',
-              );
-            }
-          } catch (e) {
-            MachineToast.error('Error opening local scratchpad file: $e');
-            ref
-                .read(talkerProvider)
-                .error(
-                  'Error opening local scratchpad file at path "$localPath"',
-                  e,
-                );
-          }
+    while (true) {
+      offset += direction;
+      while (offset < 0 || offset >= codeLines[index].text.length) {
+        if (direction > 0) {
+          index++;
+          if (index >= codeLines.length) return null;
+          offset = 0;
         } else {
-          final filename = settings?.scratchpadFilename ?? 'scratchpad.dart';
-          final scratchpadFile = InternalAppFile(
-            uri: 'internal://$filename',
-            name: 'Scratchpad',
-            modifiedDate: DateTime.now(),
-          );
-          await ref
-              .read(appNotifierProvider.notifier)
-              .openFileInEditor(scratchpadFile, explicitPlugin: this);
+          index--;
+          if (index < 0) return null;
+          offset = codeLines[index].text.length - 1;
         }
-      },
-    ),
-  ];
+      }
+      final currentChar = codeLines[index].text[offset];
+      if (currentChar == char) {
+        stack++;
+      } else if (currentChar == target) {
+        stack--;
+      }
+      if (stack == 0) {
+        return CodeLinePosition(index: index, offset: offset);
+      }
+    }
+  }
 
-  @override
-  List<Command> getCommands(Ref ref) => [
-    BaseCommand(
-      id: 'save',
-      label: 'Save',
-      icon: const Icon(Icons.save),
-      defaultPositions: [AppCommandPositions.appBar],
-      sourcePlugin: id,
-      execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
-      canExecute: (ref) {
-        final currentTabId = ref.watch(
-          appNotifierProvider.select(
-            (s) => s.value?.currentProject?.session.currentTab?.id,
-          ),
-        );
-        if (currentTabId == null) return false;
+  // --- Unified Highlight Span Builder Pipeline ---
 
-        final metadata = ref.watch(
-          tabMetadataProvider.select((m) => m[currentTabId]),
-        );
-        if (metadata == null) return false;
-        return metadata.isDirty && metadata.file is! VirtualDocumentFile;
-      },
-    ),
-    _createCommand(
-      id: 'goto_line',
-      label: 'Go to Line',
-      icon: Icons.numbers,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.showGoToLineDialog(),
-    ),
-    _createCommand(
-      id: 'select_line',
-      label: 'Select Line',
-      icon: Icons.horizontal_rule,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.selectOrExpandLines(),
-    ),
-    _createCommand(
-      id: 'select_chunk',
-      label: 'Select Chunk/Block',
-      icon: Icons.unfold_more,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.selectCurrentChunk(),
-    ),
-    _createCommand(
-      id: 'extend_selection',
-      label: 'Extend Selection',
-      icon: Icons.code,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.extendSelection(),
-      canExecute: (ref, editor) => editor != null,
-    ),
-    _createCommand(
-      id: 'find',
-      label: 'Find',
-      icon: Icons.search,
-      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
-      execute: (ref, editor) => editor?.showFindPanel(),
-      canExecute: (ref, editor) => editor != null,
-    ),
-    _createCommand(
-      id: 'find_and_replace',
-      label: 'Replace',
-      icon: Icons.find_replace,
-      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
-      execute: (ref, editor) => editor?.showReplacePanel(),
-      canExecute: (ref, editor) => editor != null,
-    ),
-    _createCommand(
-      id: 'set_mark',
-      label: 'Set Mark',
-      icon: Icons.bookmark_add,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.setMark(),
-    ),
-    BaseCommand(
-      id: 'select_to_mark',
-      label: 'Select to Mark',
-      icon: const Icon(Icons.bookmark_added),
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.selectToMark(),
-      canExecute: (ref) {
-        final context = ref.watch(activeCommandContextProvider);
-        return (context is CodeEditorCommandContext) && context.hasMark;
-      },
-    ),
-    _createCommand(
-      id: 'copy',
-      label: 'Copy',
-      icon: Icons.content_copy,
-      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
-      execute: (ref, editor) => editor?.controller.copy(),
-    ),
-    _createCommand(
-      id: 'cut',
-      label: 'Cut',
-      icon: Icons.content_cut,
-      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
-      execute: (ref, editor) => editor?.controller.cut(),
-    ),
-    _createCommand(
-      id: 'paste',
-      label: 'Paste',
-      icon: Icons.content_paste,
-      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
-      execute: (ref, editor) => editor?.controller.paste(),
-    ),
-    _createCommand(
-      id: 'indent',
-      label: 'Indent',
-      icon: Icons.format_indent_increase,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {
-        editor?.adjustSelectionIfNeeded();
-        editor?.controller.applyIndent(true);
-      },
-    ),
-    _createCommand(
-      id: 'outdent',
-      label: 'Outdent',
-      icon: Icons.format_indent_decrease,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {
-        editor?.adjustSelectionIfNeeded();
-        editor?.controller.applyOutdent();
-      },
-    ),
-    _createCommand(
-      id: 'toggle_comment',
-      label: 'Toggle Comment',
-      icon: Icons.comment,
-      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
-      execute: (ref, editor) => editor?.toggleComments(),
-    ),
-    _createCommand(
-      id: 'delete_comment_text',
-      label: 'Delete Comment Text',
-      icon: Icons.delete_sweep_outlined,
-      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
-      execute: (ref, editor) => editor?.deleteCommentText(),
-    ),
-    _createCommand(
-      id: 'select_all',
-      label: 'Select All',
-      icon: Icons.select_all,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.selectAll(),
-    ),
-    _createCommand(
-      id: 'move_line_up',
-      label: 'Move Line Up',
-      icon: Icons.arrow_upward,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {
-        editor?.adjustSelectionIfNeeded();
-        editor?.controller.moveSelectionLinesUp();
-      },
-    ),
-    _createCommand(
-      id: 'move_line_down',
-      label: 'Move Line Down',
-      icon: Icons.arrow_downward,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {
-        editor?.adjustSelectionIfNeeded();
-        editor?.controller.moveSelectionLinesDown();
-      },
-    ),
-    BaseCommand(
-      id: 'undo',
-      label: 'Undo',
-      icon: const Icon(Icons.undo),
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.undo(),
-      canExecute: (ref) {
-        final context = ref.watch(activeCommandContextProvider);
-        return (context is CodeEditorCommandContext) && context.canUndo;
-      },
-    ),
-    BaseCommand(
-      id: 'redo',
-      label: 'Redo',
-      icon: const Icon(Icons.redo),
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.redo(),
-      canExecute: (ref) {
-        final context = ref.watch(activeCommandContextProvider);
-        return (context is CodeEditorCommandContext) && context.canRedo;
-      },
-    ),
-    _createCommand(
-      id: 'show_cursor',
-      label: 'Show Cursor',
-      icon: Icons.center_focus_strong,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.makeCursorVisible(),
-    ),
-    _createCommand(
-      id: 'switch_language',
-      label: 'Switch Language',
-      icon: Icons.language,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.showLanguageSelectionDialog(),
-      canExecute: (ref, editor) => editor != null,
-    ),
-  ];
-
-  Command _createCommand({
-    required String id,
-    required String label,
-    required IconData icon,
-    required List<CommandPosition> defaultPositions,
-    required FutureOr<void> Function(WidgetRef, CodeEditorMachineState?)
-    execute,
-    bool Function(WidgetRef, CodeEditorMachineState?)? canExecute,
+  /// The main entry point for building the enhanced TextSpan for a line.
+  /// 
+  /// Changes:
+  /// 1. Uses [languageConfig.parser] to find all decorations (links, colors).
+  /// 2. Uses generic [_applyParsedSpans] to render them.
+  static TextSpan buildHighlightingSpan({
+    required BuildContext context,
+    required int index,
+    required CodeLine codeLine,
+    required TextSpan textSpan,
+    required TextStyle style,
+    required BracketHighlightState bracketHighlightState,
+    required void Function(LinkSpan) onLinkTap, // Updated Signature
+    void Function(int lineIndex, ColorSpan span)? onColorTap, // Updated Signature
+    required LanguageConfig languageConfig,
   }) {
-    return BaseCommand(
-      id: id,
-      label: label,
-      icon: Icon(icon, size: 20),
-      defaultPositions: defaultPositions,
-      sourcePlugin: this.id,
-      execute: (ref) async {
-        final editorState = _getActiveEditorState(ref);
-        await execute(ref, editorState);
-      },
-      canExecute: (ref) {
-        final editorState = _getActiveEditorState(ref);
-        return canExecute?.call(ref, editorState) ?? (editorState != null);
-      },
+    // 1. Get raw data from the language parser
+    final parsedSpans = languageConfig.parser(codeLine.text);
+
+    // 2. Apply all semantic decorations (Links, Colors) in one pass
+    final decoratedSpan = _applyParsedSpans(
+      textSpan,
+      parsedSpans,
+      style,
+      onLinkTap: onLinkTap,
+      onColorTap: onColorTap != null ? (span) => onColorTap(index, span) : null,
     );
+
+    // 3. Highlight matching brackets (Overlay logic)
+    final finalSpan = _highlightBrackets(
+      index,
+      decoratedSpan,
+      style,
+      bracketHighlightState,
+    );
+
+    return finalSpan;
+  }
+
+  /// The Core Rendering Engine.
+  /// Walks the TextSpan tree and applies styles/recognizers defined by [spans].
+  static TextSpan _applyParsedSpans(
+    TextSpan originalSpan,
+    List<ParsedSpan> spans,
+    TextStyle defaultStyle, {
+    required void Function(LinkSpan)? onLinkTap,
+    required void Function(ColorSpan)? onColorTap,
+  }) {
+    if (spans.isEmpty) return originalSpan;
+
+    // Sort spans to ensure we process them in order. 
+    // Note: Overlapping spans are not currently supported by this simple walker 
+    // (the first one encountered wins or they might nest oddly).
+    // Parsers should ideally return non-overlapping spans.
+    spans.sort((a, b) => a.start.compareTo(b.start));
+
+    // Flatten to unique ranges if necessary, but assuming clean input for now.
+    
+    List<TextSpan> walk(TextSpan span, int currentPos) {
+      final newChildren = <TextSpan>[];
+      final spanStart = currentPos;
+      final spanText = span.text ?? '';
+      final spanEnd = spanStart + spanText.length;
+
+      // 1. If this span has children, recurse down.
+      if (span.children?.isNotEmpty ?? false) {
+        int childPos = currentPos;
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            newChildren.addAll(walk(child, childPos));
+            childPos += child.toPlainText().length;
+          }
+        }
+        return [
+          TextSpan(
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
+        ];
+      }
+
+      // 2. Leaf Node Processing
+      int lastSplitEnd = 0; // Relative to spanText start
+
+      // Find spans that intersect with this leaf node
+      for (final parsedSpan in spans) {
+        final int effectiveStart = max(spanStart, parsedSpan.start);
+        final int effectiveEnd = min(spanEnd, parsedSpan.end);
+
+        // Check intersection
+        if (effectiveStart < effectiveEnd) {
+          // A. Add text *before* the match (if any)
+          if (effectiveStart > spanStart + lastSplitEnd) {
+            final beforeText = spanText.substring(
+              lastSplitEnd,
+              effectiveStart - spanStart,
+            );
+            newChildren.add(TextSpan(text: beforeText, style: span.style));
+          }
+
+          // B. Add the *matched* text with decoration
+          final matchText = spanText.substring(
+            effectiveStart - spanStart,
+            effectiveEnd - spanStart,
+          );
+
+          newChildren.add(
+            _createStyledSpan(
+              text: matchText,
+              baseStyle: span.style ?? defaultStyle,
+              parsedSpan: parsedSpan,
+              onLinkTap: onLinkTap,
+              onColorTap: onColorTap,
+            ),
+          );
+
+          lastSplitEnd = effectiveEnd - spanStart;
+        }
+      }
+
+      // C. Add remaining text *after* the last match
+      if (lastSplitEnd < spanText.length) {
+        final remainingText = spanText.substring(lastSplitEnd);
+        newChildren.add(TextSpan(text: remainingText, style: span.style));
+      }
+
+      return newChildren;
+    }
+
+    return TextSpan(children: walk(originalSpan, 0), style: defaultStyle);
+  }
+
+  /// Helper to generate the specific TextSpan for a Link or Color.
+  static TextSpan _createStyledSpan({
+    required String text,
+    required TextStyle baseStyle,
+    required ParsedSpan parsedSpan,
+    required void Function(LinkSpan)? onLinkTap,
+    required void Function(ColorSpan)? onColorTap,
+  }) {
+    switch (parsedSpan) {
+      case LinkSpan():
+        return TextSpan(
+          text: text,
+          style: baseStyle.copyWith(
+            decoration: TextDecoration.underline,
+            color: Colors.blueAccent, // Or theme primary color
+          ),
+          recognizer: onLinkTap == null 
+              ? null 
+              : (TapGestureRecognizer()..onTap = () => onLinkTap(parsedSpan)),
+        );
+
+      case ColorSpan():
+        // Calculate contrast color for text
+        final isDark = parsedSpan.color.computeLuminance() < 0.5;
+        final textColor = isDark ? Colors.white : Colors.black;
+        
+        return TextSpan(
+          text: text,
+          style: baseStyle.copyWith(
+            backgroundColor: parsedSpan.color,
+            color: textColor,
+          ),
+          recognizer: onColorTap == null
+              ? null
+              : (TapGestureRecognizer()..onTap = () => onColorTap(parsedSpan)),
+        );
+    }
+  }
+
+  // --- PIPELINE STEP 3: Highlights matching brackets (Unchanged) ---
+  static TextSpan _highlightBrackets(
+    int index,
+    TextSpan textSpan,
+    TextStyle style,
+    BracketHighlightState highlightState,
+  ) {
+    // ... [Previous logic stays exactly the same] ...
+    final highlightPositions =
+        highlightState.bracketPositions
+            .where((pos) => pos.index == index)
+            .map((pos) => pos.offset)
+            .toSet();
+    if (highlightPositions.isEmpty) {
+      return textSpan;
+    }
+    final builtSpans = <TextSpan>[];
+    int currentPosition = 0;
+
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final spanStyle = span.style ?? style;
+      int lastSplit = 0;
+      for (int i = 0; i < text.length; i++) {
+        final absolutePosition = currentPosition + i;
+        if (highlightPositions.contains(absolutePosition)) {
+          if (i > lastSplit) {
+            builtSpans.add(
+              TextSpan(text: text.substring(lastSplit, i), style: spanStyle),
+            );
+          }
+          builtSpans.add(
+            TextSpan(
+              text: text[i],
+              style: spanStyle.copyWith(
+                backgroundColor: Colors.yellow.withValues(alpha: 0.3),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
+          lastSplit = i + 1;
+        }
+      }
+      if (lastSplit < text.length) {
+        builtSpans.add(
+          TextSpan(text: text.substring(lastSplit), style: spanStyle),
+        );
+      }
+      currentPosition += text.length;
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child);
+          }
+        }
+      }
+    }
+
+    processSpan(textSpan);
+    return TextSpan(children: builtSpans, style: style);
+  }
+
+  // --- Character/Text Processing Utilities (Unchanged) ---
+  // ... [findSmallestEnclosingBlock, etc. remain as is] ...
+  
+  static ({CodeLineSelection full, CodeLineSelection contents})?
+  findSmallestEnclosingBlock(
+    CodeLineSelection selection,
+    CodeLineEditingController controller,
+  ) {
+     // ... (Implementation from previous code)
+     const List<String> openDelimiters = ['(', '[', '{', '"', "'"];
+    CodeLinePosition scanPos = selection.start;
+    while (true) {
+      final char = _getChar(scanPos, controller);
+      if (char != null && openDelimiters.contains(char)) {
+        final openDelimiterPos = scanPos;
+        final openChar = char;
+        final closeChar = _getMatchingDelimiterChar(openChar);
+        final closeDelimiterPos = _findMatchingDelimiter(
+          openDelimiterPos,
+          openChar,
+          closeChar,
+          controller,
+        );
+        if (closeDelimiterPos != null) {
+          final fullBlockSelection = CodeLineSelection(
+            baseIndex: openDelimiterPos.index,
+            baseOffset: openDelimiterPos.offset,
+            extentIndex: closeDelimiterPos.index,
+            extentOffset: closeDelimiterPos.offset + 1,
+          );
+          if (fullBlockSelection.contains(selection)) {
+            final contentSelection = CodeLineSelection(
+              baseIndex: openDelimiterPos.index,
+              baseOffset: openDelimiterPos.offset + 1,
+              extentIndex: closeDelimiterPos.index,
+              extentOffset: closeDelimiterPos.offset,
+            );
+            return (full: fullBlockSelection, contents: contentSelection);
+          }
+        }
+      }
+      final prevPos = _getPreviousPosition(scanPos, controller);
+      if (prevPos == scanPos) {
+        break;
+      }
+      scanPos = prevPos;
+    }
+    return null;
+  }
+
+  static CodeLinePosition? _findMatchingDelimiter(
+    CodeLinePosition start,
+    String open,
+    String close,
+    CodeLineEditingController controller,
+  ) {
+    int stack = 1;
+    CodeLinePosition currentPos = _getNextPosition(start, controller);
+    while (true) {
+      final char = _getChar(currentPos, controller);
+      if (char != null) {
+        if (char == open && open != close) {
+          stack++;
+        } else if (char == close) {
+          stack--;
+        }
+        if (stack == 0) {
+          return currentPos;
+        }
+      }
+      final nextPos = _getNextPosition(currentPos, controller);
+      if (nextPos == currentPos) {
+        break;
+      }
+      currentPos = nextPos;
+    }
+    return null;
+  }
+
+  static String _getMatchingDelimiterChar(String openChar) {
+    const Map<String, String> pairs = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '"': '"',
+      "'": "'",
+    };
+    return pairs[openChar]!;
+  }
+
+  static String? _getChar(
+    CodeLinePosition pos,
+    CodeLineEditingController controller,
+  ) {
+    if (pos.index < 0 || pos.index >= controller.codeLines.length) return null;
+    final line = controller.codeLines[pos.index].text;
+    if (pos.offset < 0 || pos.offset >= line.length) return null;
+    return line[pos.offset];
+  }
+
+  static CodeLinePosition _getPreviousPosition(
+    CodeLinePosition pos,
+    CodeLineEditingController controller,
+  ) {
+    if (pos.offset > 0) {
+      return CodeLinePosition(index: pos.index, offset: pos.offset - 1);
+    }
+    if (pos.index > 0) {
+      final prevLine = controller.codeLines[pos.index - 1].text;
+      return CodeLinePosition(index: pos.index - 1, offset: prevLine.length);
+    }
+    return pos;
+  }
+
+  static CodeLinePosition _getNextPosition(
+    CodeLinePosition pos,
+    CodeLineEditingController controller,
+  ) {
+    final line = controller.codeLines[pos.index].text;
+    if (pos.offset < line.length) {
+      return CodeLinePosition(index: pos.index, offset: pos.offset + 1);
+    }
+    if (pos.index < controller.codeLines.length - 1) {
+      return CodeLinePosition(index: pos.index + 1, offset: 0);
+    }
+    return pos;
+  }
+
+  static int comparePositions(CodeLinePosition a, CodeLinePosition b) {
+    if (a.index < b.index) return -1;
+    if (a.index > b.index) return 1;
+    return a.offset.compareTo(b.offset);
   }
 }
