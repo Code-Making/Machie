@@ -126,31 +126,110 @@ class CodeEditorUtils {
     required void Function(String) onImportTap,
     void Function(int lineIndex, ColorMatch match)? onColorCodeTap,
     required LanguageConfig languageConfig,
+    // NEW PARAMETER for analysis results
+    void Function(String filePath, int lineNumber, int columnNumber)? onAnalysisResultTap,
   }) {
+    List<TextSpan> currentSpans = [textSpan]; // Start with the initial textSpan
+
     // Pipeline Step 1: Add tappable links to import paths.
-    final linkedSpan = _linkifyImportPaths(
+    currentSpans = _linkifyImportPaths(
       codeLine,
-      textSpan,
+      currentSpans, // Pass list of spans
       style,
       onImportTap,
       languageConfig,
     );
+
     // Pipeline Step 2: Highlight color codes
-    final rainbowSpan = _highlightColorCodes(
+    currentSpans = _highlightColorCodes(
       codeLine,
-      linkedSpan,
+      currentSpans, // Pass list of spans
       style,
       onColorCodeTap != null ? (match) => onColorCodeTap(index, match) : null,
     );
+
     // Pipeline Step 3: Highlight matching brackets
-    final finalSpan = _highlightBrackets(
+    currentSpans = _highlightBrackets(
       index,
-      rainbowSpan,
+      currentSpans, // Pass list of spans
       style,
       bracketHighlightState,
     );
 
-    return finalSpan;
+    // NEW PIPELINE STEP 4: Add tappable links for analysis results (if callback is provided)
+    if (onAnalysisResultTap != null) {
+      currentSpans = _linkifyAnalysisResults(
+        codeLine,
+        currentSpans, // Pass list of spans
+        style,
+        onAnalysisResultTap,
+      );
+    }
+
+    // Combine all spans into a single TextSpan for the editor
+    return TextSpan(children: currentSpans, style: style);
+  }
+
+  static List<TextSpan> _linkifyAnalysisResults(
+    CodeLine codeLine,
+    List<TextSpan> initialSpans,
+    TextStyle style,
+    void Function(String filePath, int lineNumber, int columnNumber) onAnalysisResultTap,
+  ) {
+    final text = codeLine.text;
+    // Regex to capture file path, line, and column from analysis output
+    // Example: `error - lib/path/to/file.dart:123:45 - Message`
+    final RegExp analysisResultRegex = RegExp(
+      r'(error|warning|info)\s*-\s*([a-zA-Z0-9_/.-]+\.dart):(\d+):(\d+)\s*-\s*',
+    );
+
+    return _processSpansWithRegex(
+      initialSpans: initialSpans,
+      fullLineText: text,
+      regex: analysisResultRegex,
+      defaultStyle: style,
+      matchSpanBuilder: (match, baseStyle, baseRecognizer) {
+        // The regex matches the entire `error - path:line:col - ` part.
+        // We want to make the `path:line:col` part clickable.
+        // Group 2 is the file path.
+        // Group 3 is the line number.
+        // Group 4 is the column number.
+        final String filePath = match.group(2)!;
+        final int lineNumber = int.parse(match.group(3)!);
+        final int columnNumber = int.parse(match.group(4)!);
+
+        // Find the start and end of the `path:line:col` part within the overall match.
+        final int pathStartInMatch = matchedText.indexOf(filePath);
+        final int pathEndInMatch = matchedText.indexOf(':', pathStartInMatch + filePath.length) +
+            match.group(3)!.length +
+            1 + // for ':'
+            match.group(4)!.length; // for column
+
+        // Extract parts for styling
+        final String beforePath = matchedText.substring(0, pathStartInMatch);
+        final String pathPart = matchedText.substring(pathStartInMatch, pathEndInMatch);
+        final String afterPath = matchedText.substring(pathEndInMatch);
+
+        return TextSpan(
+          style: baseStyle,
+          recognizer: baseRecognizer,
+          children: [
+            TextSpan(text: beforePath, style: baseStyle, recognizer: baseRecognizer),
+            TextSpan(
+              text: pathPart,
+              style: baseStyle.copyWith(
+                decoration: TextDecoration.underline,
+                color: Colors.blue, // Make it look like a link
+              ),
+              recognizer: TapGestureRecognizer()..onTap = () {
+                onAnalysisResultTap(filePath, lineNumber, columnNumber);
+              },
+            ),
+            TextSpan(text: afterPath, style: baseStyle, recognizer: baseRecognizer),
+          ],
+        );
+      },
+    );
   }
 
   /// PIPELINE STEP 1: Finds import paths and makes them tappable.

@@ -57,6 +57,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   late String? _baseContentHash;
 
+  void Function(String filePath, int lineNumber, int columnNumber)?
+      _onAnalysisResultTap;
+
+
   // --- TextEditable Interface Implementation ---
 
   @override
@@ -278,6 +282,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     findController.addListener(syncCommandContext);
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
+    _onAnalysisResultTap = _handleAnalysisResultTap;
   }
 
   @override
@@ -512,6 +517,67 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   void showReplacePanel() {
     findController.replaceMode();
+  }
+  
+  Future<void> _handleAnalysisResultTap(
+    String filePath,
+    int lineNumber,
+    int columnNumber,
+  ) async {
+    if (!mounted) return;
+
+    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+
+    if (project == null) {
+      MachineToast.error('No project open to navigate to file.');
+      return;
+    }
+
+    try {
+      // Attempt to resolve the path relative to the project root
+      final projectRootUri = project.rootUri;
+      // Normalize the filePath to ensure it's a proper URI segment
+      final normalizedFilePath = filePath.replaceAll(r'\', '/'); // Handle Windows paths
+
+      Uri fileUri;
+      if (Uri.parse(normalizedFilePath).isAbsolute) {
+        fileUri = Uri.parse(normalizedFilePath);
+      } else {
+        // Resolve against the project root
+        fileUri = Uri.parse(projectRootUri).resolve(normalizedFilePath);
+      }
+
+      final DocumentFile? targetFile =
+          await project.fileHandler.getFileMetadata(fileUri.toString());
+
+      if (targetFile != null) {
+        // Open the file
+        await appNotifier.openFileInEditor(targetFile, explicitPlugin: widget.tab.plugin);
+
+        // After opening, if it's a CodeEditorTab, navigate to the line/column
+        // This might require a slight delay if the tab is just being created
+        // Wait for the editor to be ready if it's a new tab
+        final openedTab = appNotifier.value?.currentProject?.session.currentTab;
+        if (openedTab is CodeEditorTab) {
+          await openedTab.onReady.future;
+          if (openedTab.editorKey.currentState is TextEditable) {
+            final editable = openedTab.editorKey.currentState as TextEditable;
+            // Note: re_editor and TextPosition use 0-based indexing for lines/columns.
+            // The analysis result is 1-based, so convert to 0-based.
+            editable.revealRange(TextRange(
+              start: TextPosition(line: lineNumber - 1, column: columnNumber - 1),
+              end: TextPosition(line: lineNumber - 1, column: columnNumber - 1),
+            ));
+          }
+        }
+      } else {
+        MachineToast.error('Could not find file: $filePath');
+      }
+    } catch (e) {
+      MachineToast.error('Error opening analysis file: $e');
+      ref.read(talkerProvider).error('Error opening analysis file "$filePath"', e);
+    }
   }
 
   void _onImportTap(String relativePath) async {
@@ -856,6 +922,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       onImportTap: _onImportTap,
       onColorCodeTap: _onColorCodeTap,
       languageConfig: _languageConfig,
+      onAnalysisResultTap: _onAnalysisResultTap, // NEW: Pass the analysis result tap handler
     );
   }
 
