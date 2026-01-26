@@ -591,7 +591,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
               // properly or use the generic interface if it supports positioning.
               // TextEditable has `revealRange`.
               
-              editorState.revealRange(TextRange(
+              (editorState as TextEditable).revealRange(TextRange(
                 start: TextPosition(line: lineIndex, column: colIndex),
                 end: TextPosition(line: lineIndex, column: colIndex),
               ));
