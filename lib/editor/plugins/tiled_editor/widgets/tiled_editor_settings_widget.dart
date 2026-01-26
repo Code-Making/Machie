@@ -30,7 +30,7 @@ class _TiledEditorSettingsWidgetState
       enableOpacity: true,
     );
 
-    widget.onChanged(widget.settings.copyWith(gridColorValue: newColor.value));
+    widget.onChanged(widget.settings.copyWith(gridColorValue: newColor.toARGB32()));
   }
 
   Future<void> _pickSchemaFile(BuildContext context) async {
