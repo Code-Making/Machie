@@ -1,5 +1,5 @@
 // =========================================
-// UPDATED: lib/editor/plugins/code_editor/logic/code_editor_utils.dart
+// NEW: lib/editor/plugins/code_editor/logic/code_editor_utils.dart
 // =========================================
 
 import 'dart:math';
@@ -126,250 +126,319 @@ class CodeEditorUtils {
     required void Function(String) onImportTap,
     void Function(int lineIndex, ColorMatch match)? onColorCodeTap,
     required LanguageConfig languageConfig,
-    // NEW PARAMETER for analysis results
-    void Function(String filePath, int lineNumber, int columnNumber)? onAnalysisResultTap,
   }) {
-    List<TextSpan> currentSpans = [textSpan]; // Start with the initial textSpan
-
     // Pipeline Step 1: Add tappable links to import paths.
-    currentSpans = _linkifyImportPaths(
+    final linkedSpan = _linkifyImportPaths(
       codeLine,
-      currentSpans, // Pass list of spans
+      textSpan,
       style,
       onImportTap,
       languageConfig,
     );
-
     // Pipeline Step 2: Highlight color codes
-    currentSpans = _highlightColorCodes(
+    final rainbowSpan = _highlightColorCodes(
       codeLine,
-      currentSpans, // Pass list of spans
+      linkedSpan,
       style,
       onColorCodeTap != null ? (match) => onColorCodeTap(index, match) : null,
     );
-
     // Pipeline Step 3: Highlight matching brackets
-    currentSpans = _highlightBrackets(
+    final finalSpan = _highlightBrackets(
       index,
-      currentSpans, // Pass list of spans
+      rainbowSpan,
       style,
       bracketHighlightState,
     );
 
-    // NEW PIPELINE STEP 4: Add tappable links for analysis results (if callback is provided)
-    if (onAnalysisResultTap != null) {
-      currentSpans = _linkifyAnalysisResults(
-        codeLine,
-        currentSpans, // Pass list of spans
-        style,
-        onAnalysisResultTap,
-      );
-    }
-
-    // Combine all spans into a single TextSpan for the editor
-    return TextSpan(children: currentSpans, style: style);
-  }
-
-  /// A generic helper to apply a regex-based transformation to a list of TextSpans.
-  /// It iterates through the spans, finds matches, splits/replaces text, and builds new spans.
-  static List<TextSpan> _processSpansWithRegex({
-    required List<TextSpan> initialSpans,
-    required String fullLineText,
-    required RegExp regex,
-    required TextStyle defaultStyle,
-    required TextSpan Function(Match match, TextStyle baseStyle, GestureRecognizer? baseRecognizer) matchSpanBuilder,
-  }) {
-    final List<TextSpan> resultSpans = [];
-    int currentGlobalOffset = 0; // Tracks position in the fullLineText
-
-    for (final TextSpan span in initialSpans) {
-      final String spanText = span.text ?? '';
-      final TextStyle spanStyle = span.style ?? defaultStyle;
-      final GestureRecognizer? spanRecognizer = span.recognizer;
-
-      int lastProcessedOffsetInSpan = 0;
-
-      // Find all matches that potentially overlap with the current span
-      for (final Match match in regex.allMatches(fullLineText)) {
-        final int matchGlobalStart = match.start;
-        final int matchGlobalEnd = match.end;
-
-        // Calculate intersection with current span
-        final int intersectionStart = max(currentGlobalOffset, matchGlobalStart);
-        final int intersectionEnd = min(currentGlobalOffset + spanText.length, matchGlobalEnd);
-
-        if (intersectionStart < intersectionEnd) {
-          // Add text *before* the match within the current span
-          final int textBeforeMatchInSpanStart = currentGlobalOffset + lastProcessedOffsetInSpan;
-          if (intersectionStart > textBeforeMatchInSpanStart) {
-            resultSpans.add(
-              TextSpan(
-                text: fullLineText.substring(textBeforeMatchInSpanStart, intersectionStart),
-                style: spanStyle,
-                recognizer: spanRecognizer,
-              ),
-            );
-          }
-
-          // Add the matched text with custom styling
-          resultSpans.add(
-            matchSpanBuilder(match, spanStyle, spanRecognizer).copyWith(
-              text: fullLineText.substring(intersectionStart, intersectionEnd),
-            ),
-          );
-
-          lastProcessedOffsetInSpan = intersectionEnd - currentGlobalOffset;
-        }
-      }
-
-      // Add any remaining text *after* the last match within the current span
-      if (lastProcessedOffsetInSpan < spanText.length) {
-        resultSpans.add(
-          TextSpan(
-            text: spanText.substring(lastProcessedOffsetInSpan),
-            style: spanStyle,
-            recognizer: spanRecognizer,
-          ),
-        );
-      }
-      currentGlobalOffset += spanText.length;
-    }
-    return resultSpans;
+    return finalSpan;
   }
 
   /// PIPELINE STEP 1: Finds import paths and makes them tappable.
-  static List<TextSpan> _linkifyImportPaths(
+  static TextSpan _linkifyImportPaths(
     CodeLine codeLine,
-    List<TextSpan> initialSpans,
+    TextSpan textSpan,
     TextStyle style,
     void Function(String) onImportTap,
     LanguageConfig config,
   ) {
     final text = codeLine.text;
-    if (!(text.startsWith('import') || text.startsWith('export') || text.startsWith('part'))) {
-      return initialSpans;
+    if (!(text.startsWith('import') ||
+        text.startsWith('export') ||
+        text.startsWith('part'))) {
+      return textSpan;
     }
-    // Filter out package: and dart: imports as they're not local files.
-    if (text.contains(':')) return initialSpans;
+    if (text.contains(':')) return textSpan;
+    int quote1Index = text.indexOf("'");
+    String quoteChar = "'";
+    if (quote1Index == -1) {
+      quote1Index = text.indexOf('"');
+      quoteChar = '"';
+    }
+    if (quote1Index == -1) return textSpan;
+    final quote2Index = text.indexOf(quoteChar, quote1Index + 1);
+    if (quote2Index == -1) return textSpan;
+    final pathStartIndex = quote1Index + 1;
+    final pathEndIndex = quote2Index;
+    if (pathStartIndex >= pathEndIndex) return textSpan;
 
-    // This regex matches only the quoted path string and captures its content.
-    // Group 1 for single quotes, Group 2 for double quotes. One will be null.
-    final RegExp importPathRegex = RegExp(r"(?:'([^']+)'|\"([^\"]+)\")");
+    List<TextSpan> walkAndReplace(TextSpan span, int currentPos) {
+      final List<TextSpan> newChildren = [];
+      final spanStart = currentPos;
+      final spanText = span.text ?? '';
+      final spanEnd = spanStart + spanText.length;
 
-    return _processSpansWithRegex(
-      initialSpans: initialSpans,
-      fullLineText: text,
-      regex: importPathRegex,
-      defaultStyle: style,
-      matchSpanBuilder: (match, baseStyle, baseRecognizer) {
-        final String path = match.group(1) ?? match.group(2)!; // Get the captured path content
-        return TextSpan(
-          style: baseStyle.copyWith(decoration: TextDecoration.underline),
-          recognizer: TapGestureRecognizer()..onTap = () => onImportTap(path),
+      if (span.children?.isNotEmpty ?? false) {
+        int childPos = currentPos;
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            newChildren.addAll(walkAndReplace(child, childPos));
+            childPos += child.toPlainText().length;
+          }
+        }
+        return [
+          TextSpan(
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
+        ];
+      }
+
+      if (spanEnd <= pathStartIndex || spanStart >= pathEndIndex) {
+        return [span];
+      }
+
+      final beforeText = spanText.substring(
+        0,
+        (pathStartIndex - spanStart).clamp(0, spanText.length),
+      );
+      final linkText = spanText.substring(
+        (pathStartIndex - spanStart).clamp(0, spanText.length),
+        (pathEndIndex - spanStart).clamp(0, spanText.length),
+      );
+      final afterText = spanText.substring(
+        (pathEndIndex - spanStart).clamp(0, spanText.length),
+      );
+
+      if (beforeText.isNotEmpty) {
+        newChildren.add(TextSpan(text: beforeText, style: span.style));
+      }
+      if (linkText.isNotEmpty) {
+        newChildren.add(
+          TextSpan(
+            text: linkText,
+            style: (span.style ?? style).copyWith(
+              decoration: TextDecoration.underline,
+            ),
+            recognizer:
+                TapGestureRecognizer()..onTap = () => onImportTap(linkText),
+          ),
         );
-      },
-    );
+      }
+      if (afterText.isNotEmpty) {
+        newChildren.add(TextSpan(text: afterText, style: span.style));
+      }
+
+      return newChildren;
+    }
+
+    return TextSpan(children: walkAndReplace(textSpan, 0), style: style);
   }
 
   /// PIPELINE STEP 2: Finds color codes and highlights them.
-  static List<TextSpan> _highlightColorCodes(
+  static TextSpan _highlightColorCodes(
     CodeLine codeLine,
-    List<TextSpan> initialSpans,
+    TextSpan textSpan,
     TextStyle style,
     void Function(ColorMatch match)? onColorCodeTap,
   ) {
     final text = codeLine.text;
+    final List<ColorMatch> matches = [];
 
-    // Combined regex for all supported color formats
-    final RegExp combinedColorRegex = RegExp(
-      r'(?<!\w)#([A-Fa-f0-9]{3,4}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})\b|'
-      r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)|'
-      r'Color\.fromARGB\(\s*[^,]+?\s*,\s*[^,]+?\s*,\s*[^,]+?\s*,\s*[^,]+?\s*\)|'
-      r'Color\.fromRGBO\(\s*[^,]+?\s*,\s*[^,]+?\s*,\s*[^,]+?\s*,\s*[^,]+?\s*\)',
+    // Regexes for color parsing
+    // --- FIX START: Use negative lookbehind (?<!\w) instead of word boundary \b ---
+    final hexColorRegex = RegExp(r'(?<!\w)#([A-Fa-f0-9]{8}|[A-Fa-f0-9]{6})\b');
+    final shortHexColorRegex = RegExp(r'(?<!\w)#([A-Fa-f0-9]{3,4})\b');
+    // --- FIX END ---
+    final colorConstructorRegex = RegExp(
+      r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)',
+    );
+    final fromARGBRegex = RegExp(
+      r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
+    );
+    final fromRGBORegex = RegExp(
+      r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
     );
 
-    return _processSpansWithRegex(
-      initialSpans: initialSpans,
-      fullLineText: text,
-      regex: combinedColorRegex,
-      defaultStyle: style,
-      matchSpanBuilder: (match, baseStyle, baseRecognizer) {
-        final ColorMatch? colorMatch = _parseSingleColorMatch(match);
-
-        if (colorMatch != null) {
-          final bool isDark = colorMatch.color.computeLuminance() < 0.5;
-          final Color textColor = isDark ? Colors.white : Colors.black;
-          return TextSpan(
-            style: baseStyle.copyWith(
-              backgroundColor: colorMatch.color,
-              color: textColor,
+    hexColorRegex.allMatches(text).forEach((m) {
+      final hex = m.group(1);
+      if (hex != null) {
+        final val = int.tryParse(hex, radix: 16);
+        if (val != null) {
+          final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
+          matches.add(
+            ColorMatch(
+              start: m.start,
+              end: m.end,
+              color: color,
+              text: m.group(0)!,
             ),
-            recognizer: onColorCodeTap == null
-                ? baseRecognizer
-                : (TapGestureRecognizer()..onTap = () => onColorCodeTap(colorMatch)),
           );
         }
-        return TextSpan(style: baseStyle, recognizer: baseRecognizer);
-      },
-    );
-  }
-
-  /// Helper to parse a single color match from a regex match object.
-  static ColorMatch? _parseSingleColorMatch(Match m) {
-    final String matchedText = m.group(0)!;
-    final int start = m.start;
-    final int end = m.end;
-
-    // Hex color parsing (e.g., #RRGGBB, #RGB, #AARRGGBB, #RGBA)
-    Match? hexMatch = RegExp(r'#([A-Fa-f0-9]+)').firstMatch(matchedText);
-    if (hexMatch != null) {
-      String hex = hexMatch.group(1)!;
-      if (hex.length == 3) hex = hex.split('').map((e) => e + e).join(); // #RGB to #RRGGBB
-      if (hex.length == 4) hex = hex[0] + hex[0] + hex.substring(1).split('').map((e) => e + e).join(); // #RGBA to #AARRGGBB
+      }
+    });
+    shortHexColorRegex.allMatches(text).forEach((m) {
+      String hex = m.group(1)!;
+      hex =
+          hex.length == 3
+              ? hex.split('').map((e) => e + e).join()
+              : hex[0] +
+                  hex[0] +
+                  hex.substring(1).split('').map((e) => e + e).join();
       final val = int.tryParse(hex, radix: 16);
       if (val != null) {
-        final color = (hex.length == 6 || hex.length == 3) ? Color(0xFF000000 | val) : Color(val);
-        return ColorMatch(start: start, end: end, color: color, text: matchedText);
+        final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
+        matches.add(
+          ColorMatch(
+            start: m.start,
+            end: m.end,
+            color: color,
+            text: m.group(0)!,
+          ),
+        );
       }
-    }
-
-    // Color(0x...) constructor parsing
-    Match? constructorMatch = RegExp(r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)').firstMatch(matchedText);
-    if (constructorMatch != null) {
-      final hex = constructorMatch.group(1);
+    });
+    colorConstructorRegex.allMatches(text).forEach((m) {
+      final hex = m.group(1);
       if (hex != null) {
         final val = int.tryParse(hex.substring(2), radix: 16);
         if (val != null) {
-          return ColorMatch(start: start, end: end, color: Color(val), text: matchedText);
+          matches.add(
+            ColorMatch(
+              start: m.start,
+              end: m.end,
+              color: Color(val),
+              text: m.group(0)!,
+            ),
+          );
         }
       }
-    }
-
-    // Color.fromARGB(...) constructor parsing
-    Match? argbMatch = RegExp(r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)').firstMatch(matchedText);
-    if (argbMatch != null) {
-      final a = _parseColorComponent(argbMatch.group(1));
-      final r = _parseColorComponent(argbMatch.group(2));
-      final g = _parseColorComponent(argbMatch.group(3));
-      final b = _parseColorComponent(argbMatch.group(4));
+    });
+    fromARGBRegex.allMatches(text).forEach((m) {
+      final a = _parseColorComponent(m.group(1));
+      final r = _parseColorComponent(m.group(2));
+      final g = _parseColorComponent(m.group(3));
+      final b = _parseColorComponent(m.group(4));
       if (a != null && r != null && g != null && b != null) {
-        return ColorMatch(start: start, end: end, color: Color.fromARGB(a, r, g, b), text: matchedText);
+        matches.add(
+          ColorMatch(
+            start: m.start,
+            end: m.end,
+            color: Color.fromARGB(a, r, g, b),
+            text: m.group(0)!,
+          ),
+        );
       }
-    }
-
-    // Color.fromRGBO(...) constructor parsing
-    Match? rgbaMatch = RegExp(r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)').firstMatch(matchedText);
-    if (rgbaMatch != null) {
-      final r = int.tryParse(rgbaMatch.group(1) ?? '');
-      final g = int.tryParse(rgbaMatch.group(2) ?? '');
-      final b = int.tryParse(rgbaMatch.group(3) ?? '');
-      final o = double.tryParse(rgbaMatch.group(4) ?? '');
+    });
+    fromRGBORegex.allMatches(text).forEach((m) {
+      final r = int.tryParse(m.group(1) ?? '');
+      final g = int.tryParse(m.group(2) ?? '');
+      final b = int.tryParse(m.group(3) ?? '');
+      final o = double.tryParse(m.group(4) ?? '');
       if (r != null && g != null && b != null && o != null) {
-        return ColorMatch(start: start, end: end, color: Color.fromRGBO(r, g, b, o), text: matchedText);
+        matches.add(
+          ColorMatch(
+            start: m.start,
+            end: m.end,
+            color: Color.fromRGBO(r, g, b, o),
+            text: m.group(0)!,
+          ),
+        );
+      }
+    });
+
+    if (matches.isEmpty) return textSpan;
+    matches.sort((a, b) => a.start.compareTo(b.start));
+    final uniqueMatches = <ColorMatch>[];
+    int lastEnd = -1;
+    for (final match in matches) {
+      if (match.start >= lastEnd) {
+        uniqueMatches.add(match);
+        lastEnd = match.end;
       }
     }
+    if (uniqueMatches.isEmpty) return textSpan;
 
-    return null;
+    List<TextSpan> walkAndColor(TextSpan span, int currentPos) {
+      final newChildren = <TextSpan>[];
+      final spanStart = currentPos;
+      final spanText = span.text ?? '';
+      final spanEnd = spanStart + spanText.length;
+
+      if (span.children?.isNotEmpty ?? false) {
+        int childPos = currentPos;
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            newChildren.addAll(walkAndColor(child, childPos));
+            childPos += child.toPlainText().length;
+          }
+        }
+        return [
+          TextSpan(
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
+        ];
+      }
+
+      int lastSplitEnd = 0;
+      for (final match in uniqueMatches) {
+        final int effectiveStart = max(spanStart, match.start);
+        final int effectiveEnd = min(spanEnd, match.end);
+
+        if (effectiveStart < effectiveEnd) {
+          if (effectiveStart > spanStart + lastSplitEnd) {
+            final beforeText = spanText.substring(
+              lastSplitEnd,
+              effectiveStart - spanStart,
+            );
+            newChildren.add(TextSpan(text: beforeText, style: span.style));
+          }
+
+          final matchText = spanText.substring(
+            effectiveStart - spanStart,
+            effectiveEnd - spanStart,
+          );
+          final isDark = match.color.computeLuminance() < 0.5;
+          final textColor = isDark ? Colors.white : Colors.black;
+
+          newChildren.add(
+            TextSpan(
+              text: matchText,
+              style: (span.style ?? style).copyWith(
+                backgroundColor: match.color,
+                color: textColor,
+              ),
+              recognizer:
+                  onColorCodeTap == null
+                      ? null
+                      : (TapGestureRecognizer()
+                        ..onTap = () => onColorCodeTap(match)),
+            ),
+          );
+          lastSplitEnd = effectiveEnd - spanStart;
+        }
+      }
+
+      if (lastSplitEnd < spanText.length) {
+        final remainingText = spanText.substring(lastSplitEnd);
+        newChildren.add(TextSpan(text: remainingText, style: span.style));
+      }
+      return newChildren;
+    }
+
+    return TextSpan(children: walkAndColor(textSpan, 0), style: style);
   }
 
   /// Helper to parse a color component from a string.
@@ -383,9 +452,9 @@ class CodeEditorUtils {
   }
 
   /// PIPELINE STEP 3: Highlights matching brackets.
-  static List<TextSpan> _highlightBrackets(
+  static TextSpan _highlightBrackets(
     int index,
-    List<TextSpan> initialSpans,
+    TextSpan textSpan,
     TextStyle style,
     BracketHighlightState highlightState,
   ) {
@@ -395,112 +464,53 @@ class CodeEditorUtils {
             .map((pos) => pos.offset)
             .toSet();
     if (highlightPositions.isEmpty) {
-      return initialSpans;
+      return textSpan;
     }
+    final builtSpans = <TextSpan>[];
+    int currentPosition = 0;
 
-    final List<TextSpan> resultSpans = [];
-    int currentGlobalOffset = 0;
-
-    for (final TextSpan span in initialSpans) {
-      final String spanText = span.text ?? '';
-      final TextStyle spanStyle = span.style ?? style;
-      final GestureRecognizer? spanRecognizer = span.recognizer;
-
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final spanStyle = span.style ?? style;
       int lastSplit = 0;
-      for (int i = 0; i < spanText.length; i++) {
-        final absolutePosition = currentGlobalOffset + i;
+      for (int i = 0; i < text.length; i++) {
+        final absolutePosition = currentPosition + i;
         if (highlightPositions.contains(absolutePosition)) {
           if (i > lastSplit) {
-            resultSpans.add(
-              TextSpan(text: spanText.substring(lastSplit, i), style: spanStyle, recognizer: spanRecognizer),
+            builtSpans.add(
+              TextSpan(text: text.substring(lastSplit, i), style: spanStyle),
             );
           }
-          resultSpans.add(
+          builtSpans.add(
             TextSpan(
-              text: spanText[i],
+              text: text[i],
               style: spanStyle.copyWith(
-                backgroundColor: Colors.yellow.withOpacity(0.3),
+                backgroundColor: Colors.yellow.withValues(alpha: 0.3),
                 fontWeight: FontWeight.bold,
               ),
-              recognizer: spanRecognizer,
             ),
           );
           lastSplit = i + 1;
         }
       }
-      if (lastSplit < spanText.length) {
-        resultSpans.add(
-          TextSpan(text: spanText.substring(lastSplit), style: spanStyle, recognizer: spanRecognizer),
+      if (lastSplit < text.length) {
+        builtSpans.add(
+          TextSpan(text: text.substring(lastSplit), style: spanStyle),
         );
       }
-      currentGlobalOffset += spanText.length;
+      currentPosition += text.length;
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child);
+          }
+        }
+      }
     }
-    return resultSpans;
+
+    processSpan(textSpan);
+    return TextSpan(children: builtSpans, style: style);
   }
-
-  /// NEW PIPELINE STEP 4: Finds Dart analysis results (error, warning, info) and makes the path tappable.
-  static List<TextSpan> _linkifyAnalysisResults(
-    CodeLine codeLine,
-    List<TextSpan> initialSpans,
-    TextStyle style,
-    void Function(String filePath, int lineNumber, int columnNumber) onAnalysisResultTap,
-  ) {
-    final text = codeLine.text;
-    // Regex to capture file path, line, and column from analysis output
-    // Example: `error - lib/path/to/file.dart:123:45 - Message`
-    final RegExp analysisResultRegex = RegExp(
-      r'(error|warning|info)\s*-\s*([a-zA-Z0-9_/.-]+\.dart):(\d+):(\d+)\s*-\s*',
-    );
-
-    return _processSpansWithRegex(
-      initialSpans: initialSpans,
-      fullLineText: text,
-      regex: analysisResultRegex,
-      defaultStyle: style,
-      matchSpanBuilder: (match, baseStyle, baseRecognizer) {
-        // The regex matches the entire `error - path:line:col - ` part.
-        // We want to make the `path:line:col` part clickable.
-        // Group 2 is the file path.
-        // Group 3 is the line number.
-        // Group 4 is the column number.
-        final String filePath = match.group(2)!;
-        final int lineNumber = int.parse(match.group(3)!);
-        final int columnNumber = int.parse(match.group(4)!);
-
-        // Find the start and end of the `path:line:col` part within the overall match.
-        final int pathStartInMatch = matchedText.indexOf(filePath);
-        final int pathEndInMatch = matchedText.indexOf(':', pathStartInMatch + filePath.length) +
-            match.group(3)!.length +
-            1 + // for ':'
-            match.group(4)!.length; // for column
-
-        // Extract parts for styling
-        final String beforePath = matchedText.substring(0, pathStartInMatch);
-        final String pathPart = matchedText.substring(pathStartInMatch, pathEndInMatch);
-        final String afterPath = matchedText.substring(pathEndInMatch);
-
-        return TextSpan(
-          style: baseStyle,
-          recognizer: baseRecognizer,
-          children: [
-            TextSpan(text: beforePath, style: baseStyle, recognizer: baseRecognizer),
-            TextSpan(
-              text: pathPart,
-              style: baseStyle.copyWith(
-                decoration: TextDecoration.underline,
-                color: Colors.blue, // Make it look like a link
-              ),
-              recognizer: TapGestureRecognizer()..onTap = () {
-                onAnalysisResultTap(filePath, lineNumber, columnNumber);
-              },
-            ),
-            TextSpan(text: afterPath, style: baseStyle, recognizer: baseRecognizer),
-          ],
-        );
-      },
-    );
-  }
-
 
   // --- Character/Text Processing Utilities ---
 
