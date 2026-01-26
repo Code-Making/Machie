@@ -514,50 +514,122 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     findController.replaceMode();
   }
 
-  void _onImportTap(String relativePath) async {
+  /// Parses the target for line numbers (e.g., "file.dart:10:5") and navigates.
+  void _onLinkTap(LinkSpan span) async {
+    final target = span.target.trim();
+    if (target.isEmpty) return;
+
+    // 1. Handle Web URLs
+    if (target.startsWith('http://') || target.startsWith('https://')) {
+      MachineToast.info('Opening URL: $target'); 
+      // Integrate url_launcher here if available
+      return;
+    }
+
+    // 2. Parse file target with potential line/column numbers
+    final parsed = _parseFileTarget(target);
+    if (parsed == null) {
+      MachineToast.error('Invalid link format: $target');
+      return;
+    }
+
+    // 3. Resolve Path
     final appNotifier = ref.read(appNotifierProvider.notifier);
-    final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
+    final repo = ref.read(projectRepositoryProvider);
     final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
-    if (fileHandler == null || currentFileMetadata == null) return;
+    if (repo == null || currentFileMetadata == null) return;
+
+    // A. Try absolute path (common in logs)
+    String? resolvedUri;
+    if (parsed.path.startsWith('/') || parsed.path.contains(':')) {
+       // It's likely absolute or a file URI. 
+       // We can assume it matches the project structure if we strip prefixes.
+       // However, `FileHandler` works with whatever `repo.resolvePath` accepts.
+       // For now, let's try to resolve it directly.
+       resolvedUri = parsed.path; 
+    } 
+    
+    // B. Try relative path (imports)
+    if (resolvedUri == null || !resolvedUri.startsWith('/')) {
+        final currentDirectoryUri = repo.fileHandler.getParentUri(currentFileMetadata.file.uri);
+        // This is a naive join; FileHandler.resolvePath does it better.
+        // We leave the path relative for FileHandler to resolve.
+        resolvedUri = parsed.path; 
+    }
 
     try {
-      final currentDirectoryUri = fileHandler.getParentUri(
-        currentFileMetadata.file.uri,
+      // 4. Open File
+      // Resolve path using FileHandler. resolving absolute paths usually works 
+      // if they map to the FS, or relative paths from current context.
+      // We pass the current file's directory as context for relative paths.
+      final contextUri = repo.fileHandler.getParentUri(currentFileMetadata.file.uri);
+      
+      final targetFile = await repo.fileHandler.resolvePath(
+        contextUri, 
+        resolvedUri!,
       );
-      final pathSegments = [
-        ...currentDirectoryUri.split('%2F'),
-        ...relativePath.split('/'),
-      ];
-      final resolvedSegments = <String>[];
-
-      for (final segment in pathSegments) {
-        if (segment == '..') {
-          if (resolvedSegments.isNotEmpty) {
-            resolvedSegments.removeLast();
-          }
-        } else if (segment != '.' && segment.isNotEmpty) {
-          resolvedSegments.add(segment);
-        }
-      }
-
-      final resolvedUri = resolvedSegments.join('%2F');
-      final targetFile = await fileHandler.getFileMetadata(resolvedUri);
 
       if (targetFile != null) {
-        await appNotifier.openFileInEditor(targetFile);
+        final onReady = Completer<EditorWidgetState>();
+        
+        final didOpen = await appNotifier.openFileInEditor(
+          targetFile, 
+          onReadyCompleter: onReady
+        );
+
+        if (didOpen) {
+          // 5. Jump to Line/Column
+          if (parsed.line != null) {
+            final editorState = await onReady.future;
+            if (editorState is TextEditable) {
+              // Convert 1-based line/col to 0-based
+              final lineIndex = parsed.line! - 1;
+              final colIndex = (parsed.column ?? 1) - 1;
+              
+              // We need to cast to CodeEditorMachineState to access `revealRange`
+              // properly or use the generic interface if it supports positioning.
+              // TextEditable has `revealRange`.
+              
+              editorState.revealRange(TextRange(
+                start: TextPosition(line: lineIndex, column: colIndex),
+                end: TextPosition(line: lineIndex, column: colIndex),
+              ));
+            }
+          }
+        }
       } else {
-        MachineToast.error('File not found: $relativePath');
+        MachineToast.error('File not found: ${parsed.path}');
       }
     } catch (e) {
       MachineToast.error('Could not open file: $e');
     }
   }
 
-  Future<void> _onColorCodeTap(int lineIndex, ColorMatch match) async {
+  /// Helper to extract path, line, and column from strings like:
+  /// - "/lib/main.dart:10:5"
+  /// - "package:foo/bar.dart"
+  /// - "../utils.dart"
+  ({String path, int? line, int? column})? _parseFileTarget(String target) {
+    // Regex for: path + optional(:line) + optional(:col)
+    // We look for :digit at the end of the string.
+    final match = RegExp(r'^(.*?)(?::(\d+))?(?::(\d+))?$').firstMatch(target);
+    
+    if (match == null) return null;
+
+    final path = match.group(1);
+    if (path == null || path.isEmpty) return null;
+
+    final line = match.group(2) != null ? int.parse(match.group(2)!) : null;
+    final col = match.group(3) != null ? int.parse(match.group(3)!) : null;
+
+    return (path: path, line: line, column: col);
+  }
+
+  void _onColorCodeTap(int lineIndex, ColorSpan span) async {
     if (!mounted) return;
 
-    Color pickerColor = match.color;
+    Color pickerColor = span.color;
 
     final result = await showDialog<Color>(
       context: context,
@@ -601,47 +673,32 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       },
     );
 
-    if (result != null && result != match.color) {
-      // --- FIX START: Smarter replacement based on original format ---
+    if (result != null && result != span.color) {
       String newColorString;
-      final String originalText = match.text;
+      final String originalText = span.originalText;
 
+      // Smart format replacement
       if (originalText.startsWith('#')) {
-        // Respect original length to preserve alpha/no-alpha format
         if (originalText.length == 7 || originalText.length == 4) {
-          // #RRGGBB or #RGB
-          newColorString =
-              '#${(result.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+          newColorString = '#${(result.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
         } else {
-          // #AARRGGBB or #RGBA
-          newColorString =
-              '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
+          newColorString = '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
         }
       } else if (originalText.startsWith('Color.fromARGB')) {
-        newColorString =
-            'Color.fromARGB(${result.a}, ${result.r}, ${result.g}, ${result.b})';
+        newColorString = 'Color.fromARGB(${result.a}, ${result.r}, ${result.g}, ${result.b})';
       } else if (originalText.startsWith('Color.fromRGBO')) {
-        // Convert alpha to opacity. Format to avoid excessive decimals.
         String opacity = (result.a / 255.0).toStringAsPrecision(2);
-        if (opacity.endsWith('.0')) {
-          opacity = opacity.substring(0, opacity.length - 2);
-        }
-        newColorString =
-            'Color.fromRGBO(${result.r}, ${result.g}, ${result.b}, $opacity)';
+        if (opacity.endsWith('.0')) opacity = opacity.substring(0, opacity.length - 2);
+        newColorString = 'Color.fromRGBO(${result.r}, ${result.g}, ${result.b}, $opacity)';
       } else if (originalText.startsWith('Color(')) {
-        // Canonical Dart format with an ARGB hex value.
-        newColorString =
-            'Color(0x${result.toARGB32().toRadixString(16).toUpperCase()})';
+        newColorString = 'Color(0x${result.toARGB32().toRadixString(16).toUpperCase()})';
       } else {
-        // Fallback, should not be reached.
-        newColorString =
-            '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
+        newColorString = '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
       }
-      // --- FIX END ---
 
       final rangeToReplace = TextRange(
-        start: TextPosition(line: lineIndex, column: match.start),
-        end: TextPosition(line: lineIndex, column: match.end),
+        start: TextPosition(line: lineIndex, column: span.start),
+        end: TextPosition(line: lineIndex, column: span.end),
       );
 
       replaceSelection(newColorString, range: rangeToReplace);
@@ -844,8 +901,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    // This method now acts as a simple wrapper, collecting instance state
-    // and passing it to the pure utility function for processing.
+    // REFACTORED: Use the unified pipeline with the new callback signatures
     return CodeEditorUtils.buildHighlightingSpan(
       context: context,
       index: index,
@@ -853,8 +909,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       textSpan: textSpan,
       style: style,
       bracketHighlightState: _bracketHighlightNotifier.value,
-      onImportTap: _onImportTap,
-      onColorCodeTap: _onColorCodeTap,
+      onLinkTap: _onLinkTap, // New handler
+      onColorTap: _onColorCodeTap, // Updated handler
       languageConfig: _languageConfig,
     );
   }
