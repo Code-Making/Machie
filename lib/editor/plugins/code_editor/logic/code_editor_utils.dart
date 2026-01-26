@@ -254,7 +254,7 @@ class CodeEditorUtils {
           text: text,
           style: baseStyle.copyWith(
             decoration: TextDecoration.underline,
-            color: Colors.blueAccent, // Or theme primary color
+            //color: Colors.blueAccent, // Or theme primary color
           ),
           recognizer: onLinkTap == null 
               ? null 

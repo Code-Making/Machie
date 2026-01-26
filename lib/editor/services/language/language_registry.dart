@@ -48,27 +48,21 @@ class Languages {
     for (var lang in _allLanguages) lang.id: lang,
   };
 
-  // --- Helper for migrating old regex patterns ---
-  
   /// Extracts content between quotes (' or ") found in the regex match.
-  /// This emulates the behavior of the old `CodeEditorUtils._linkifyImportPaths`.
   static List<LinkSpan> _parseQuotedLinks(String line, List<RegExp> patterns) {
     final spans = <LinkSpan>[];
     for (final regex in patterns) {
       for (final match in regex.allMatches(line)) {
         final text = match.group(0)!;
         
-        // Find the quotes inside the matched string
         int quoteStart = text.indexOf("'");
         if (quoteStart == -1) quoteStart = text.indexOf('"');
         if (quoteStart == -1) continue;
 
-        // Find matching closing quote
         final quoteChar = text[quoteStart];
         final quoteEnd = text.indexOf(quoteChar, quoteStart + 1);
         if (quoteEnd == -1) continue;
 
-        // Calculate absolute indices
         final absoluteStart = match.start + quoteStart + 1;
         final absoluteEnd = match.start + quoteEnd;
 
@@ -86,34 +80,14 @@ class Languages {
 
   // --- Implementations ---
 
+  // REFACTORED: Plain Text now simply uses default parsers.
   static final LanguageConfig _plaintext = LanguageConfig(
     id: 'plaintext',
     name: 'Plain Text',
     extensions: {'txt', 'text', 'gitignore', 'env', 'LICENSE', 'log', ''},
     highlightMode: langPlaintext,
     comments: const CommentConfig(singleLine: '#'),
-    parser: (line) {
-      final spans = DefaultParsers.parseAll(line);
-
-      // --- DART ANALYSIS LOG PARSER ---
-      // Matches: /path/to/file.dart:10:5  OR  file:///path/to/file.dart:10
-      // 1. Path (starts with / or X:\ or file://)
-      // 2. Extension (.dart)
-      // 3. Line number (:10)
-      // 4. Optional Column (:5)
-      final logRegex = RegExp(
-        r'((?:file:\/\/|\/|[a-zA-Z]:\\)[\w\-.\\\/]+\.dart):(\d+)(?::(\d+))?'
-      );
-
-      for (final m in logRegex.allMatches(line)) {
-        spans.add(LinkSpan(
-          start: m.start,
-          end: m.end,
-          target: m.group(0)!, // Phase 5 will handle parsing "file:10:5"
-        ));
-      }
-      return spans;
-    },
+    parser: (line) => DefaultParsers.parseAll(line),
   );
 
   static final List<LanguageConfig> _allLanguages = [
@@ -130,13 +104,32 @@ class Languages {
       ),
       importFormatter: (path) => "import '$path';",
       parser: (line) {
+        // 1. Defaults (Colors, Web Links)
         final spans = DefaultParsers.parseAll(line);
+        
+        // 2. Imports/Exports
         spans.addAll(_parseQuotedLinks(line, [
           RegExp(r'''import\s+['"][^'"]+['"]'''),
           RegExp(r'''export\s+['"][^'"]+['"]'''),
           RegExp(r'''part\s+(?:of\s+)?['"][^'"]+['"]'''),
         ]));
-        // Remove 'dart:', 'package:' links if needed, or handle in Phase 5 handler
+
+        // 3. Analysis Logs / Stack Traces
+        // Regex: Matches any non-whitespace string ending in .dart followed by :row and optional :col
+        // Example matches: 
+        //   lib/main.dart:10:5
+        //   package:foo/bar.dart:42
+        //   /abs/path/file.dart:10
+        final logRegex = RegExp(r'([^\s]+\.dart):(\d+)(?::(\d+))?');
+
+        for (final m in logRegex.allMatches(line)) {
+          spans.add(LinkSpan(
+            start: m.start,
+            end: m.end,
+            target: m.group(0)!, 
+          ));
+        }
+        
         return spans;
       },
     ),
@@ -240,18 +233,14 @@ class Languages {
       comments: const CommentConfig(singleLine: '>'),
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        // Markdown links: [text](url) -> match the URL part inside parentheses
         final linkRegex = RegExp(r'\]\(([^)]+)\)');
         for (final m in linkRegex.allMatches(line)) {
-          // m.start + 2 accounts for '](', assuming simple match
-          // We must be careful with offsets. 
-          // A safer way is to find the opening parenthesis offset relative to match
           final matchText = m.group(0)!;
           final openParenIndex = matchText.lastIndexOf('(');
           if (openParenIndex != -1) {
              spans.add(LinkSpan(
                start: m.start + openParenIndex + 1,
-               end: m.end - 1, // Exclude closing paren
+               end: m.end - 1,
                target: m.group(1)!,
              ));
           }
@@ -268,7 +257,6 @@ class Languages {
       importFormatter: (path) => '\\input{$path}',
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
-        // LaTeX uses braces {}, not quotes, so we need custom logic here
         final latexPatterns = [
           RegExp(r'''\\input\{([^}]+)\}'''),
           RegExp(r'''\\include\{([^}]+)\}'''),
@@ -293,7 +281,7 @@ class Languages {
         return spans;
       },
     ),
-    // Standard configurations for languages without specific link support
+    // Standard configurations
     LanguageConfig(
       id: 'python',
       name: 'Python',
