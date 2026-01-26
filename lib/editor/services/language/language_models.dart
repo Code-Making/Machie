@@ -4,6 +4,7 @@ import 'package:re_highlight/re_highlight.dart';
 import 'parsed_span_models.dart';
 
 export 'parsed_span_models.dart';
+import 'default_parsers.dart';
 
 class LanguageConfig {
   final String id;
