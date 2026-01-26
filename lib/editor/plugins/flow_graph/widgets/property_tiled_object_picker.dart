@@ -186,7 +186,7 @@ class _TiledObjectSelectionDialogState
             else if (_parsedMap != null) ...[
               // Layer Selection
               DropdownButtonFormField<int>(
-                value: _selectedLayerId,
+                initialValue: _selectedLayerId,
                 decoration: const InputDecoration(labelText: 'Layer'),
                 items:
                     _parsedMap!.layers
@@ -210,7 +210,7 @@ class _TiledObjectSelectionDialogState
               // Object Selection
               if (_selectedLayerId != null)
                 DropdownButtonFormField<int>(
-                  value: _selectedObjectId,
+                  initialValue: _selectedObjectId,
                   decoration: const InputDecoration(labelText: 'Object'),
                   items:
                       _getObjectsInLayer(_selectedLayerId!).map((o) {
