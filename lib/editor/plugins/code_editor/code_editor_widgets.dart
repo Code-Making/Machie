@@ -522,7 +522,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     // 1. Handle Web URLs
     if (target.startsWith('http://') || target.startsWith('https://')) {
       MachineToast.info('Opening URL: $target'); 
-      // Integrate url_launcher here if available
       return;
     }
 
@@ -533,42 +532,62 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       return;
     }
 
-    // 3. Resolve Path
     final appNotifier = ref.read(appNotifierProvider.notifier);
     final repo = ref.read(projectRepositoryProvider);
     final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
     if (repo == null || currentFileMetadata == null) return;
 
-    // A. Try absolute path (common in logs)
-    String? resolvedUri;
-    if (parsed.path.startsWith('/') || parsed.path.contains(':')) {
-       // It's likely absolute or a file URI. 
-       // We can assume it matches the project structure if we strip prefixes.
-       // However, `FileHandler` works with whatever `repo.resolvePath` accepts.
-       // For now, let's try to resolve it directly.
-       resolvedUri = parsed.path; 
-    } 
+    // 3. Determine Base Path & Resolution Strategy
+    // Strategy: 
+    // - If it has a line number, it's likely a log/error -> Resolve from Project Root.
+    // - If it starts with 'package:', it's a package import -> (Naive) Try resolving from Project Root.
+    // - If it starts with '.', it's relative -> Resolve from Context (Current Dir).
+    // - Otherwise (e.g. 'lib/foo.dart'), assume Project Root (common for logs and non-relative imports).
     
-    // B. Try relative path (imports)
-    if (resolvedUri == null || !resolvedUri.startsWith('/')) {
-        final currentDirectoryUri = repo.fileHandler.getParentUri(currentFileMetadata.file.uri);
-        // This is a naive join; FileHandler.resolvePath does it better.
-        // We leave the path relative for FileHandler to resolve.
-        resolvedUri = parsed.path; 
-    }
+    final bool hasLineNumber = parsed.line != null;
+    final bool isPackageScheme = parsed.path.startsWith('package:');
+    final bool isRelativeImport = parsed.path.startsWith('.');
+    
+    // We treat logs (hasLineNumber) as project-root relative by default, 
+    // unless they are explicitly relative (start with .).
+    final bool resolveFromContext = isRelativeImport && !hasLineNumber;
+
+    // Remove 'package:' prefix for basic file system mapping if applicable
+    // (This is a naive fallback for package imports if they map to local source)
+    // Real package resolution would require analyzing pubspec/package_config.
+    String cleanPath = parsed.path;
+    /* 
+    if (isPackageScheme) {
+       // Optional: Strip 'package:project_name/' if it matches current project?
+       // For now, let's leave it to FileHandler or fail gracefully if not found.
+    } 
+    */
 
     try {
-      // 4. Open File
-      // Resolve path using FileHandler. resolving absolute paths usually works 
-      // if they map to the FS, or relative paths from current context.
-      // We pass the current file's directory as context for relative paths.
-      final contextUri = repo.fileHandler.getParentUri(currentFileMetadata.file.uri);
+      final String baseUri = resolveFromContext 
+          ? repo.fileHandler.getParentUri(currentFileMetadata.file.uri) // Context Dir
+          : repo.rootUri; // Project Root
+
+      // 4. Generate Candidates (Implicit Extensions)
+      final candidates = _languageConfig.importResolver?.call(cleanPath) ?? [cleanPath];
       
-      final targetFile = await repo.fileHandler.resolvePath(
-        contextUri, 
-        resolvedUri!,
-      );
+      ProjectDocumentFile? targetFile;
+      
+      // 5. Probe File System
+      for (final candidate in candidates) {
+        final result = await repo.fileHandler.resolvePath(
+          baseUri, 
+          candidate,
+        );
+        
+        if (result != null) {
+          if (!result.isDirectory) {
+            targetFile = result;
+            break;
+          }
+        }
+      }
 
       if (targetFile != null) {
         final onReady = Completer<EditorWidgetState>();
@@ -579,17 +598,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         );
 
         if (didOpen) {
-          // 5. Jump to Line/Column
+          // 6. Jump to Line/Column
           if (parsed.line != null) {
             final editorState = await onReady.future;
             if (editorState is TextEditable) {
-              // Convert 1-based line/col to 0-based
               final lineIndex = parsed.line! - 1;
               final colIndex = (parsed.column ?? 1) - 1;
-              
-              // We need to cast to CodeEditorMachineState to access `revealRange`
-              // properly or use the generic interface if it supports positioning.
-              // TextEditable has `revealRange`.
               
               (editorState as TextEditable).revealRange(TextRange(
                 start: TextPosition(line: lineIndex, column: colIndex),
@@ -599,7 +613,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
           }
         }
       } else {
-        MachineToast.error('File not found: ${parsed.path}');
+        MachineToast.error('File not found: $cleanPath');
       }
     } catch (e) {
       MachineToast.error('Could not open file: $e');

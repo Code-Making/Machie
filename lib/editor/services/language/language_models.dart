@@ -4,7 +4,6 @@ import 'package:re_highlight/re_highlight.dart';
 import 'parsed_span_models.dart';
 
 export 'parsed_span_models.dart';
-import 'default_parsers.dart';
 
 class LanguageConfig {
   final String id;
@@ -14,11 +13,15 @@ class LanguageConfig {
   final CommentConfig? comments;
   
   /// A unified parser that returns both Links and Colors for a given line.
-  /// Defaults to [DefaultParsers.parseAll] if not provided.
   final SpanParser parser;
 
   /// Optional formatter for inserting new imports (used by "Add Import" action).
   final String Function(String path)? importFormatter;
+
+  /// Optional resolver to handle implicit extensions or directory indices.
+  /// Converts a raw import string (e.g. './utils') into a list of potential
+  /// file paths to probe on the file system (e.g. ['./utils.ts', './utils/index.ts']).
+  final List<String> Function(String importPath)? importResolver;
 
   LanguageConfig({
     required this.id,
@@ -28,9 +31,9 @@ class LanguageConfig {
     this.comments,
     SpanParser? parser,
     this.importFormatter,
+    this.importResolver,
   }) : parser = parser ?? _defaultParser;
 
-  // Default implementation if no specific parser is provided
   static List<ParsedSpan> _defaultParser(String line) {
     return [
       ...DefaultParsers.parseColors(line),

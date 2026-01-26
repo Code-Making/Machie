@@ -23,6 +23,7 @@ import 'language_models.dart';
 class Languages {
   Languages._();
 
+  // ... [Static getters remain unchanged] ...
   static LanguageConfig getForFile(String filename) {
     final ext = filename.split('.').last.toLowerCase();
     return _byExtension[ext] ?? _plaintext;
@@ -48,24 +49,20 @@ class Languages {
     for (var lang in _allLanguages) lang.id: lang,
   };
 
-  /// Extracts content between quotes (' or ") found in the regex match.
+  // --- Helper for legacy regex migration (used by other languages) ---
   static List<LinkSpan> _parseQuotedLinks(String line, List<RegExp> patterns) {
     final spans = <LinkSpan>[];
     for (final regex in patterns) {
       for (final match in regex.allMatches(line)) {
         final text = match.group(0)!;
-        
         int quoteStart = text.indexOf("'");
         if (quoteStart == -1) quoteStart = text.indexOf('"');
         if (quoteStart == -1) continue;
-
         final quoteChar = text[quoteStart];
         final quoteEnd = text.indexOf(quoteChar, quoteStart + 1);
         if (quoteEnd == -1) continue;
-
         final absoluteStart = match.start + quoteStart + 1;
         final absoluteEnd = match.start + quoteEnd;
-
         if (absoluteEnd > absoluteStart) {
           spans.add(LinkSpan(
             start: absoluteStart,
@@ -78,9 +75,28 @@ class Languages {
     return spans;
   }
 
+  // --- Shared Resolver for JS/TS ---
+  static List<String> _jsResolutionStrategy(String path) {
+    if (path.endsWith('.ts') || path.endsWith('.tsx') || 
+        path.endsWith('.js') || path.endsWith('.jsx')) {
+      return [path];
+    }
+    return [
+      path,
+      '$path.ts',
+      '$path.tsx',
+      '$path.js',
+      '$path.jsx',
+      '$path.d.ts',
+      '$path/index.ts',
+      '$path/index.tsx',
+      '$path/index.js',
+      '$path/index.jsx',
+    ];
+  }
+
   // --- Implementations ---
 
-  // REFACTORED: Plain Text now simply uses default parsers.
   static final LanguageConfig _plaintext = LanguageConfig(
     id: 'plaintext',
     name: 'Plain Text',
@@ -90,60 +106,69 @@ class Languages {
     parser: (line) => DefaultParsers.parseAll(line),
   );
 
-  static final List<LanguageConfig> _allLanguages = [
-    _plaintext,
-    LanguageConfig(
-      id: 'dart',
-      name: 'Dart',
-      extensions: {'dart'},
-      highlightMode: langDart,
-      comments: const CommentConfig(
-        singleLine: '//',
-        blockBegin: '/*',
-        blockEnd: '*/',
-      ),
-      importFormatter: (path) => "import '$path';",
-      parser: (line) {
-        // 1. Defaults (Colors, Web Links)
-        final spans = DefaultParsers.parseAll(line);
+  static final LanguageConfig _dart = LanguageConfig(
+    id: 'dart',
+    name: 'Dart',
+    extensions: {'dart'},
+    highlightMode: langDart,
+    comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+    importFormatter: (path) => "import '$path';",
+    parser: (line) {
+      final spans = DefaultParsers.parseAll(line);
+      final trimmed = line.trimLeft();
+
+      // 1. Efficient Pruning for Imports
+      if (trimmed.startsWith('import ') || trimmed.startsWith('export ') || trimmed.startsWith('part ')) {
+        // Find quotes
+        int startQuote = line.indexOf("'");
+        if (startQuote == -1) startQuote = line.indexOf('"');
         
-        // 2. Imports/Exports
-        spans.addAll(_parseQuotedLinks(line, [
-          RegExp(r'''import\s+['"][^'"]+['"]'''),
-          RegExp(r'''export\s+['"][^'"]+['"]'''),
-          RegExp(r'''part\s+(?:of\s+)?['"][^'"]+['"]'''),
-        ]));
-
-        // 3. Analysis Logs / Stack Traces
-        // Regex: Matches any non-whitespace string ending in .dart followed by :row and optional :col
-        // Example matches: 
-        //   lib/main.dart:10:5
-        //   package:foo/bar.dart:42
-        //   /abs/path/file.dart:10
-        final logRegex = RegExp(r'([^\s]+\.dart):(\d+)(?::(\d+))?');
-
-        for (final m in logRegex.allMatches(line)) {
+        if (startQuote != -1) {
+          final quoteChar = line[startQuote];
+          final endQuote = line.indexOf(quoteChar, startQuote + 1);
+          
+          if (endQuote != -1) {
+            spans.add(LinkSpan(
+              start: startQuote + 1,
+              end: endQuote,
+              target: line.substring(startQuote + 1, endQuote),
+            ));
+          }
+        }
+      }
+      
+      // 2. Analysis Logs (Only if line contains typical log pattern)
+      // We look for the colon separator indicating a line number.
+      else if (line.contains('.dart:')) {
+        // Simplified Regex: Capture any path ending in .dart, followed by :line and optional :col
+        // Example: /lib/main.dart:10:5
+        final logRegex = RegExp(r'([\w\-\./\\]+\.dart):(\d+)(?::(\d+))?');
+        final match = logRegex.firstMatch(line);
+        
+        if (match != null) {
           spans.add(LinkSpan(
-            start: m.start,
-            end: m.end,
-            target: m.group(0)!, 
+            start: match.start,
+            end: match.end,
+            target: match.group(0)!, 
           ));
         }
-        
-        return spans;
-      },
-    ),
+      }
+
+      return spans;
+    },
+  );
+
+  static final List<LanguageConfig> _allLanguages = [
+    _plaintext,
+    _dart,
     LanguageConfig(
       id: 'javascript',
       name: 'JavaScript',
       extensions: {'js', 'jsx', 'mjs', 'cjs'},
       highlightMode: langJavascript,
-      comments: const CommentConfig(
-        singleLine: '//',
-        blockBegin: '/*',
-        blockEnd: '*/',
-      ),
+      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
       importFormatter: (path) => "import '$path';",
+      importResolver: _jsResolutionStrategy,
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
         spans.addAll(_parseQuotedLinks(line, [
@@ -159,12 +184,9 @@ class Languages {
       name: 'TypeScript',
       extensions: {'ts', 'tsx'},
       highlightMode: langTypescript,
-      comments: const CommentConfig(
-        singleLine: '//',
-        blockBegin: '/*',
-        blockEnd: '*/',
-      ),
+      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
       importFormatter: (path) => "import '$path';",
+      importResolver: _jsResolutionStrategy,
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
         spans.addAll(_parseQuotedLinks(line, [
@@ -211,11 +233,7 @@ class Languages {
       name: 'C++',
       extensions: {'cpp', 'c', 'cc', 'h', 'hpp'},
       highlightMode: langCpp,
-      comments: const CommentConfig(
-        singleLine: '//',
-        blockBegin: '/*',
-        blockEnd: '*/',
-      ),
+      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
       importFormatter: (path) => '#include "$path"',
       parser: (line) {
         final spans = DefaultParsers.parseAll(line);
@@ -262,13 +280,11 @@ class Languages {
           RegExp(r'''\\include\{([^}]+)\}'''),
           RegExp(r'''\\includegraphics(?:\[.*\])?\{([^}]+)\}'''),
         ];
-        
         for (final regex in latexPatterns) {
           for (final m in regex.allMatches(line)) {
             final matchText = m.group(0)!;
             final openBrace = matchText.lastIndexOf('{');
             final closeBrace = matchText.indexOf('}', openBrace);
-            
             if (openBrace != -1 && closeBrace != -1) {
               spans.add(LinkSpan(
                 start: m.start + openBrace + 1,
@@ -294,22 +310,14 @@ class Languages {
       name: 'Java',
       extensions: {'java'},
       highlightMode: langJava,
-      comments: const CommentConfig(
-        singleLine: '//',
-        blockBegin: '/*',
-        blockEnd: '*/',
-      ),
+      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
     ),
     LanguageConfig(
       id: 'kotlin',
       name: 'Kotlin',
       extensions: {'kt', 'kts'},
       highlightMode: langKotlin,
-      comments: const CommentConfig(
-        singleLine: '//',
-        blockBegin: '/*',
-        blockEnd: '*/',
-      ),
+      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
     ),
     LanguageConfig(
       id: 'bash',
