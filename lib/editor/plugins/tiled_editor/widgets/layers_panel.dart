@@ -379,7 +379,7 @@ class _HierarchyRowState extends State<_HierarchyRow> {
     );
 
     return DragTarget<_LayerPanelDragData>(
-      onWillAccept: (data) {
+      onWillAcceptWithDetails: (data) {
         if (data == null) return false;
         if (data.type == 'layer' && widget.node.isLayer) {
           return data.id != widget.node.layer!.id;

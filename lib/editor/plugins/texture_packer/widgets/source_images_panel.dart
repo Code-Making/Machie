@@ -285,7 +285,7 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
     );
 
     return DragTarget<String>(
-      onWillAccept: (draggedId) {
+      onWillAcceptWithDetails: (draggedId) {
         if (draggedId == null || draggedId == node.id) return false;
         return true;
       },
@@ -376,8 +376,8 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
   @override
   Widget build(BuildContext context) {
     return DragTarget<String>(
-      // Corrected: Use onWillAccept to detect entry and set hover state
-      onWillAccept: (d) {
+      // Corrected: Use onWillAcceptWithDetails to detect entry and set hover state
+      onWillAcceptWithDetails: (d) {
         if (d != null) {
           setState(() => _hover = true);
           return true;
