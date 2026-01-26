@@ -1,6 +1,5 @@
 // lib/editor/services/language/default_parsers.dart
 
-import 'dart:math';
 import 'dart:ui';
 import 'parsed_span_models.dart';
 

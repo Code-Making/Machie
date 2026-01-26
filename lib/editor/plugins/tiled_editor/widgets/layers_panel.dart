@@ -423,7 +423,7 @@ class _HierarchyRowState extends State<_HierarchyRow> {
           widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
         }
       },
-      builder: (ctx, _, __) => InkWell(onTap: widget.onTap, child: draggable),
+      builder: (ctx, _, _) => InkWell(onTap: widget.onTap, child: draggable),
     );
   }
 

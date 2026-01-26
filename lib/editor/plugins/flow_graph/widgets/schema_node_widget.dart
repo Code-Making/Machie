@@ -505,7 +505,7 @@ class SchemaNodeWidget extends StatelessWidget {
           enableOpacity: true,
         );
         result =
-            '#${newColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+            '#${newColor.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
         break;
       default:
         break;

@@ -75,7 +75,7 @@ class _NewLayerDialogState extends State<NewLayerDialog> {
           const SizedBox(height: 16),
           DropdownButtonFormField<LayerType>(
             decoration: const InputDecoration(labelText: 'Layer Type'),
-            value: _selectedType,
+            initialValue: _selectedType,
             items: [
               const DropdownMenuItem(
                 value: LayerType.tileLayer,

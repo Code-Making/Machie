@@ -308,9 +308,9 @@ extension TiledObjectWriter on TiledObject {
 
         if (isEllipse) {
           builder.element('ellipse');
-        } else if (isPoint)
+        } else if (isPoint){
           builder.element('point');
-        else if (isPolygon) {
+        } else if (isPolygon) {
           builder.element(
             'polygon',
             nest:
