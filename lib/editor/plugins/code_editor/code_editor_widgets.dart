@@ -26,6 +26,7 @@ import 'logic/code_editor_utils.dart';
 import 'widgets/code_editor_ui.dart';
 import 'widgets/code_find_panel_view.dart';
 import 'widgets/goto_line_dialog.dart';
+import '../../../data/file_handler/file_handler.dart';
 
 class CodeEditorMachine extends EditorWidget {
   @override
