@@ -287,7 +287,7 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
     return DragTarget<String>(
     onWillAcceptWithDetails: (details) {
         final draggedId = details.data;
-        if (draggedId == null || draggedId == node.id) return false;
+        if (draggedId == node.id) return false;
         return true;
       },
       onMove: (details) {
@@ -380,11 +380,8 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
     return DragTarget<String>(
       // Corrected: Use onWillAccept to detect entry and set hover state
       onWillAcceptWithDetails: (details) {
-        if (details.data != null) {
           setState(() => _hover = true);
           return true;
-        }
-        return false;
       },
       onLeave: (_) => setState(() => _hover = false),
       onAcceptWithDetails: (details) {
