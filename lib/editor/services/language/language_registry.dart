@@ -329,7 +329,7 @@ class Languages {
       final spans = _parseDefaultsOptimized(line);
       if (line.trimLeft().startsWith('#include')) {
         final link = _findLinkAfterIndex(line, 0);
-        if (link != null) spans.add(link);
+        if (link != null) {spans.add(link);}
         else {
           // Handle angle brackets <...>
           int startAngle = line.indexOf('<');
