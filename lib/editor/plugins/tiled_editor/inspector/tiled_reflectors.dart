@@ -150,7 +150,7 @@ ColorPropertyDescriptor(
             // Save as ColorProperty
             map['displayColor'] = ColorProperty(
               name: 'displayColor',
-              type: PropertyType.color,
+              // type: PropertyType.color,
               value: colorDataFromHex(v),
               hexValue: v,
             );
