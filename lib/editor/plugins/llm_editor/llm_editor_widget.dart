@@ -395,6 +395,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     if (files == null || files.isEmpty) return;
 
     if (files.length == 1 && files.first.name.endsWith('.dart')) {
+      if (!context.mounted) {
+        return;
+      }
       final confirm = await showConfirmDialog(
         context,
         title: 'Gather Imports?',

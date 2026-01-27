@@ -363,7 +363,7 @@ class TexturePackerEditorWidgetState
       await _createSingleSprite(rect, activeImageId);
       return;
     }
-
+    if (!context.mounted) return;
     final baseName = await showTextInputDialog(context, title: 'Base Name');
     if (baseName == null || baseName.trim().isEmpty) return;
 
@@ -446,7 +446,8 @@ class TexturePackerEditorWidgetState
 
     String mode = 'batch';
     String? baseName;
-
+    
+    if (!context.mounted) return;
     if (result.asSprites && result.files.length > 1) {
       final choice = await showDialog<String>(
         context: context,
@@ -468,6 +469,7 @@ class TexturePackerEditorWidgetState
       if (choice == null) return;
       mode = choice;
       if (mode == 'anim') {
+        if (!context.mounted) return;
         baseName = await showTextInputDialog(context, title: 'Animation Name');
         if (baseName == null || baseName.trim().isEmpty) return;
       }

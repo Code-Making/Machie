@@ -160,11 +160,10 @@ class _PreviewViewState extends ConsumerState<PreviewView>
     final double offsetY =
         (viewportSize.height - contentSize.height * scale) / 2;
 
-    _transformationController.value =
-        Matrix4.identity()
-          ..translate(offsetX, offsetY)
-          ..scale(scale);
-
+_transformationController.value =
+    Matrix4.identity()
+      ..translateByDouble(offsetX, offsetY, 0, 1.0)
+      ..scaleByDouble(scale, scale, scale, 1.0);
     _needsFit = false;
   }
 
