@@ -1678,17 +1678,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     return resolverAsync.when(
       skipLoadingOnReload: true,
       data: (resolver) {
-        final editorContent = GestureDetector(
-          onTapDown:
-              (details) =>
-                  _onInteractionUpdate(details.localPosition, isStart: true),
-          onPanStart:
-              (details) =>
-                  _onInteractionUpdate(details.localPosition, isStart: true),
-          onPanUpdate: (details) => _onInteractionUpdate(details.localPosition),
-          onPanEnd: (details) => _onInteractionEnd(),
-          onTapUp: (details) => _onInteractionEnd(),
-          onTapCancel: _onInteractionCancel,
+final editorContent = Listener(
+          onPointerDown: (event) {
+            _onInteractionUpdate(event.localPosition, isStart: true);
+          },
+          onPointerMove: (event) {
+            _onInteractionUpdate(event.localPosition);
+          },
+          onPointerUp: (event) {
+            _onInteractionEnd();
+          },
+          onPointerCancel: (event) {
+            _onInteractionCancel();
+          },
           child: InteractiveViewer(
             clipBehavior: Clip.none,
             transformationController: _transformationController,
