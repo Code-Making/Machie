@@ -447,8 +447,8 @@ class TexturePackerEditorWidgetState
     String mode = 'batch';
     String? baseName;
     
-    if (!context.mounted) return;
     if (result.asSprites && result.files.length > 1) {
+      if (!context.mounted) return;
       final choice = await showDialog<String>(
         context: context,
         builder:
