@@ -1,8 +1,4 @@
-// lib/editor/plugins/code_editor/logic/code_editor_utils.dart
-
 import 'dart:math';
-import 'dart:ui'; // For Color
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';

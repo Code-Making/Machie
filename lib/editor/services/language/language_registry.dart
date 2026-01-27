@@ -1,7 +1,3 @@
-// lib/editor/services/language/language_registry.dart
-
-import 'dart:math'; // For min/max
-
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/cpp.dart';
 import 'package:re_highlight/languages/css.dart';

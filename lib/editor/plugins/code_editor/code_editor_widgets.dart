@@ -29,8 +29,8 @@ import 'widgets/goto_line_dialog.dart';
 import '../../../data/file_handler/file_handler.dart';
 
 class CodeEditorMachine extends EditorWidget {
-  @override
-  final CodeEditorTab tab;
+  // @override
+  // final CodeEditorTab tab;
 
   const CodeEditorMachine({
     required GlobalKey<CodeEditorMachineState> key,
@@ -612,7 +612,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     // - Otherwise (e.g. 'lib/foo.dart'), assume Project Root (common for logs and non-relative imports).
     
     final bool hasLineNumber = parsed.line != null;
-    final bool isPackageScheme = parsed.path.startsWith('package:');
+ //   final bool isPackageScheme = parsed.path.startsWith('package:');
     final bool isRelativeImport = parsed.path.startsWith('.');
     
     // We treat logs (hasLineNumber) as project-root relative by default, 
