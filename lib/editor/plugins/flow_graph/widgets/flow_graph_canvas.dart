@@ -38,8 +38,11 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     final initialScale = widget.notifier.graph.viewportScale;
     final matrix =
         Matrix4.identity()
-          ..translateByVector3(Vector3(initialPos.dx, initialPos.dy, 0.0))
-          ..scaleByVector3(Vector3.all(initialScale));
+          ..translate(initialPos.dx, initialPos.dy)
+          ..scale(initialScale);
+          ..translateByDouble(initialPos.dx, initialPos.dy, initialPos.dz, 1.0)
+          ..scaleByDouble(initialScale.x, initialScale.y, 1, 1.0);  
+
     _transformCtrl.value = matrix;
     _transformCtrl.addListener(() {
       if (mounted) setState(() {});

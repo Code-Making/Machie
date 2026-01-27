@@ -499,8 +499,9 @@ class TiledMapPainter extends CustomPainter {
 
 final offsetMatrix =
         Matrix4.identity()
-          ..translateByDouble(totalOffsetX, totalOffsetY, 0)
-          ..scaleByDouble(scaleX, scaleY, 1);
+          ..translateByDouble(totalOffsetX, totalOffsetY, 0, 1.0)
+          ..scaleByDouble(scaleX, scaleY, 1, 1.0);  
+                  
     final matrix =
         Matrix4.copy(invertedMatrix)
           ..multiply(transform)
