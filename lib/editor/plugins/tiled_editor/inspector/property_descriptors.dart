@@ -4,7 +4,18 @@ import 'package:tiled/tiled.dart';
 
 import '../tiled_asset_resolver.dart';
 
-// Add this new class to the file
+class QuantizedDoublePropertyDescriptor extends DoublePropertyDescriptor {
+  final double step;
+
+  const QuantizedDoublePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required super.getter,
+    required super.setter,
+    required this.step,
+    super.isReadOnly,
+  });
+}
 
 class ExternalObjectReferencePropertyDescriptor extends PropertyDescriptor {
   final int Function() getter;

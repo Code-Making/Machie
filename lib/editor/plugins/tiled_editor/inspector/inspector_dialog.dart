@@ -179,6 +179,12 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         onUpdate: _onUpdate,
       );
     }
+    if (descriptor is QuantizedDoublePropertyDescriptor) {
+      return PropertyQuantizedInput(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
+    }
     if (descriptor is TiledObjectReferencePropertyDescriptor) {
       return PropertyTiledObjectSelector(
         descriptor: descriptor,

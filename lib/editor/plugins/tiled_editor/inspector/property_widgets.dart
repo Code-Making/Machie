@@ -15,9 +15,58 @@ import 'package:path/path.dart' as p; // Add path import
 
 import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
-// For opening files
 
-// Add this new stateful widget to the file.
+class PropertyQuantizedInput extends StatelessWidget {
+  final QuantizedDoublePropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+
+  const PropertyQuantizedInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: PropertyDoubleInput(
+            descriptor: descriptor,
+            onUpdate: onUpdate,
+          ),
+        ),
+        if (!descriptor.isReadOnly) ...[
+          const SizedBox(width: 8),
+          IconButton.filledTonal(
+            icon: const Icon(Icons.remove, size: 18),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            onPressed: () {
+              final current = descriptor.getter();
+              descriptor.updateValue(current - descriptor.step);
+              onUpdate();
+            },
+            tooltip: 'Subtract ${descriptor.step}',
+          ),
+          const SizedBox(width: 4),
+          IconButton.filledTonal(
+            icon: const Icon(Icons.add, size: 18),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            onPressed: () {
+              final current = descriptor.getter();
+              descriptor.updateValue(current + descriptor.step);
+              onUpdate();
+            },
+            tooltip: 'Add ${descriptor.step}',
+          ),
+          const SizedBox(width: 4),
+        ],
+      ],
+    );
+  }
+}
 
 class PropertyExternalObjectSelector extends StatefulWidget {
   final ExternalObjectReferencePropertyDescriptor descriptor;

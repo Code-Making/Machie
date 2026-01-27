@@ -159,29 +159,33 @@ ColorPropertyDescriptor(
         },
       ),
 
-      DoublePropertyDescriptor(
+      QuantizedDoublePropertyDescriptor(
         name: 'x',
         label: 'X',
         getter: () => obj.x,
         setter: (v) => obj.x = v,
+        step: map.tileWidth.toDouble(),
       ),
-      DoublePropertyDescriptor(
+      QuantizedDoublePropertyDescriptor(
         name: 'y',
         label: 'Y',
         getter: () => obj.y,
         setter: (v) => obj.y = v,
+        step: map.tileHeight.toDouble(),
       ),
-      DoublePropertyDescriptor(
+      QuantizedDoublePropertyDescriptor(
         name: 'width',
         label: 'Width',
         getter: () => obj.width,
         setter: (v) => obj.width = v,
+        step: map.tileWidth.toDouble(),
       ),
-      DoublePropertyDescriptor(
+      QuantizedDoublePropertyDescriptor(
         name: 'height',
         label: 'Height',
         getter: () => obj.height,
         setter: (v) => obj.height = v,
+        step: map.tileHeight.toDouble(),
       ),
       DoublePropertyDescriptor(
         name: 'rotation',
