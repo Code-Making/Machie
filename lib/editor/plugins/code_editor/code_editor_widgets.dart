@@ -29,8 +29,9 @@ import 'widgets/goto_line_dialog.dart';
 import '../../../data/file_handler/file_handler.dart';
 
 class CodeEditorMachine extends EditorWidget {
-  // @override
-  // final CodeEditorTab tab;
+  // ignore: overridden_fields
+  @override
+  final CodeEditorTab tab;
 
   const CodeEditorMachine({
     required GlobalKey<CodeEditorMachineState> key,
