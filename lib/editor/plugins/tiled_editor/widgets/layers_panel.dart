@@ -380,13 +380,14 @@ class _HierarchyRowState extends State<_HierarchyRow> {
 
     return DragTarget<_LayerPanelDragData>(
       onWillAcceptWithDetails: (details) {
-        if (détails.data == null) return false;
-        if (détails.data.type == 'layer' && widget.node.isLayer) {
-          return détails.data.id != widget.node.layer!.id;
+        final data = details.data;
+        if (data == null) return false;
+        if (data.type == 'layer' && widget.node.isLayer) {
+          return data.id != widget.node.layer!.id;
         }
-        if (détails.data.type == 'object' && widget.node.isObject) {
-          return détails.data.parentLayerId == widget.node.parentLayerId &&
-              détails.data.id != widget.node.object!.id;
+        if (data.type == 'object' && widget.node.isObject) {
+          return data.parentLayerId == widget.node.parentLayerId &&
+              data.id != widget.node.object!.id;
         }
         return false;
       },
@@ -409,18 +410,19 @@ class _HierarchyRowState extends State<_HierarchyRow> {
       onLeave: (_) => setState(() => _dropPosition = null),
       onAcceptWithDetails: (details) {
         setState(() => _dropPosition = null);
-        if (détails.data.type == 'layer' && widget.node.isLayer) {
+        final data = details.data;
+        if (data.type == 'layer' && widget.node.isLayer) {
           int targetIndex = widget.node.index;
           if (_dropPosition == _DropPosition.above) {
             targetIndex += 1;
           }
-          widget.onReorderLayer(détails.data.index, targetIndex);
-        } else if (détails.data.type == 'object' && widget.node.isObject) {
+          widget.onReorderLayer(data.index, targetIndex);
+        } else if (data.type == 'object' && widget.node.isObject) {
           int targetIndex = widget.node.index;
           if (_dropPosition == _DropPosition.below) {
             targetIndex += 1;
           }
-          widget.onReorderObject(détails.data.parentLayerId!, détails.data.index, targetIndex);
+          widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
         }
       },
       builder: (ctx, _, _) => InkWell(onTap: widget.onTap, child: draggable),
