@@ -34,6 +34,7 @@ typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
 
 class RefactorEditorWidget extends EditorWidget {
   @override
+  // ignore: overridden_fields
   final RefactorEditorTab tab;
 
   const RefactorEditorWidget({

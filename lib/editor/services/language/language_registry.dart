@@ -76,8 +76,12 @@ class Languages {
     int doubleQuoteStart = line.indexOf('"', startIndex);
 
     // Pick the earliest quote
-    if (quoteStart == -1) quoteStart = doubleQuoteStart;
-    else if (doubleQuoteStart != -1 && doubleQuoteStart < quoteStart) quoteStart = doubleQuoteStart;
+    if (quoteStart == -1) {
+      quoteStart = doubleQuoteStart;
+    }
+    else if{
+      (doubleQuoteStart != -1 && doubleQuoteStart < quoteStart) quoteStart = doubleQuoteStart;
+    } 
 
     if (quoteStart == -1) return null;
 
