@@ -466,8 +466,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             if (nextFile != null && !processedUris.contains(nextFile.uri)) {
               filesToProcess.add(nextFile);
             }
-          } catch(e){
-          
+          } catch (e) {}
         }
       }
     }
