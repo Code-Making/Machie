@@ -550,9 +550,14 @@ class TiledMapPainter extends CustomPainter {
 
       // 2. Check for displayColor override on the object
       final colorProp = object.properties['displayColor'];
-      if (colorProp is StringProperty && colorProp.value.isNotEmpty) {
+      if (colorProp is ColorProperty) {
+        // Handle the native Tiled ColorProperty (value is ColorData)
+        objColor = (colorProp.value as ColorData).toFlutterColor();
+      } else if (colorProp is StringProperty && colorProp.value.isNotEmpty) {
+        // Handle legacy StringProperty (value is Hex String)
         objColor = colorProp.value.toFlutterColor();
       }
+
 
       // Prepare Paints
       final paint =

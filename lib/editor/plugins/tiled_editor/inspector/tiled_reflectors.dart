@@ -112,15 +112,29 @@ class TiledReflector {
         options: ['None', if (schema != null) ...schema.keys],
       ),
 
-      ColorPropertyDescriptor(
+ColorPropertyDescriptor(
         name: 'displayColor',
         label: 'Display Color',
         getter: () {
           final prop = obj.properties['displayColor'];
+          
+          // 1. Check for standard ColorProperty
+          if (prop is ColorProperty) {
+            // Use stored hex string if available, otherwise convert the ColorData value
+            if (prop.hexValue != null && prop.hexValue!.isNotEmpty) {
+              return prop.hexValue;
+            }
+            if (prop.value is ColorData) {
+              return (prop.value as ColorData).toHex(includeAlpha: true);
+            }
+          }
+
+          // 2. Check for legacy StringProperty
           if (prop is StringProperty && prop.value.isNotEmpty) {
             return prop.value;
           }
 
+          // 3. Fallback to Class/Schema color
           if (schema != null && schema.containsKey(obj.type)) {
             return schema[obj.type]!.color.toHex(includeAlpha: true);
           }
@@ -130,12 +144,15 @@ class TiledReflector {
         setter: (v) {
           final map = Map<String, Property<Object>>.from(obj.properties.byName);
           if (v.isEmpty) {
+            // Removing the property restores the Class/Schema color default
             map.remove('displayColor');
           } else {
-            map['displayColor'] = Property(
+            // Save as ColorProperty
+            map['displayColor'] = ColorProperty(
               name: 'displayColor',
               type: PropertyType.color,
-              value: v,
+              value: colorDataFromHex(v),
+              hexValue: v,
             );
           }
           obj.properties = CustomProperties(map);
