@@ -112,7 +112,7 @@ class CodeEditorUtils {
   /// Changes:
   /// 1. Uses [languageConfig.parser] to find all decorations (links, colors).
   /// 2. Uses generic [_applyParsedSpans] to render them.
-static TextSpan buildHighlightingSpan({
+  static TextSpan buildHighlightingSpan({
     required BuildContext context,
     required int index,
     required CodeLine codeLine,
@@ -121,17 +121,18 @@ static TextSpan buildHighlightingSpan({
     required BracketHighlightState bracketHighlightState,
     required void Function(LinkSpan) onLinkTap,
     void Function(int lineIndex, ColorSpan span)? onColorTap,
-    required LanguageConfig languageConfig,
-    // --- New Parameters ---
+    // CHANGED: Pass the parser function directly
+    required SpanParser parser, 
+    // CHANGED: Boolean flags passed directly
     required bool enableBracketMatching,
     required bool enableColorPreviews,
     required bool enableLinks,
   }) {
-    // 1. Get raw data from the language parser
-    final parsedSpans = languageConfig.parser(codeLine.text);
+    // 1. Get raw data from the cached language parser
+    final parsedSpans = parser(codeLine.text);
 
     // 2. Filter spans based on settings
-    // This is more efficient than passing booleans into every sub-function.
+    // Done here to avoid re-allocating list in the parser if not needed
     if (!enableLinks || !enableColorPreviews) {
       parsedSpans.removeWhere((span) {
         if (span is LinkSpan) return !enableLinks;

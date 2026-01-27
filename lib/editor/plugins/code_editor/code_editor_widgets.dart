@@ -53,8 +53,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   late LanguageConfig _languageConfig;
   late CodeCommentFormatter _commentFormatter;
-
   late CodeEditorStyle _style;
+  
+  // Specific Caches for Rendering Performance
+  late SpanParser _cachedParser;
+  bool _enableBracketMatching = true;
+  bool _enableColorPreviews = true;
+  bool _enableLinks = true;
 
   late String? _baseContentHash;
 
@@ -262,13 +267,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
 
+    // 1. Initial Load of Language
     if (widget.tab.initialLanguageId != null) {
       _languageConfig = Languages.getById(widget.tab.initialLanguageId!);
     } else {
       _languageConfig = Languages.getForFile(fileUri);
     }
-
-    _updateCommentFormatter();
+    
+    // 2. Initial Load of Settings & Parser
+    _updateInternalConfig();
 
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
@@ -297,23 +304,22 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _updateStyleAndRecognizers();
-    _updateCommentFormatter();
+    // Re-read everything if inherited widgets change
+    setState(() {
+      _updateInternalConfig();
+    });
   }
 
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldFileUri =
-        ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
     final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
 
     if (newFileUri != null && newFileUri != oldFileUri) {
       setState(() {
-        // Reload config on file rename/change
         _languageConfig = Languages.getForFile(newFileUri);
-        _updateStyleAndRecognizers();
-        _updateCommentFormatter();
+        _updateInternalConfig();
       });
     }
   }
@@ -329,24 +335,33 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     findController.dispose();
     super.dispose();
   }
+  
+  void _updateInternalConfig() {
+    // A. Update Language Specifics
+    _commentFormatter = _getCommentFormatter();
+    _cachedParser = _languageConfig.parser;
 
-  void _updateStyleAndRecognizers() {
-    final codeEditorSettings = ref.read(
-      effectiveSettingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    );
+    // B. Read Settings
+    final settings = ref.read(effectiveSettingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?
+    )) ?? CodeEditorSettings();
 
-    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
-    final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final List<FontFeature>? fontFeatures =
-        enableLigatures
-            ? null
-            : const [
-              FontFeature.disable('liga'),
-              FontFeature.disable('clig'),
-              FontFeature.disable('calt'),
-            ];
+    // C. Update Feature Flags
+    _enableBracketMatching = settings.enableBracketMatching;
+    _enableColorPreviews = settings.enableColorPreviews;
+    _enableLinks = settings.enableLinks;
+
+    // D. Update Visual Style
+    final selectedThemeName = settings.themeName;
+    final bool enableLigatures = settings.fontLigatures;
+    
+    final List<FontFeature>? fontFeatures = enableLigatures
+        ? null
+        : const [
+            FontFeature.disable('liga'),
+            FontFeature.disable('clig'),
+            FontFeature.disable('calt')
+          ];
 
     final Map<String, CodeHighlightThemeMode> languageMap = {};
     if (_languageConfig.highlightMode != null) {
@@ -356,30 +371,80 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     }
 
     _style = CodeEditorStyle(
-      fontHeight: codeEditorSettings?.fontHeight,
-      fontSize: codeEditorSettings?.fontSize ?? 12.0,
-      fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+      fontHeight: settings.fontHeight,
+      fontSize: settings.fontSize,
+      fontFamily: settings.fontFamily,
       fontFeatures: fontFeatures,
       codeTheme: CodeHighlightTheme(
-        theme:
-            CodeThemes.availableCodeThemes[selectedThemeName] ??
+        theme: CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
         languages: languageMap,
       ),
     );
   }
-
-  void _updateCommentFormatter() {
+  
+  CodeCommentFormatter _getCommentFormatter() {
     if (_languageConfig.comments != null) {
-      _commentFormatter = DefaultCodeCommentFormatter(
+      return DefaultCodeCommentFormatter(
         singleLinePrefix: _languageConfig.comments!.singleLine,
         multiLinePrefix: _languageConfig.comments!.blockBegin,
         multiLineSuffix: _languageConfig.comments!.blockEnd,
       );
-    } else {
-      _commentFormatter = DefaultCodeCommentFormatter(singleLinePrefix: '');
     }
+    return DefaultCodeCommentFormatter(singleLinePrefix: '');
   }
+  
+  // void _updateStyleAndRecognizers() {
+  //   final codeEditorSettings = ref.read(
+  //     effectiveSettingsProvider.select(
+  //       (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+  //     ),
+  //   );
+
+  //   final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
+  //   final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
+  //   final List<FontFeature>? fontFeatures =
+  //       enableLigatures
+  //           ? null
+  //           : const [
+  //             FontFeature.disable('liga'),
+  //             FontFeature.disable('clig'),
+  //             FontFeature.disable('calt'),
+  //           ];
+
+  //   final Map<String, CodeHighlightThemeMode> languageMap = {};
+  //   if (_languageConfig.highlightMode != null) {
+  //     languageMap[_languageConfig.id] = CodeHighlightThemeMode(
+  //       mode: _languageConfig.highlightMode!,
+  //     );
+  //   }
+
+  //   _style = CodeEditorStyle(
+  //     fontHeight: codeEditorSettings?.fontHeight,
+  //     fontSize: codeEditorSettings?.fontSize ?? 12.0,
+  //     fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+  //     fontFeatures: fontFeatures,
+  //     codeTheme: CodeHighlightTheme(
+  //       theme:
+  //           CodeThemes.availableCodeThemes[selectedThemeName] ??
+  //           CodeThemes.availableCodeThemes['Atom One Dark']!,
+  //       languages: languageMap,
+  //     ),
+  //   );
+  // }
+
+
+  // void _updateCommentFormatter() {
+  //   if (_languageConfig.comments != null) {
+  //     _commentFormatter = DefaultCodeCommentFormatter(
+  //       singleLinePrefix: _languageConfig.comments!.singleLine,
+  //       multiLinePrefix: _languageConfig.comments!.blockBegin,
+  //       multiLineSuffix: _languageConfig.comments!.blockEnd,
+  //     );
+  //   } else {
+  //     _commentFormatter = DefaultCodeCommentFormatter(singleLinePrefix: '');
+  //   }
+  // }
 
   Widget _buildSelectionAppBar() {
     return const CodeEditorSelectionAppBar();
@@ -902,8 +967,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       setState(() {
         // Update config by looking up the new ID
         _languageConfig = Languages.getById(selectedLanguageId);
-        _updateStyleAndRecognizers();
-        _updateCommentFormatter();
+        // _updateStyleAndRecognizers();
+        // _updateCommentFormatter();
+        updateInternalConfig();
       });
       ref.read(editorServiceProvider).markCurrentTabDirty();
     }
@@ -916,12 +982,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    // 1. Fetch settings (should be efficient as it's a select or read)
-    final settings = ref.read(effectiveSettingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?
-    )) ?? CodeEditorSettings();
-
-    // 2. Pass flags to Utils
     return CodeEditorUtils.buildHighlightingSpan(
       context: context,
       index: index,
@@ -931,11 +991,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       bracketHighlightState: _bracketHighlightNotifier.value,
       onLinkTap: _onLinkTap,
       onColorTap: _onColorCodeTap,
-      languageConfig: _languageConfig,
-      // --- Passing Flags ---
-      enableBracketMatching: settings.enableBracketMatching,
-      enableColorPreviews: settings.enableColorPreviews,
-      enableLinks: settings.enableLinks,
+      // Pass Cached Values
+      parser: _cachedParser,
+      enableBracketMatching: _enableBracketMatching,
+      enableColorPreviews: _enableColorPreviews,
+      enableLinks: _enableLinks,
     );
   }
 
@@ -965,20 +1025,25 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
-      previous,
-      next,
-    ) {
-      if (previous != next && next != null) {
+    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (prev, next) {
+      if (prev != next && next != null) {
         setState(() {
           final newLanguageConfig = Languages.getForFile(next);
           if (newLanguageConfig.id != _languageConfig.id) {
             _languageConfig = newLanguageConfig;
-            _updateStyleAndRecognizers();
           }
-          _updateCommentFormatter();
+          _updateInternalConfig();
         });
       }
+    });
+
+    // 2. Listen for Settings Changes
+    // This is efficient: we only rebuild/recalc when settings actually change.
+    ref.listen(effectiveSettingsProvider, (previous, next) {
+        // We could do deep comparison here, but _updateInternalConfig is fast enough.
+        setState(() {
+          _updateInternalConfig();
+        });
     });
 
     final colorScheme = Theme.of(context).colorScheme;
