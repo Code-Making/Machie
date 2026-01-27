@@ -29,8 +29,8 @@ import 'widgets/goto_line_dialog.dart';
 import '../../../data/file_handler/file_handler.dart';
 
 class CodeEditorMachine extends EditorWidget {
-  // ignore: overridden_fields
   @override
+  // ignore: overridden_fields
   final CodeEditorTab tab;
 
   const CodeEditorMachine({
