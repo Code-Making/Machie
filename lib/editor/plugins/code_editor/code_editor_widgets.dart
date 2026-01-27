@@ -969,7 +969,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         _languageConfig = Languages.getById(selectedLanguageId);
         // _updateStyleAndRecognizers();
         // _updateCommentFormatter();
-        updateInternalConfig();
+        _updateInternalConfig();
       });
       ref.read(editorServiceProvider).markCurrentTabDirty();
     }
