@@ -329,7 +329,7 @@ class SchemaNodeWidget extends StatelessWidget {
             ),
           );
         },
-        onWillAccept: (data) {
+        onWillAcceptWithDetails: (details) {
           final draggingType = notifier.draggingPortType;
           if (draggingType == null) return false;
           if (draggingType == port.type) return true;
@@ -346,7 +346,7 @@ class SchemaNodeWidget extends StatelessWidget {
           }
           return false;
         },
-        onAccept: (data) => notifier.endConnectionDrag(node.id, port.key),
+       onAcceptWithDetails: (details) => notifier.endConnectionDrag(node.id, port.key),
       ),
     );
   }

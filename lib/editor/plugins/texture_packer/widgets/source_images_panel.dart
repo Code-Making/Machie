@@ -285,7 +285,8 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
     );
 
     return DragTarget<String>(
-      onWillAccept: (draggedId) {
+    onWillAcceptWithDetails: (details) {
+        final draggedId = details.data;
         if (draggedId == null || draggedId == node.id) return false;
         return true;
       },
@@ -305,7 +306,8 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
         if (_dropPosition != newPos) setState(() => _dropPosition = newPos);
       },
       onLeave: (_) => setState(() => _dropPosition = null),
-      onAccept: (draggedId) {
+      onAcceptWithDetails: (details) {
+        final draggedId = details.data;
         if (_dropPosition == null) return;
         final pId = widget.flatNode.parentId;
         final idx = widget.flatNode.indexInParent;
