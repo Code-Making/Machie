@@ -44,6 +44,7 @@ final selectedNodeIdProvider = StateProvider.autoDispose<String?>(
 
 class TexturePackerEditorWidget extends EditorWidget {
   @override
+  // ignore: overridden_fields
   final TexturePackerTab tab;
 
   const TexturePackerEditorWidget({required super.key, required this.tab})

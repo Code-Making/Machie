@@ -32,6 +32,7 @@ typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
 
 class LlmEditorWidget extends EditorWidget {
   @override
+  // ignore: overridden_fields
   final LlmEditorTab tab;
 
   const LlmEditorWidget({

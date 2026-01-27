@@ -46,6 +46,7 @@ import 'widgets/tile_palette.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
+  // ignore: overridden_fields
   final TiledEditorTab tab;
 
   const TiledEditorWidget({required super.key, required this.tab})

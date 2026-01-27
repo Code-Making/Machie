@@ -25,6 +25,7 @@ import 'core_nodes.dart'; // Import the new core nodes
 
 class FlowGraphEditorWidget extends EditorWidget {
   @override
+  // ignore: overridden_fields
   final FlowGraphEditorTab tab;
 
   const FlowGraphEditorWidget({required super.key, required this.tab})

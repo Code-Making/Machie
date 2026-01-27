@@ -25,6 +25,7 @@ import '../../models/editor_tab_models.dart'; // <-- ADD TAB MODELS IMPORT
 
 class GlitchEditorWidget extends EditorWidget {
   @override
+  // ignore: overridden_fields
   final GlitchEditorTab tab;
   final GlitchEditorPlugin plugin;
 

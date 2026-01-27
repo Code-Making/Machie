@@ -39,6 +39,7 @@ abstract class TermuxTerminalWidgetState
 
 class TermuxTerminalWidget extends EditorWidget {
   @override
+  // ignore: overridden_fields
   final TermuxTerminalTab tab;
 
   const TermuxTerminalWidget({required super.key, required this.tab})
