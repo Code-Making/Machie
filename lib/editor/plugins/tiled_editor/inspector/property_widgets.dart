@@ -16,7 +16,7 @@ import 'package:path/path.dart' as p; // Add path import
 import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
 
-class PropertyQuantizedInput extends StatelessWidget {
+class PropertyQuantizedInput extends StatefulWidget {
   final QuantizedDoublePropertyDescriptor descriptor;
   final VoidCallback onUpdate;
 
@@ -27,27 +27,67 @@ class PropertyQuantizedInput extends StatelessWidget {
   });
 
   @override
+  State<PropertyQuantizedInput> createState() => _PropertyQuantizedInputState();
+}
+
+class _PropertyQuantizedInputState extends State<PropertyQuantizedInput> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.descriptor.currentValue.toString(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant PropertyQuantizedInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync controller if the value changed externally (e.g. button press)
+    // We check parsing to avoid interrupting typing (e.g. "1." vs "1.0")
+    final currentVal = widget.descriptor.currentValue;
+    final textVal = double.tryParse(_controller.text);
+
+    if (textVal != currentVal) {
+      _controller.text = currentVal.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: PropertyDoubleInput(
-            descriptor: descriptor,
-            onUpdate: onUpdate,
+          child: TextField(
+            controller: _controller,
+            decoration: InputDecoration(labelText: widget.descriptor.label),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            readOnly: widget.descriptor.isReadOnly,
+            onChanged: (value) {
+              widget.descriptor.updateValue(value);
+              widget.onUpdate();
+            },
           ),
         ),
-        if (!descriptor.isReadOnly) ...[
+        if (!widget.descriptor.isReadOnly) ...[
           const SizedBox(width: 8),
           IconButton.filledTonal(
             icon: const Icon(Icons.remove, size: 18),
             padding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
             onPressed: () {
-              final current = descriptor.getter();
-              descriptor.updateValue(current - descriptor.step);
-              onUpdate();
+              final current = widget.descriptor.getter();
+              widget.descriptor.updateValue(current - widget.descriptor.step);
+              widget.onUpdate();
             },
-            tooltip: 'Subtract ${descriptor.step}',
+            tooltip: 'Subtract ${widget.descriptor.step}',
           ),
           const SizedBox(width: 4),
           IconButton.filledTonal(
@@ -55,11 +95,11 @@ class PropertyQuantizedInput extends StatelessWidget {
             padding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
             onPressed: () {
-              final current = descriptor.getter();
-              descriptor.updateValue(current + descriptor.step);
-              onUpdate();
+              final current = widget.descriptor.getter();
+              widget.descriptor.updateValue(current + widget.descriptor.step);
+              widget.onUpdate();
             },
-            tooltip: 'Add ${descriptor.step}',
+            tooltip: 'Add ${widget.descriptor.step}',
           ),
           const SizedBox(width: 4),
         ],
