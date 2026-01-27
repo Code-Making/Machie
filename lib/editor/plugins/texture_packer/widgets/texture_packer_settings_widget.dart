@@ -47,8 +47,9 @@ class TexturePackerSettingsWidget extends StatelessWidget {
                 () => _pickColor(
                   context,
                   Color(settings.checkerBoardColor1),
-                  (c) =>
-                    onChanged(settings.copyWith(checkerBoardColor1: c.toARGB32())),
+                  (c) => onChanged(
+                    settings.copyWith(checkerBoardColor1: c.toARGB32()),
+                  ),
                 ),
           ),
         ),
@@ -61,8 +62,9 @@ class TexturePackerSettingsWidget extends StatelessWidget {
                 () => _pickColor(
                   context,
                   Color(settings.checkerBoardColor2),
-                  (c) =>
-                      onChanged(settings.copyWith(checkerBoardColor2: c.toARGB32())),
+                  (c) => onChanged(
+                    settings.copyWith(checkerBoardColor2: c.toARGB32()),
+                  ),
                 ),
           ),
         ),

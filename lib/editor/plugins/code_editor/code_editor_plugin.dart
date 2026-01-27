@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
@@ -22,13 +23,14 @@ import '../../models/editor_plugin_models.dart';
 import '../../models/editor_tab_models.dart';
 import '../../models/text_editing_capability.dart';
 import '../../services/language/language_registry.dart';
-import '../../services/language/language_models.dart'; // Needed for LinkSpan
 import '../../tab_metadata_notifier.dart';
 import 'code_editor_hot_state_adapter.dart';
 import 'code_editor_hot_state_dto.dart';
 import 'code_editor_models.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_widgets.dart';
+
+import '../../services/language/language_models.dart'; // Needed for LinkSpan
 
 class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -281,7 +283,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   }
 
   // ... [Rest of the file: hotStateDtoType, adapter, createTab, buildEditor, toolbar, etc. unchanged] ...
-  
+
   @override
   String get hotStateDtoType => hotStateId;
 

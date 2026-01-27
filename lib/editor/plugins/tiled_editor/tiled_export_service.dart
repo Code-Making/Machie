@@ -659,7 +659,7 @@ class TiledExportService {
               }
             }
           }
-                }
+        }
       }
 
       // 2. Sprite Objects

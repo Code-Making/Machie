@@ -160,10 +160,10 @@ class _PreviewViewState extends ConsumerState<PreviewView>
     final double offsetY =
         (viewportSize.height - contentSize.height * scale) / 2;
 
-_transformationController.value =
-    Matrix4.identity()
-      ..translateByDouble(offsetX, offsetY, 0, 1.0)
-      ..scaleByDouble(scale, scale, scale, 1.0);
+    _transformationController.value =
+        Matrix4.identity()
+          ..translateByDouble(offsetX, offsetY, 0, 1.0)
+          ..scaleByDouble(scale, scale, scale, 1.0);
     _needsFit = false;
   }
 
@@ -412,7 +412,9 @@ _transformationController.value =
                   final size = _getSpriteSize(spriteDef);
                   return Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: _buildSpritePreview(spriteDef, resolver, size),
                   );

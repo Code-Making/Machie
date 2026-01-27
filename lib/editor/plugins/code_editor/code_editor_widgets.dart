@@ -7,6 +7,7 @@ import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:re_editor/re_editor.dart';
 
 import '../../../app/app_notifier.dart';
+import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project/project_repository.dart';
 import '../../../editor/services/editor_service.dart';
 import '../../../project/project_settings_notifier.dart';
@@ -26,7 +27,6 @@ import 'logic/code_editor_utils.dart';
 import 'widgets/code_editor_ui.dart';
 import 'widgets/code_find_panel_view.dart';
 import 'widgets/goto_line_dialog.dart';
-import '../../../data/file_handler/file_handler.dart';
 
 class CodeEditorMachine extends EditorWidget {
   @override
@@ -55,7 +55,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   late LanguageConfig _languageConfig;
   late CodeCommentFormatter _commentFormatter;
   late CodeEditorStyle _style;
-  
+
   // Specific Caches for Rendering Performance
   late SpanParser _cachedParser;
   bool _enableBracketMatching = true;
@@ -274,7 +274,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     } else {
       _languageConfig = Languages.getForFile(fileUri);
     }
-    
+
     // 2. Initial Load of Settings & Parser
     _updateInternalConfig();
 
@@ -314,7 +314,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final oldFileUri =
+        ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
     final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
 
     if (newFileUri != null && newFileUri != oldFileUri) {
@@ -336,16 +337,20 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     findController.dispose();
     super.dispose();
   }
-  
+
   void _updateInternalConfig() {
     // A. Update Language Specifics
     _commentFormatter = _getCommentFormatter();
     _cachedParser = _languageConfig.parser;
 
     // B. Read Settings
-    final settings = ref.read(effectiveSettingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?
-    )) ?? CodeEditorSettings();
+    final settings =
+        ref.read(
+          effectiveSettingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
 
     // C. Update Feature Flags
     _enableBracketMatching = settings.enableBracketMatching;
@@ -355,14 +360,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     // D. Update Visual Style
     final selectedThemeName = settings.themeName;
     final bool enableLigatures = settings.fontLigatures;
-    
-    final List<FontFeature>? fontFeatures = enableLigatures
-        ? null
-        : const [
-            FontFeature.disable('liga'),
-            FontFeature.disable('clig'),
-            FontFeature.disable('calt')
-          ];
+
+    final List<FontFeature>? fontFeatures =
+        enableLigatures
+            ? null
+            : const [
+              FontFeature.disable('liga'),
+              FontFeature.disable('clig'),
+              FontFeature.disable('calt'),
+            ];
 
     final Map<String, CodeHighlightThemeMode> languageMap = {};
     if (_languageConfig.highlightMode != null) {
@@ -377,13 +383,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       fontFamily: settings.fontFamily,
       fontFeatures: fontFeatures,
       codeTheme: CodeHighlightTheme(
-        theme: CodeThemes.availableCodeThemes[selectedThemeName] ??
+        theme:
+            CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
         languages: languageMap,
       ),
     );
   }
-  
+
   CodeCommentFormatter _getCommentFormatter() {
     if (_languageConfig.comments != null) {
       return DefaultCodeCommentFormatter(
@@ -394,7 +401,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     }
     return DefaultCodeCommentFormatter(singleLinePrefix: '');
   }
-  
+
   // void _updateStyleAndRecognizers() {
   //   final codeEditorSettings = ref.read(
   //     effectiveSettingsProvider.select(
@@ -433,7 +440,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   //     ),
   //   );
   // }
-
 
   // void _updateCommentFormatter() {
   //   if (_languageConfig.comments != null) {
@@ -588,7 +594,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     // 1. Handle Web URLs
     if (target.startsWith('http://') || target.startsWith('https://')) {
-      MachineToast.info('Opening URL: $target'); 
+      MachineToast.info('Opening URL: $target');
       return;
     }
 
@@ -606,17 +612,17 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (repo == null || currentFileMetadata == null) return;
 
     // 3. Determine Base Path & Resolution Strategy
-    // Strategy: 
+    // Strategy:
     // - If it has a line number, it's likely a log/error -> Resolve from Project Root.
     // - If it starts with 'package:', it's a package import -> (Naive) Try resolving from Project Root.
     // - If it starts with '.', it's relative -> Resolve from Context (Current Dir).
     // - Otherwise (e.g. 'lib/foo.dart'), assume Project Root (common for logs and non-relative imports).
-    
+
     final bool hasLineNumber = parsed.line != null;
- //   final bool isPackageScheme = parsed.path.startsWith('package:');
+    //   final bool isPackageScheme = parsed.path.startsWith('package:');
     final bool isRelativeImport = parsed.path.startsWith('.');
-    
-    // We treat logs (hasLineNumber) as project-root relative by default, 
+
+    // We treat logs (hasLineNumber) as project-root relative by default,
     // unless they are explicitly relative (start with .).
     final bool resolveFromContext = isRelativeImport && !hasLineNumber;
 
@@ -632,22 +638,23 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     */
 
     try {
-      final String baseUri = resolveFromContext 
-          ? repo.fileHandler.getParentUri(currentFileMetadata.file.uri) // Context Dir
-          : repo.rootUri; // Project Root
+      final String baseUri =
+          resolveFromContext
+              ? repo.fileHandler.getParentUri(
+                currentFileMetadata.file.uri,
+              ) // Context Dir
+              : repo.rootUri; // Project Root
 
       // 4. Generate Candidates (Implicit Extensions)
-      final candidates = _languageConfig.importResolver?.call(cleanPath) ?? [cleanPath];
-      
+      final candidates =
+          _languageConfig.importResolver?.call(cleanPath) ?? [cleanPath];
+
       ProjectDocumentFile? targetFile;
-      
+
       // 5. Probe File System
       for (final candidate in candidates) {
-        final result = await repo.fileHandler.resolvePath(
-          baseUri, 
-          candidate,
-        );
-        
+        final result = await repo.fileHandler.resolvePath(baseUri, candidate);
+
         if (result != null) {
           if (!result.isDirectory) {
             targetFile = result;
@@ -658,10 +665,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
       if (targetFile != null) {
         final onReady = Completer<EditorWidgetState>();
-        
+
         final didOpen = await appNotifier.openFileInEditor(
-          targetFile, 
-          onReadyCompleter: onReady
+          targetFile,
+          onReadyCompleter: onReady,
         );
 
         if (didOpen) {
@@ -671,11 +678,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             if (editorState is TextEditable) {
               final lineIndex = parsed.line! - 1;
               final colIndex = (parsed.column ?? 1) - 1;
-              
-              (editorState as TextEditable).revealRange(TextRange(
-                start: TextPosition(line: lineIndex, column: colIndex),
-                end: TextPosition(line: lineIndex, column: colIndex),
-              ));
+
+              (editorState as TextEditable).revealRange(
+                TextRange(
+                  start: TextPosition(line: lineIndex, column: colIndex),
+                  end: TextPosition(line: lineIndex, column: colIndex),
+                ),
+              );
             }
           }
         }
@@ -695,7 +704,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     // Regex for: path + optional(:line) + optional(:col)
     // We look for :digit at the end of the string.
     final match = RegExp(r'^(.*?)(?::(\d+))?(?::(\d+))?$').firstMatch(target);
-    
+
     if (match == null) return null;
 
     final path = match.group(1);
@@ -761,20 +770,27 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       // Smart format replacement
       if (originalText.startsWith('#')) {
         if (originalText.length == 7 || originalText.length == 4) {
-          newColorString = '#${(result.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+          newColorString =
+              '#${(result.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
         } else {
-          newColorString = '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
+          newColorString =
+              '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
         }
       } else if (originalText.startsWith('Color.fromARGB')) {
-        newColorString = 'Color.fromARGB(${result.a}, ${result.r}, ${result.g}, ${result.b})';
+        newColorString =
+            'Color.fromARGB(${result.a}, ${result.r}, ${result.g}, ${result.b})';
       } else if (originalText.startsWith('Color.fromRGBO')) {
         String opacity = (result.a / 255.0).toStringAsPrecision(2);
-        if (opacity.endsWith('.0')) opacity = opacity.substring(0, opacity.length - 2);
-        newColorString = 'Color.fromRGBO(${result.r}, ${result.g}, ${result.b}, $opacity)';
+        if (opacity.endsWith('.0'))
+          opacity = opacity.substring(0, opacity.length - 2);
+        newColorString =
+            'Color.fromRGBO(${result.r}, ${result.g}, ${result.b}, $opacity)';
       } else if (originalText.startsWith('Color(')) {
-        newColorString = 'Color(0x${result.toARGB32().toRadixString(16).toUpperCase()})';
+        newColorString =
+            'Color(0x${result.toARGB32().toRadixString(16).toUpperCase()})';
       } else {
-        newColorString = '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
+        newColorString =
+            '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
       }
 
       final rangeToReplace = TextRange(
@@ -1026,7 +1042,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (prev, next) {
+    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
+      prev,
+      next,
+    ) {
       if (prev != next && next != null) {
         setState(() {
           final newLanguageConfig = Languages.getForFile(next);
@@ -1041,10 +1060,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     // 2. Listen for Settings Changes
     // This is efficient: we only rebuild/recalc when settings actually change.
     ref.listen(effectiveSettingsProvider, (previous, next) {
-        // We could do deep comparison here, but _updateInternalConfig is fast enough.
-        setState(() {
-          _updateInternalConfig();
-        });
+      // We could do deep comparison here, but _updateInternalConfig is fast enough.
+      setState(() {
+        _updateInternalConfig();
+      });
     });
 
     final colorScheme = Theme.of(context).colorScheme;

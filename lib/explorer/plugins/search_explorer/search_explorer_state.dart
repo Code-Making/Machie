@@ -12,7 +12,6 @@ import 'search_explorer_settings.dart';
 
 import 'package:flutter/foundation.dart'; // For compute
 
-
 class SearchResult {
   final ProjectDocumentFile file;
   final int score;

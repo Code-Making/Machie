@@ -341,12 +341,14 @@ class SchemaNodeWidget extends StatelessWidget {
               port.type == FlowPortType.execution) {
             return false;
           }
-          if (draggingType == FlowPortType.any || port.type == FlowPortType.any) {
+          if (draggingType == FlowPortType.any ||
+              port.type == FlowPortType.any) {
             return true;
           }
           return false;
         },
-       onAcceptWithDetails: (details) => notifier.endConnectionDrag(node.id, port.key),
+        onAcceptWithDetails:
+            (details) => notifier.endConnectionDrag(node.id, port.key),
       ),
     );
   }

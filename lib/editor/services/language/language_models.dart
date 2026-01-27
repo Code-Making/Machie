@@ -1,10 +1,11 @@
 // lib/editor/services/language/language_models.dart
 
 import 'package:re_highlight/re_highlight.dart';
+
+import 'default_parsers.dart';
 import 'parsed_span_models.dart';
 
 export 'parsed_span_models.dart';
-import 'default_parsers.dart';
 
 class LanguageConfig {
   final String id;
@@ -12,7 +13,7 @@ class LanguageConfig {
   final Set<String> extensions;
   final Mode? highlightMode;
   final CommentConfig? comments;
-  
+
   /// A unified parser that returns both Links and Colors for a given line.
   final SpanParser parser;
 

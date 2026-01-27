@@ -144,7 +144,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
         content:
             'Access to the project folder "${e.metadata.name}" has been lost. Please re-grant access.',
       );
-      
+
       if (!context.mounted) {
         _talker.error(
           "Permission denied for project '${e.metadata.name}', but no UI context was available to ask for permission again. Aborting open.",
@@ -223,7 +223,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final metadataMap = ref.read(tabMetadataProvider);
 
     // THE FIX: Filter out any tabs that are associated with a VirtualDocumentFile.
-final dirtyTabsMetadata =
+    final dirtyTabsMetadata =
         tabsToCheck
             .map((tab) => metadataMap[tab.id])
             .nonNulls

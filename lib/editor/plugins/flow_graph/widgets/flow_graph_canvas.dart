@@ -39,7 +39,7 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     final matrix =
         Matrix4.identity()
           ..translateByDouble(initialPos.dx, initialPos.dy, 0.0, 1.0)
-          ..scaleByDouble(initialScale, initialScale, 1, 1.0);  
+          ..scaleByDouble(initialScale, initialScale, 1, 1.0);
 
     _transformCtrl.value = matrix;
     _transformCtrl.addListener(() {

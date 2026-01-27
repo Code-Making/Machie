@@ -15,7 +15,6 @@ import 'file_explorer_widgets.dart';
 import '../explorer_plugin_registry.dart'; // REFACTOR: Import registry
 import '../plugins/file_explorer/file_explorer_plugin.dart'; // REFACTOR: Import for type check
 
-
 class FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
   // REFACTOR: This widget no longer needs projectId

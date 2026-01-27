@@ -50,11 +50,11 @@ class Languages {
 
   // --- Optimized Parsers & Helpers ---
 
-  /// Wraps DefaultParsers with "Pruning" checks to avoid running Regexes 
+  /// Wraps DefaultParsers with "Pruning" checks to avoid running Regexes
   /// on lines that obviously don't contain colors or links.
   static List<ParsedSpan> _parseDefaultsOptimized(String line) {
     final spans = <ParsedSpan>[];
-    
+
     // Web Links Pruning
     if (line.contains('http://') || line.contains('https://')) {
       spans.addAll(DefaultParsers.parseWebLinks(line));
@@ -78,9 +78,9 @@ class Languages {
     // Pick the earliest quote
     if (quoteStart == -1) {
       quoteStart = doubleQuoteStart;
-    } else if(doubleQuoteStart != -1 && doubleQuoteStart < quoteStart){ 
+    } else if (doubleQuoteStart != -1 && doubleQuoteStart < quoteStart) {
       quoteStart = doubleQuoteStart;
-    } 
+    }
 
     if (quoteStart == -1) return null;
 
@@ -100,14 +100,23 @@ class Languages {
 
   // --- Shared Resolver for JS/TS ---
   static List<String> _jsResolutionStrategy(String path) {
-    if (path.endsWith('.ts') || path.endsWith('.tsx') || 
-        path.endsWith('.js') || path.endsWith('.jsx')) {
+    if (path.endsWith('.ts') ||
+        path.endsWith('.tsx') ||
+        path.endsWith('.js') ||
+        path.endsWith('.jsx')) {
       return [path];
     }
     return [
       path,
-      '$path.ts', '$path.tsx', '$path.js', '$path.jsx', '$path.d.ts',
-      '$path/index.ts', '$path/index.tsx', '$path/index.js', '$path/index.jsx',
+      '$path.ts',
+      '$path.tsx',
+      '$path.js',
+      '$path.jsx',
+      '$path.d.ts',
+      '$path/index.ts',
+      '$path/index.tsx',
+      '$path/index.js',
+      '$path/index.jsx',
     ];
   }
 
@@ -127,18 +136,23 @@ class Languages {
     name: 'Dart',
     extensions: {'dart'},
     highlightMode: langDart,
-    comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+    comments: const CommentConfig(
+      singleLine: '//',
+      blockBegin: '/*',
+      blockEnd: '*/',
+    ),
     importFormatter: (path) => "import '$path';",
     parser: (line) {
       final spans = _parseDefaultsOptimized(line);
       final trimmed = line.trimLeft();
 
       // 1. Imports/Exports/Parts (String check instead of Regex)
-      if (trimmed.startsWith('import ') || trimmed.startsWith('export ') || trimmed.startsWith('part ')) {
+      if (trimmed.startsWith('import ') ||
+          trimmed.startsWith('export ') ||
+          trimmed.startsWith('part ')) {
         final link = _findLinkAfterIndex(line, 0);
         if (link != null) spans.add(link);
-      } 
-      
+      }
       // 2. Analysis Logs / Stack Traces (Manual parsing instead of Regex)
       // Look for ".dart:" signature
       else {
@@ -156,11 +170,12 @@ class Languages {
           // Scan forwards for line numbers (digits after :)
           int end = dartExtIndex + 6; // skip ".dart:"
           bool foundLine = false;
-          
+
           // Consume Line Number
           while (end < line.length) {
             final charCode = line.codeUnitAt(end);
-            if (charCode >= 48 && charCode <= 57) { // 0-9
+            if (charCode >= 48 && charCode <= 57) {
+              // 0-9
               end++;
               foundLine = true;
             } else {
@@ -170,26 +185,28 @@ class Languages {
 
           // Optional: Consume Column Number (:5)
           if (foundLine && end < line.length && line[end] == ':') {
-             int colEnd = end + 1;
-             bool foundCol = false;
-             while (colEnd < line.length) {
-                final charCode = line.codeUnitAt(colEnd);
-                if (charCode >= 48 && charCode <= 57) {
-                  colEnd++;
-                  foundCol = true;
-                } else {
-                  break;
-                }
-             }
-             if (foundCol) end = colEnd;
+            int colEnd = end + 1;
+            bool foundCol = false;
+            while (colEnd < line.length) {
+              final charCode = line.codeUnitAt(colEnd);
+              if (charCode >= 48 && charCode <= 57) {
+                colEnd++;
+                foundCol = true;
+              } else {
+                break;
+              }
+            }
+            if (foundCol) end = colEnd;
           }
 
           if (foundLine) {
-            spans.add(LinkSpan(
-              start: start,
-              end: end,
-              target: line.substring(start, end),
-            ));
+            spans.add(
+              LinkSpan(
+                start: start,
+                end: end,
+                target: line.substring(start, end),
+              ),
+            );
           }
         }
       }
@@ -202,12 +219,16 @@ class Languages {
     name: 'JavaScript',
     extensions: {'js', 'jsx', 'mjs', 'cjs'},
     highlightMode: langJavascript,
-    comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+    comments: const CommentConfig(
+      singleLine: '//',
+      blockBegin: '/*',
+      blockEnd: '*/',
+    ),
     importFormatter: (path) => "import '$path';",
     importResolver: _jsResolutionStrategy,
     parser: (line) {
       final spans = _parseDefaultsOptimized(line);
-      
+
       // Optimization: If no quotes, no imports.
       if (!line.contains("'") && !line.contains('"')) return spans;
 
@@ -225,7 +246,6 @@ class Languages {
         final link = _findLinkAfterIndex(line, 0);
         if (link != null) spans.add(link);
       }
-      
       // 3. "require('...')"
       else {
         int requireIndex = line.indexOf('require(');
@@ -234,7 +254,7 @@ class Languages {
           if (link != null) spans.add(link);
         }
       }
-      
+
       return spans;
     },
   );
@@ -245,7 +265,11 @@ class Languages {
     name: 'TypeScript',
     extensions: {'ts', 'tsx'},
     highlightMode: langTypescript,
-    comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+    comments: const CommentConfig(
+      singleLine: '//',
+      blockBegin: '/*',
+      blockEnd: '*/',
+    ),
     importFormatter: (path) => "import '$path';",
     importResolver: _jsResolutionStrategy,
     parser: _javascript.parser, // Reuse JS parser
@@ -287,13 +311,13 @@ class Languages {
     importFormatter: (path) => "@import '$path';",
     parser: (line) {
       final spans = _parseDefaultsOptimized(line);
-      
+
       // @import "..."
       if (line.contains('@import')) {
         final link = _findLinkAfterIndex(line, line.indexOf('@import'));
         if (link != null) spans.add(link);
       }
-      
+
       // url(...)
       int urlIndex = line.indexOf('url(');
       if (urlIndex != -1) {
@@ -306,11 +330,13 @@ class Languages {
           // Handle unquoted url(path)
           int closeParen = line.indexOf(')', urlIndex);
           if (closeParen != -1) {
-             spans.add(LinkSpan(
-               start: urlIndex + 4,
-               end: closeParen,
-               target: line.substring(urlIndex + 4, closeParen).trim(),
-             ));
+            spans.add(
+              LinkSpan(
+                start: urlIndex + 4,
+                end: closeParen,
+                target: line.substring(urlIndex + 4, closeParen).trim(),
+              ),
+            );
           }
         }
       }
@@ -323,23 +349,30 @@ class Languages {
     name: 'C++',
     extensions: {'cpp', 'c', 'cc', 'h', 'hpp'},
     highlightMode: langCpp,
-    comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+    comments: const CommentConfig(
+      singleLine: '//',
+      blockBegin: '/*',
+      blockEnd: '*/',
+    ),
     importFormatter: (path) => '#include "$path"',
     parser: (line) {
       final spans = _parseDefaultsOptimized(line);
       if (line.trimLeft().startsWith('#include')) {
         final link = _findLinkAfterIndex(line, 0);
-        if (link != null) {spans.add(link);}
-        else {
+        if (link != null) {
+          spans.add(link);
+        } else {
           // Handle angle brackets <...>
           int startAngle = line.indexOf('<');
           int endAngle = line.indexOf('>', startAngle);
           if (startAngle != -1 && endAngle != -1) {
-            spans.add(LinkSpan(
-              start: startAngle + 1,
-              end: endAngle,
-              target: line.substring(startAngle + 1, endAngle),
-            ));
+            spans.add(
+              LinkSpan(
+                start: startAngle + 1,
+                end: endAngle,
+                target: line.substring(startAngle + 1, endAngle),
+              ),
+            );
           }
         }
       }
@@ -360,11 +393,13 @@ class Languages {
       while (closeBracket != -1) {
         int closeParen = line.indexOf(')', closeBracket);
         if (closeParen != -1) {
-          spans.add(LinkSpan(
-            start: closeBracket + 2,
-            end: closeParen,
-            target: line.substring(closeBracket + 2, closeParen),
-          ));
+          spans.add(
+            LinkSpan(
+              start: closeBracket + 2,
+              end: closeParen,
+              target: line.substring(closeBracket + 2, closeParen),
+            ),
+          );
         }
         closeBracket = line.indexOf('](', closeBracket + 2);
       }
@@ -391,11 +426,13 @@ class Languages {
           if (openBrace != -1) {
             int closeBrace = line.indexOf('}', openBrace);
             if (closeBrace != -1) {
-              spans.add(LinkSpan(
-                start: openBrace + 1,
-                end: closeBrace,
-                target: line.substring(openBrace + 1, closeBrace),
-              ));
+              spans.add(
+                LinkSpan(
+                  start: openBrace + 1,
+                  end: closeBrace,
+                  target: line.substring(openBrace + 1, closeBrace),
+                ),
+              );
             }
           }
         }
@@ -428,7 +465,11 @@ class Languages {
       name: 'Java',
       extensions: {'java'},
       highlightMode: langJava,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
       parser: _parseDefaultsOptimized,
     ),
     LanguageConfig(
@@ -436,7 +477,11 @@ class Languages {
       name: 'Kotlin',
       extensions: {'kt', 'kts'},
       highlightMode: langKotlin,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
       parser: _parseDefaultsOptimized,
     ),
     LanguageConfig(

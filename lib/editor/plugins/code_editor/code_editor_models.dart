@@ -44,7 +44,7 @@ class CodeEditorSettings extends PluginSettings {
   bool fontLigatures;
   String scratchpadFilename;
   String? scratchpadLocalPath;
-  
+
   // --- NEW SETTINGS ---
   bool enableBracketMatching;
   bool enableColorPreviews;
@@ -124,7 +124,8 @@ class CodeEditorSettings extends PluginSettings {
           setScratchpadLocalPathToNull
               ? null
               : (scratchpadLocalPath ?? this.scratchpadLocalPath),
-      enableBracketMatching: enableBracketMatching ?? this.enableBracketMatching,
+      enableBracketMatching:
+          enableBracketMatching ?? this.enableBracketMatching,
       enableColorPreviews: enableColorPreviews ?? this.enableColorPreviews,
       enableLinks: enableLinks ?? this.enableLinks,
     );

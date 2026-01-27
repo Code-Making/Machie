@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 
 /// A function signature for parsing a line of text into interactable spans.
@@ -25,7 +26,7 @@ class LinkSpan extends ParsedSpan {
     required super.end,
     required this.target,
   });
-  
+
   @override
   String toString() => 'LinkSpan($start-$end, target: $target)';
 }
@@ -33,7 +34,7 @@ class LinkSpan extends ParsedSpan {
 /// Represents a color code (hex, RGB, etc.) that should be highlighted.
 class ColorSpan extends ParsedSpan {
   final Color color;
-  
+
   /// The original text format (e.g. "#FFFFFF" vs "Color(0xFFFFFFFF)")
   /// Used to ensure we respect the user's format when modifying it.
   final String originalText;

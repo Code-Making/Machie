@@ -357,7 +357,10 @@ class TiledMapPainter extends CustomPainter {
         final tileset = map.tilesetByTileGId(gid.tile);
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
-        final ui.Image? image = resolver.getImage(imageSource, tileset: tileset);
+        final ui.Image? image = resolver.getImage(
+          imageSource,
+          tileset: tileset,
+        );
 
         final srcRect = tileset.computeDrawRect(tile);
         final source = Rect.fromLTWH(
@@ -497,11 +500,11 @@ class TiledMapPainter extends CustomPainter {
     final scaleX = (layer.image.width ?? image.width) / image.width;
     final scaleY = (layer.image.height ?? image.height) / image.height;
 
-final offsetMatrix =
+    final offsetMatrix =
         Matrix4.identity()
           ..translateByDouble(totalOffsetX, totalOffsetY, 0, 1.0)
-          ..scaleByDouble(scaleX, scaleY, 1, 1.0);  
-                  
+          ..scaleByDouble(scaleX, scaleY, 1, 1.0);
+
     final matrix =
         Matrix4.copy(invertedMatrix)
           ..multiply(transform)
@@ -796,7 +799,7 @@ final offsetMatrix =
         yOffset = object.height - painter.height;
         break;
       case VAlign.top:
-      // default:
+        // default:
         yOffset = 0;
         break;
     }
@@ -861,7 +864,7 @@ extension on HAlign {
       case HAlign.justify:
         return TextAlign.justify;
       case HAlign.left:
-      // default:
+        // default:
         return TextAlign.left;
     }
   }

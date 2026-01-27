@@ -1,16 +1,17 @@
 import 'dart:math';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
 import 'package:re_editor/re_editor.dart';
 
-import 'code_editor_types.dart';
 import '../../../services/language/language_models.dart';
 import '../../../services/language/parsed_span_models.dart';
+import 'code_editor_types.dart';
 
 class CodeEditorUtils {
-  
   // --- Bracket Matching Logic (Unchanged) ---
-  
+
   static BracketHighlightState calculateBracketHighlights(
     CodeLineEditingController controller,
   ) {
@@ -63,7 +64,8 @@ class CodeEditorUtils {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
     final isOpen = brackets.keys.contains(char);
-    final target = isOpen
+    final target =
+        isOpen
             ? brackets[char]
             : brackets.keys.firstWhere(
               (k) => brackets[k] == char,
@@ -104,7 +106,7 @@ class CodeEditorUtils {
   // --- Unified Highlight Span Builder Pipeline ---
 
   /// The main entry point for building the enhanced TextSpan for a line.
-  /// 
+  ///
   /// Changes:
   /// 1. Uses [languageConfig.parser] to find all decorations (links, colors).
   /// 2. Uses generic [_applyParsedSpans] to render them.
@@ -118,7 +120,7 @@ class CodeEditorUtils {
     required void Function(LinkSpan) onLinkTap,
     void Function(int lineIndex, ColorSpan span)? onColorTap,
     // CHANGED: Pass the parser function directly
-    required SpanParser parser, 
+    required SpanParser parser,
     // CHANGED: Boolean flags passed directly
     required bool enableBracketMatching,
     required bool enableColorPreviews,
@@ -170,14 +172,14 @@ class CodeEditorUtils {
   }) {
     if (spans.isEmpty) return originalSpan;
 
-    // Sort spans to ensure we process them in order. 
-    // Note: Overlapping spans are not currently supported by this simple walker 
+    // Sort spans to ensure we process them in order.
+    // Note: Overlapping spans are not currently supported by this simple walker
     // (the first one encountered wins or they might nest oddly).
     // Parsers should ideally return non-overlapping spans.
     spans.sort((a, b) => a.start.compareTo(b.start));
 
     // Flatten to unique ranges if necessary, but assuming clean input for now.
-    
+
     List<TextSpan> walk(TextSpan span, int currentPos) {
       final newChildren = <TextSpan>[];
       final spanStart = currentPos;
@@ -269,25 +271,29 @@ class CodeEditorUtils {
             decoration: TextDecoration.underline,
             //color: Colors.blueAccent, // Or theme primary color
           ),
-          recognizer: onLinkTap == null 
-              ? null 
-              : (TapGestureRecognizer()..onTap = () => onLinkTap(parsedSpan)),
+          recognizer:
+              onLinkTap == null
+                  ? null
+                  : (TapGestureRecognizer()
+                    ..onTap = () => onLinkTap(parsedSpan)),
         );
 
       case ColorSpan():
         // Calculate contrast color for text
         final isDark = parsedSpan.color.computeLuminance() < 0.5;
         final textColor = isDark ? Colors.white : Colors.black;
-        
+
         return TextSpan(
           text: text,
           style: baseStyle.copyWith(
             backgroundColor: parsedSpan.color,
             color: textColor,
           ),
-          recognizer: onColorTap == null
-              ? null
-              : (TapGestureRecognizer()..onTap = () => onColorTap(parsedSpan)),
+          recognizer:
+              onColorTap == null
+                  ? null
+                  : (TapGestureRecognizer()
+                    ..onTap = () => onColorTap(parsedSpan)),
         );
     }
   }
@@ -356,14 +362,14 @@ class CodeEditorUtils {
 
   // --- Character/Text Processing Utilities (Unchanged) ---
   // ... [findSmallestEnclosingBlock, etc. remain as is] ...
-  
+
   static ({CodeLineSelection full, CodeLineSelection contents})?
   findSmallestEnclosingBlock(
     CodeLineSelection selection,
     CodeLineEditingController controller,
   ) {
-     // ... (Implementation from previous code)
-     const List<String> openDelimiters = ['(', '[', '{', '"', "'"];
+    // ... (Implementation from previous code)
+    const List<String> openDelimiters = ['(', '[', '{', '"', "'"];
     CodeLinePosition scanPos = selection.start;
     while (true) {
       final char = _getChar(scanPos, controller);

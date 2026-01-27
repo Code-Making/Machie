@@ -131,7 +131,7 @@ class TmjWriter {
       common['type'] = 'objectgroup';
       common['draworder'] = layer.drawOrder.toJson();
       common['color'] = layer.color.toJson();
-          common['objects'] =
+      common['objects'] =
           layer.objects.map((o) => _buildObjectJson(o)).toList();
     } else if (layer is ImageLayer) {
       common['type'] = 'imagelayer';

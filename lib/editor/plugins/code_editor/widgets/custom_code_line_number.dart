@@ -75,8 +75,9 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
     required Color highlightColor,
   }) : _highlightedLines = highlightedLines,
        _highlightColor = highlightColor,
-       _notifier = notifier // Also pass it to the superclass constructor
-       {
+       _notifier =
+           notifier // Also pass it to the superclass constructor
+           {
     _highlightPaint = Paint()..color = _highlightColor;
   }
 

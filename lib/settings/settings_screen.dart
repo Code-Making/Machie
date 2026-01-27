@@ -130,10 +130,7 @@ class _ExpandableSettingsList extends StatelessWidget {
   final String title;
   final List<Widget> items;
 
-  const _ExpandableSettingsList({
-    required this.title,
-    required this.items,
-  });
+  const _ExpandableSettingsList({required this.title, required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +214,7 @@ class _GeneralSettingsCard extends ConsumerWidget {
               kAccentColors.entries.map((entry) {
                 final color = entry.value;
                 final isSelected =
-                effectiveSettings.accentColorValue == color.toARGB32();
+                    effectiveSettings.accentColorValue == color.toARGB32();
                 return GestureDetector(
                   onTap:
                       () => onChanged(

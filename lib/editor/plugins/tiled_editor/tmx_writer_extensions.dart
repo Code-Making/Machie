@@ -238,11 +238,11 @@ extension ObjectGroupWriter on ObjectGroup {
           _writeCommonAttributes(builder);
           // Tiled supports #RRGGBB or #AARRGGBB
           builder.attribute('color', color.toHex(includeAlpha: true));
-                  builder.attribute(
+          builder.attribute(
             'draworder',
             drawOrder.name.replaceAll('Order', ''),
           );
-                }
+        }
         properties.writeTo(builder);
 
         for (final object in objects) {
@@ -308,7 +308,7 @@ extension TiledObjectWriter on TiledObject {
 
         if (isEllipse) {
           builder.element('ellipse');
-        } else if (isPoint){
+        } else if (isPoint) {
           builder.element('point');
         } else if (isPolygon) {
           builder.element(

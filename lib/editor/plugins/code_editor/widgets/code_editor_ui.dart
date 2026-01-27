@@ -121,7 +121,8 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
 }
 
 class GrabbableScrollbar extends StatefulWidget {
-  const GrabbableScrollbar({super.key, 
+  const GrabbableScrollbar({
+    super.key,
     required this.details,
     required this.thickness,
     required this.child,

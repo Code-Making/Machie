@@ -285,7 +285,7 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
     );
 
     return DragTarget<String>(
-    onWillAcceptWithDetails: (details) {
+      onWillAcceptWithDetails: (details) {
         final draggedId = details.data;
         if (draggedId == node.id) return false;
         return true;
@@ -380,8 +380,8 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
     return DragTarget<String>(
       // Corrected: Use onWillAccept to detect entry and set hover state
       onWillAcceptWithDetails: (details) {
-          setState(() => _hover = true);
-          return true;
+        setState(() => _hover = true);
+        return true;
       },
       onLeave: (_) => setState(() => _hover = false),
       onAcceptWithDetails: (details) {
@@ -397,7 +397,9 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
             height: 80,
             color:
                 _hover
-                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                    ? Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1)
                     : Colors.transparent,
             alignment: Alignment.center,
             child: _hover ? const Text("Move to Root") : null,
@@ -420,16 +422,17 @@ class _SourceDropPainter extends CustomPainter {
           ..style = PaintingStyle.stroke;
     if (position == _SourceDropPos.above) {
       canvas.drawLine(Offset(0, 1), Offset(size.width, 1), p);
-    } else if (position == _SourceDropPos.below){
+    } else if (position == _SourceDropPos.below) {
       canvas.drawLine(
         Offset(0, size.height - 1),
         Offset(size.width, size.height - 1),
         p,
       );
-   } else{
+    } else {
       canvas.drawRect(Rect.fromLTWH(1, 1, size.width - 2, size.height - 2), p);
     }
   }
+
   @override
   bool shouldRepaint(_SourceDropPainter old) =>
       old.position != position || old.color != color;

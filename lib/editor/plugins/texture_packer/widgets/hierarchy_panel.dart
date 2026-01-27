@@ -441,9 +441,9 @@ class _HierarchyRootDropZoneState extends State<_HierarchyRootDropZone> {
   Widget build(BuildContext context) {
     return DragTarget<String>(
       // Corrected: Use onWillAccept to detect entry and set hover state
-     onWillAcceptWithDetails: (details) {
-          setState(() => _isHovered = true);
-          return true;
+      onWillAcceptWithDetails: (details) {
+        setState(() => _isHovered = true);
+        return true;
       },
       onLeave: (_) => setState(() => _isHovered = false),
       onAcceptWithDetails: (details) {
