@@ -285,39 +285,36 @@ class _TilePaletteState extends State<TilePalette> {
     final imageSize = Size(image.width.toDouble(), image.height.toDouble());
     final currentSelection = _selectionRect ?? widget.selectedTileRect;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      dragStartBehavior: DragStartBehavior.down,
-      onTapUp: (details) {
+return Listener(
+      onPointerDown: (event) {
         if (_isPanZoomMode) return;
         final inv = Matrix4.copy(_transformationController.value)..invert();
         final vec = inv.transform3(
-          Vector3(details.localPosition.dx, details.localPosition.dy, 0),
-        );
-        _handleTap(Offset(vec.x, vec.y));
-      },
-      onPanStart: (details) {
-        if (_isPanZoomMode) return;
-        final inv = Matrix4.copy(_transformationController.value)..invert();
-        final vec = inv.transform3(
-          Vector3(details.localPosition.dx, details.localPosition.dy, 0),
+          Vector3(event.localPosition.dx, event.localPosition.dy, 0),
         );
         final positionInContent = Offset(vec.x, vec.y);
-        _dragStart = positionInContent;
-        _lastDragPosition = _dragStart;
-        _handleDrag(_dragStart!, isEnd: false);
+
+        if (event.buttons == 1) { // Left mouse button for tap/drag
+          _handleTap(positionInContent);
+          _dragStart = positionInContent;
+          _lastDragPosition = _dragStart;
+          _handleDrag(_dragStart!, isEnd: false);
+        }
       },
-      onPanUpdate: (details) {
+      onPointerMove: (event) {
         if (_isPanZoomMode) return;
         final inv = Matrix4.copy(_transformationController.value)..invert();
         final vec = inv.transform3(
-          Vector3(details.localPosition.dx, details.localPosition.dy, 0),
+          Vector3(event.localPosition.dx, event.localPosition.dy, 0),
         );
         final positionInContent = Offset(vec.x, vec.y);
-        _lastDragPosition = positionInContent;
-        _handleDrag(positionInContent);
+
+        if (event.buttons == 1) { // Left mouse button drag
+          _lastDragPosition = positionInContent;
+          _handleDrag(positionInContent);
+        }
       },
-      onPanEnd: (details) {
+      onPointerUp: (event) {
         if (_isPanZoomMode) return;
         final endPosition = _lastDragPosition ?? _dragStart;
         if (endPosition != null) {

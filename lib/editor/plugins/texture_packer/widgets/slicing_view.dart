@@ -87,32 +87,41 @@ class SlicingView extends ConsumerWidget {
         }
 
         return SizedBox.expand(
-          child: GestureDetector(
-            onPanStart: (details) => onGestureStart(details.localPosition),
-            onPanUpdate: (details) => onGestureUpdate(details.localPosition),
-            onPanEnd: (_) => onGestureEnd(),
-            child: Listener(
-              onPointerUp: (_) => onGestureEnd(),
-              child: InteractiveViewer(
-                transformationController: transformationController,
-                boundaryMargin: const EdgeInsets.all(double.infinity),
-                minScale: 0.1,
-                maxScale: 16.0,
-                panEnabled: isPanZoomMode,
-                scaleEnabled: isPanZoomMode,
-                constrained: false,
-                child: SizedBox(
-                  width: imageSize.width,
-                  height: imageSize.height,
-                  child: CustomPaint(
-                    size: imageSize,
-                    painter: _SlicingPainter(
-                      image: image,
-                      slicing: sourceConfig.slicing,
-                      dragSelection: dragSelection,
-                      activeSelection: activeSelection,
-                      settings: settings,
-                    ),
+child: Listener(
+            onPointerDown: (event) {
+              if (!isPanZoomMode) {
+                onGestureStart(event.localPosition);
+              }
+            },
+            onPointerMove: (event) {
+              if (!isPanZoomMode) {
+                onGestureUpdate(event.localPosition);
+              }
+            },
+            onPointerUp: (_) {
+              if (!isPanZoomMode) {
+                onGestureEnd();
+              }
+            },
+            child: InteractiveViewer(
+              transformationController: transformationController,
+              boundaryMargin: const EdgeInsets.all(double.infinity),
+              minScale: 0.1,
+              maxScale: 16.0,
+              panEnabled: isPanZoomMode,
+              scaleEnabled: isPanZoomMode,
+              constrained: false,
+              child: SizedBox(
+                width: imageSize.width,
+                height: imageSize.height,
+                child: CustomPaint(
+                  size: imageSize,
+                  painter: _SlicingPainter(
+                    image: image,
+                    slicing: sourceConfig.slicing,
+                    dragSelection: dragSelection,
+                    activeSelection: activeSelection,
+                    settings: settings,
                   ),
                 ),
               ),
