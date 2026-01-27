@@ -379,18 +379,18 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
   Widget build(BuildContext context) {
     return DragTarget<String>(
       // Corrected: Use onWillAccept to detect entry and set hover state
-      onWillAccept: (d) {
-        if (d != null) {
+      onWillAcceptWithDetails: (details) {
+        if (details.data != null) {
           setState(() => _hover = true);
           return true;
         }
         return false;
       },
       onLeave: (_) => setState(() => _hover = false),
-      onAccept: (id) {
+      onAcceptWithDetails: (details) {
         setState(() => _hover = false);
         widget.notifier.moveSourceNode(
-          id,
+          details.data,
           'root',
           widget.rootNode.children.length,
         );
