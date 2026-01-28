@@ -55,11 +55,11 @@ class ObjectEditorAppBar extends StatelessWidget
                 ),
               ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-          tooltip: 'Delete Selected Object(s)',
-          onPressed: isObjectSelected ? onDeleteObject : null,
-        ),
+        // IconButton(
+        //   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+        //   tooltip: 'Delete Selected Object(s)',
+        //   onPressed: isObjectSelected ? onDeleteObject : null,
+        // ),
         IconButton(
           icon: const Icon(Icons.manage_search),
           tooltip: 'Inspect Selected Object',
