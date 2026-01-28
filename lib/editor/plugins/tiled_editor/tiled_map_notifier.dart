@@ -799,68 +799,78 @@ class TiledMapNotifier extends ChangeNotifier {
     _pushHistory(_PropertyChangeHistoryAction(before, after));
   }
 
-void updateMapProperties({
+  void updateMapProperties({
     required int width,
     required int height,
     required int tileWidth,
     required int tileHeight,
   }) {
-    // Update Map Root Properties
+    // 1. recursively capture the old data
+    final oldLayersData = <int, List<List<Gid>>>{};
+    void captureData(List<Layer> layers) {
+      for (final layer in layers) {
+        if (layer is TileLayer && layer.tileData != null) {
+          oldLayersData[layer.id!] = layer.tileData!;
+        } else if (layer is Group) {
+          captureData(layer.layers);
+        }
+      }
+    }
+    captureData(_map.layers);
+
+    // 2. Update Map properties
     _map.width = width;
     _map.height = height;
     _map.tileWidth = tileWidth;
     _map.tileHeight = tileHeight;
 
-    // Iterate and replace TileLayers with resized deep copies
-    for (int i = 0; i < _map.layers.length; i++) {
-      final oldLayer = _map.layers[i];
-      
-      if (oldLayer is TileLayer) {
-        // 1. Create a clean deep copy of the layer to carry over properties (opacity, name, etc.)
-        // This ensures we aren't mutating the old object reference.
-        final newLayer = deepCopyLayer(oldLayer) as TileLayer;
+    // 3. recursively update layers
+    void updateLayers(List<Layer> layers) {
+      for (final layer in layers) {
+        if (layer is Group) {
+          updateLayers(layer.layers);
+        } else if (layer is TileLayer) {
+          final oldData = oldLayersData[layer.id];
+          final oldHeight = oldData?.length ?? 0;
+          final oldWidth = oldHeight > 0 ? (oldData?[0].length ?? 0) : 0;
 
-        // 2. Set new dimensions on the new layer
-        newLayer.width = width;
-        newLayer.height = height;
+          layer.width = width;
+          layer.height = height;
 
-        // 3. Regenerate the 2D tileData grid
-        // We read from the OLD layer (oldLayer.tileData) and write to a fresh list.
-        // This strictly drops any data outside the new bounds (crop) 
-        // and pads with empty tiles (0) if the map grew.
-        final oldData = oldLayer.tileData;
-        final oldH = oldLayer.height;
-        final oldW = oldLayer.width;
+          // Regenerate 2D tileData with new dimensions.
+          // Data outside the new bounds is ignored (deleted).
+          // New space is padded with empty tiles.
+          final newTileData = List.generate(
+            height,
+            (y) => List.generate(width, (x) {
+              if (oldData != null && y < oldHeight && x < oldWidth) {
+                // Create a new Gid instance to avoid reference issues
+                final oldGid = oldData[y][x];
+                return Gid(oldGid.tile, oldGid.flips);
+              }
+              return Gid(0, Flips.defaults());
+            }),
+          );
 
-        final newTileData = List.generate(
-          height,
-          (y) => List.generate(width, (x) {
-            // Check if coordinates existed in the old layer
-            if (oldData != null && y < oldH && x < oldW) {
-              return oldData[y][x];
-            }
-            // Otherwise return empty tile
-            return Gid.fromInt(0);
-          }),
-        );
+          layer.tileData = newTileData;
 
-        newLayer.tileData = newTileData;
-
-        // 4. Regenerate the flattened 'data' list from the new 2D grid.
-        // This ensures the 1D array (used by some parsers/exporters) matches the 2D array exactly.
-        newLayer.data = newTileData.expand((row) => row).map((gid) {
-          int raw = gid.tile;
-          // Preserve flip flags
-          if (gid.flips.horizontally) raw |= 0x80000000;
-          if (gid.flips.vertically) raw |= 0x40000000;
-          if (gid.flips.diagonally) raw |= 0x20000000;
-          return raw;
-        }).toList();
-
-        // 5. Replace the layer in the map
-        _map.layers[i] = newLayer;
+          // Re-calculate the 1D flat data array entirely from the new 2D grid.
+          // This ensures the serialized data matches the visual grid exactly.
+          layer.data = newTileData.expand((row) => row).map((gid) {
+            int raw = gid.tile;
+            // Re-apply Tiled flip flags to the raw integer
+            // 0x80000000 = Horizontal flip
+            // 0x40000000 = Vertical flip
+            // 0x20000000 = Diagonal flip
+            if (gid.flips.horizontally) raw |= 0x80000000;
+            if (gid.flips.vertically) raw |= 0x40000000;
+            if (gid.flips.diagonally) raw |= 0x20000000;
+            return raw;
+          }).toList();
+        }
       }
     }
+    updateLayers(_map.layers);
 
     notifyListeners();
   }
