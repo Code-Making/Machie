@@ -60,6 +60,10 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
+  
+  List<LlmModelInfo> _availableModels = [];
+  bool _isLoadingModels = false;
+
 
   final List<ContextItem> _contextItems = [];
   int _composingTokenCount = 0;
@@ -71,11 +75,20 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   void init() {
+     // Load defaults from Global Settings if file has no metadata
+     final globalSettings = ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+     final defaultProvider = globalSettings?.refactorProviderId ?? 'dummy';
+     final defaultModel = globalSettings?.selectedModels[defaultProvider];
+     
     _controller = LlmEditorController(
       initialMessages: widget.tab.initialMessages,
+      initialProviderId: widget.tab.initialProviderId ?? defaultProvider,
+      initialModel: widget.tab.initialModel ?? defaultModel,
     );
+    
     _controller.addListener(_onControllerUpdate);
-    _textController.addListener(_updateComposingTokenCount);
+    // Fetch models for the active provider immediately
+    _fetchModelsForCurrentProvider();
   }
 
   @override
@@ -685,39 +698,42 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-  Widget _buildTopBar() {
-    final settings =
-        ref.watch(
-          effectiveSettingsProvider.select(
-            (s) => s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?,
-          ),
-        ) ??
-        LlmEditorSettings();
-
-    final model = settings.selectedModels[settings.selectedProviderId];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: Theme.of(
-        context,
-      ).appBarTheme.backgroundColor?.withValues(alpha: 0.5),
-      child: Row(
-        children: [
-          Text(
-            // MODIFIED: Use displayName
-            model?.displayName ?? 'No Model Selected',
-            style: Theme.of(context).textTheme.bodySmall,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          Text(
-            // MODIFIED: Display total tokens vs limit
-            'Total Tokens: ~$_totalTokenCount${model != null ? ' / ${model.inputTokenLimit}' : ''}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
+  Widget buildTopBar() { // Abstract this out in main build method
+     return Container(
+       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+       color: Theme.of(context).appBarTheme.backgroundColor?.withValues(alpha: 0.5),
+       child: ListenableBuilder(
+         listenable: _controller,
+         builder: (context, _) {
+            // Dropdowns
+            return Row(
+              children: [
+                DropdownButton<String>(
+                    value: _controller.currentProviderId,
+                    underline: Container(),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    items: allLlmProviders.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
+                    onChanged: (val) {
+                        if (val != null) {
+                            _controller.setProvider(val);
+                            // fetch models
+                        }
+                    },
+                ),
+                const SizedBox(width: 12),
+                // Model Dropdown placeholder (requires _availableModels populated)
+                if (_controller.currentModel != null)
+                   Text(_controller.currentModel!.displayName)
+                else
+                   const Text("Select Model"),
+                
+                const Spacer(),
+                // Token count logic
+              ],
+            );
+         }
+       )
+     );
   }
 
   Widget _buildChatInput() {
@@ -845,10 +861,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Future<EditorContent> getContent() async {
-    final List<Map<String, dynamic>> jsonList =
-        _controller.messages.map((dm) => dm.message.toJson()).toList();
+    final Map<String, dynamic> output = {
+        'version': 1,
+        'providerId': _controller.currentProviderId,
+        'model': _controller.currentModel?.toJson(),
+        'messages': _controller.messages.map((m) => m.toJson()).toList(),
+    };
     const encoder = JsonEncoder.withIndent('  ');
-    return EditorContentString(encoder.convert(jsonList));
+    return EditorContentString(encoder.convert(output));
   }
 
   @override
@@ -860,16 +880,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
-    final List<ChatMessage> messagesToSave =
-        _controller.messages
-            .map((displayMessage) => displayMessage.message)
-            .toList();
-
-    final hotStateDto = LlmEditorHotStateDto(
-      messages: messagesToSave,
-      baseContentHash: _baseContentHash,
+    return LlmEditorHotStateDto(
+        messages: _controller.messages.map((m) => m.message).toList(),
+        selectedProviderId: _controller.currentProviderId,
+        selectedModel: _controller.currentModel,
+        baseContentHash: _baseContentHash
     );
-    return Future.value(hotStateDto);
   }
 
   @override

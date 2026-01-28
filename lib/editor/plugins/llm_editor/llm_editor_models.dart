@@ -6,12 +6,12 @@ import '../../models/editor_plugin_models.dart';
 import '../../models/editor_tab_models.dart';
 import 'llm_editor_widget.dart';
 
+// ChatMessage, LlmModelInfo, ContextItem, LlmEditorTab remain unchanged...
 @immutable
 class ChatMessage {
   final String role;
   final String content;
   final List<ContextItem>? context;
-
   final int? totalConversationTokenCount;
 
   const ChatMessage({
@@ -40,34 +40,31 @@ class ChatMessage {
     return ChatMessage(
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
-      context:
-          (json['context'] as List<dynamic>?)?.map((item) {
-            final itemMap = Map<String, dynamic>.from(item);
-            return ContextItem(
-              source: itemMap['source'],
-              content: itemMap['content'],
-            );
-          }).toList(),
+      context: (json['context'] as List<dynamic>?)?.map((item) {
+        final itemMap = Map<String, dynamic>.from(item);
+        return ContextItem(
+          source: itemMap['source'],
+          content: itemMap['content'],
+        );
+      }).toList(),
       totalConversationTokenCount: json['totalConversationTokenCount'] as int?,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'role': role,
-    'content': content,
-    if (context != null && context!.isNotEmpty)
-      'context':
-          context!
+        'role': role,
+        'content': content,
+        if (context != null && context!.isNotEmpty)
+          'context': context!
               .map((item) => {'source': item.source, 'content': item.content})
               .toList(),
-    if (totalConversationTokenCount != null)
-      'totalConversationTokenCount': totalConversationTokenCount,
-  };
+        if (totalConversationTokenCount != null)
+          'totalConversationTokenCount': totalConversationTokenCount,
+      };
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-
     return other is ChatMessage &&
         other.role == role &&
         other.content == content &&
@@ -76,14 +73,12 @@ class ChatMessage {
   }
 
   @override
-  int get hashCode {
-    return Object.hash(
-      role,
-      content,
-      const DeepCollectionEquality().hash(context),
-      totalConversationTokenCount,
-    );
-  }
+  int get hashCode => Object.hash(
+        role,
+        content,
+        const DeepCollectionEquality().hash(context),
+        totalConversationTokenCount,
+      );
 }
 
 @immutable
@@ -110,19 +105,19 @@ class LlmModelInfo {
       outputTokenLimit: json['outputTokenLimit'] as int? ?? 0,
       supportedGenerationMethods:
           (json['supportedGenerationMethods'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
+                  ?.map((e) => e as String)
+                  .toList() ??
+              [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'displayName': displayName,
-    'inputTokenLimit': inputTokenLimit,
-    'outputTokenLimit': outputTokenLimit,
-    'supportedGenerationMethods': supportedGenerationMethods,
-  };
+        'name': name,
+        'displayName': displayName,
+        'inputTokenLimit': inputTokenLimit,
+        'outputTokenLimit': outputTokenLimit,
+        'supportedGenerationMethods': supportedGenerationMethods,
+      };
 
   LlmModelInfo clone() {
     return LlmModelInfo(
@@ -151,10 +146,16 @@ class LlmEditorTab extends EditorTab {
   final GlobalKey<LlmEditorWidgetState> editorKey;
 
   final List<ChatMessage> initialMessages;
+  
+  // New fields passed from createTab logic
+  final String? initialProviderId;
+  final LlmModelInfo? initialModel;
 
   LlmEditorTab({
     required super.plugin,
     required this.initialMessages,
+    this.initialProviderId,
+    this.initialModel,
     super.id,
     super.onReadyCompleter,
   }) : editorKey = GlobalKey<LlmEditorWidgetState>();
@@ -164,19 +165,23 @@ class LlmEditorTab extends EditorTab {
 }
 
 class LlmEditorSettings extends PluginSettings {
-  String selectedProviderId;
+  // Renamed from selectedProviderId -> refactorProviderId
+  String refactorProviderId;
   Map<String, String> apiKeys;
+  
+  // We keep 'selectedModels' but these act as defaults/refactor-targets now.
   Map<String, LlmModelInfo?> selectedModels;
 
   LlmEditorSettings({
-    this.selectedProviderId = 'dummy',
+    this.refactorProviderId = 'dummy',
     this.apiKeys = const {},
     this.selectedModels = const {},
   });
 
   @override
   void fromJson(Map<String, dynamic> json) {
-    selectedProviderId = json['selectedProviderId'] ?? 'dummy';
+    // Migration check: check old keys if new ones don't exist
+    refactorProviderId = json['refactorProviderId'] ?? json['selectedProviderId'] ?? 'dummy';
     apiKeys = Map<String, String>.from(json['apiKeys'] ?? {});
     selectedModels = (json['selectedModels'] as Map<String, dynamic>? ?? {})
         .map(
@@ -191,20 +196,20 @@ class LlmEditorSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-    'selectedProviderId': selectedProviderId,
-    'apiKeys': apiKeys,
-    'selectedModels': selectedModels.map(
-      (key, value) => MapEntry(key, value?.toJson()),
-    )..removeWhere((key, value) => value == null),
-  };
+        'refactorProviderId': refactorProviderId,
+        'apiKeys': apiKeys,
+        'selectedModels': selectedModels.map(
+          (key, value) => MapEntry(key, value?.toJson()),
+        )..removeWhere((key, value) => value == null),
+      };
 
   LlmEditorSettings copyWith({
-    String? selectedProviderId,
+    String? refactorProviderId,
     Map<String, String>? apiKeys,
     Map<String, LlmModelInfo?>? selectedModels,
   }) {
     return LlmEditorSettings(
-      selectedProviderId: selectedProviderId ?? this.selectedProviderId,
+      refactorProviderId: refactorProviderId ?? this.refactorProviderId,
       apiKeys: apiKeys ?? this.apiKeys,
       selectedModels: selectedModels ?? this.selectedModels,
     );
@@ -213,7 +218,7 @@ class LlmEditorSettings extends PluginSettings {
   @override
   MachineSettings clone() {
     return LlmEditorSettings(
-      selectedProviderId: selectedProviderId,
+      refactorProviderId: refactorProviderId,
       apiKeys: Map.from(apiKeys),
       selectedModels: Map.from(
         selectedModels.map((key, value) => MapEntry(key, value?.clone())),
@@ -232,7 +237,6 @@ class ContextItem {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-
     return other is ContextItem &&
         other.source == source &&
         other.content == content;
