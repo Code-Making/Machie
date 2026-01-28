@@ -27,6 +27,7 @@ import 'widgets/streaming_chat_bubble.dart';
 import 'llm_editor_controller.dart'; // NEW
 
 import 'widgets/editing_chat_bubble.dart'; // NEW IMPORT
+import 'providers/llm_provider.dart';
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
 
