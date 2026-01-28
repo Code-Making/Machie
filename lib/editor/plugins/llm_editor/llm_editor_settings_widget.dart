@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'llm_editor_models.dart';
 import 'providers/llm_provider.dart';
+import 'providers/gemini_provider.dart';
 import 'providers/llm_provider_factory.dart';
 
 class LlmEditorSettingsUI extends ConsumerStatefulWidget {
@@ -40,7 +41,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
   @override
   void didUpdateWidget(covariant LlmEditorSettingsUI oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the external settings changed the provider ID (rare in this view, but possible)
+    // If the external settings changed the provider ID
     if (oldWidget.settings.refactorProviderId !=
         widget.settings.refactorProviderId) {
       setState(() {
@@ -72,8 +73,6 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     });
 
     final currentId = _currentEditingProviderId;
-    // Use the key currently in the controller (so user can test without saving)
-    // fallback to saved settings if empty.
     final currentKey = _apiKeyController.text.trim().isNotEmpty
         ? _apiKeyController.text.trim()
         : (widget.settings.apiKeys[currentId] ?? '');
@@ -89,21 +88,23 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
       final models = await provider.listModels();
 
       if (!mounted) return;
-      if (currentId != _currentEditingProviderId) return; // switched while loading
+      if (currentId != _currentEditingProviderId) return;
 
       setState(() {
         _availableModels = models;
         _isLoadingModels = false;
       });
-      
+
       // Auto-select a model if none selected or invalid
       final currentSelected = widget.settings.selectedModels[currentId];
       if (models.isNotEmpty) {
-          if (currentSelected == null || !models.contains(currentSelected)) {
-              final newModels = Map<String, LlmModelInfo?>.from(widget.settings.selectedModels);
-              newModels[currentId] = models.first;
-              widget.onChanged(widget.settings.copyWith(selectedModels: newModels));
-          }
+        if (currentSelected == null || !models.contains(currentSelected)) {
+          final newModels = Map<String, LlmModelInfo?>.from(
+            widget.settings.selectedModels,
+          );
+          newModels[currentId] = models.first;
+          widget.onChanged(widget.settings.copyWith(selectedModels: newModels));
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -127,10 +128,12 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
           padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
           child: Text(
             "Global Refactoring Configuration",
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.primary),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
           ),
         ),
-        
+
         // 1. Provider Dropdown
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -147,13 +150,14 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
             onChanged: (value) {
               if (value != null) {
                 // Save new provider ID
-                final newSettings = widget.settings.copyWith(refactorProviderId: value);
+                final newSettings =
+                    widget.settings.copyWith(refactorProviderId: value);
                 widget.onChanged(newSettings);
-                
+
                 // Update Local UI State
                 setState(() {
-                   _currentEditingProviderId = value;
-                   _updateApiControllerText();
+                  _currentEditingProviderId = value;
+                  _updateApiControllerText();
                 });
                 _fetchModels();
               }
@@ -168,14 +172,13 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
           child: TextFormField(
             controller: _apiKeyController,
             decoration: InputDecoration(
-              labelText: '${_currentEditingProviderId.toUpperCase()} API Key',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                 icon: const Icon(Icons.refresh),
-                 tooltip: 'Refresh Models',
-                 onPressed: _fetchModels,
-              )
-            ),
+                labelText: '${_currentEditingProviderId.toUpperCase()} API Key',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh Models',
+                  onPressed: _fetchModels,
+                )),
             obscureText: true,
             onChanged: (value) {
               final newApiKeys = Map<String, String>.from(
@@ -187,7 +190,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
             onFieldSubmitted: (_) => _fetchModels(),
           ),
         ),
-        
+
         const SizedBox(height: 16),
 
         // 3. Models Dropdown
@@ -197,10 +200,12 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
               ? const Center(child: LinearProgressIndicator())
               : DropdownButtonFormField<LlmModelInfo>(
                   decoration: const InputDecoration(
-                      labelText: 'Default Model',
-                      border: OutlineInputBorder(),
+                    labelText: 'Default Model',
+                    border: OutlineInputBorder(),
                   ),
-                  value: _availableModels.contains(selectedModelInfo) ? selectedModelInfo : null,
+                  value: _availableModels.contains(selectedModelInfo)
+                      ? selectedModelInfo
+                      : null,
                   isExpanded: true,
                   hint: const Text('Select a model'),
                   items: _availableModels
@@ -222,15 +227,16 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
                   },
                 ),
         ),
-        
+
         if (selectedModelInfo != null)
-           Padding(
-             padding: const EdgeInsets.all(16.0),
-             child: Text(
-               'Tokens: ${selectedModelInfo.inputTokenLimit} In / ${selectedModelInfo.outputTokenLimit} Out',
-               style: Theme.of(context).textTheme.caption,
-             ),
-           ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Tokens: ${selectedModelInfo.inputTokenLimit} In / ${selectedModelInfo.outputTokenLimit} Out',
+              // FIXED: Changed caption -> bodySmall
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
       ],
     );
   }
