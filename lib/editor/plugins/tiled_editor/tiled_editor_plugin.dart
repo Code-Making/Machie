@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import  'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
@@ -131,57 +132,57 @@ class TiledEditorPlugin extends EditorPlugin {
     return null;
   }
 
-  @override
-  List<CommandGroup> getCommandGroups() {
-    // This map is needed for the dynamic icon
-    const objectToolIcons = {
-      ObjectTool.select: Icons.touch_app_outlined,
-      ObjectTool.move: Icons.open_with_outlined,
-      ObjectTool.addRectangle: Icons.rectangle_outlined,
-      ObjectTool.addEllipse: Icons.circle_outlined,
-      ObjectTool.addPoint: Icons.add_location_alt_outlined,
-      ObjectTool.addPolygon: Icons.pentagon_outlined,
-      ObjectTool.addPolyline: Icons.polyline_outlined,
-      ObjectTool.addText: Icons.text_fields_outlined,
-      ObjectTool.addSprite: Icons.image_search, // <-- NEW ICON
-    };
+  // @override
+  // List<CommandGroup> getCommandGroups() {
+  //   // This map is needed for the dynamic icon
+  //   const objectToolIcons = {
+  //     ObjectTool.select: Icons.touch_app_outlined,
+  //     ObjectTool.move: Icons.open_with_outlined,
+  //     ObjectTool.addRectangle: Icons.rectangle_outlined,
+  //     ObjectTool.addEllipse: Icons.circle_outlined,
+  //     ObjectTool.addPoint: Icons.add_location_alt_outlined,
+  //     ObjectTool.addPolygon: Icons.pentagon_outlined,
+  //     ObjectTool.addPolyline: Icons.polyline_outlined,
+  //     ObjectTool.addText: Icons.text_fields_outlined,
+  //     ObjectTool.addSprite: Icons.image_search, // <-- NEW ICON
+  //   };
 
-    return [
-      CommandGroup(
-        id: 'tiled_object_tools_group',
-        label: 'Object Tools',
-        // The commands will be displayed as icons only in the dropdown
-        showLabels: false,
-        defaultPositions: [objectToolsToolbar],
-        // The icon is a Consumer that rebuilds when the active tool changes
-        icon: Consumer(
-          builder: (context, ref, _) {
-            final ctx = ref.watch(activeCommandContextProvider);
+  //   return [
+  //     CommandGroup(
+  //       id: 'tiled_object_tools_group',
+  //       label: 'Object Tools',
+  //       // The commands will be displayed as icons only in the dropdown
+  //       showLabels: false,
+  //       defaultPositions: [objectToolsToolbar],
+  //       // The icon is a Consumer that rebuilds when the active tool changes
+  //       icon: Consumer(
+  //         builder: (context, ref, _) {
+  //           final ctx = ref.watch(activeCommandContextProvider);
 
-            // Default icon if the Tiled editor isn't active
-            var activeToolIcon = objectToolIcons[ObjectTool.select]!;
+  //           // Default icon if the Tiled editor isn't active
+  //           var activeToolIcon = objectToolIcons[ObjectTool.select]!;
 
-            if (ctx is TiledEditorCommandContext &&
-                ctx.mode == TiledEditorMode.object) {
-              activeToolIcon =
-                  objectToolIcons[ctx.activeObjectTool] ?? activeToolIcon;
-            }
+  //           if (ctx is TiledEditorCommandContext &&
+  //               ctx.mode == TiledEditorMode.object) {
+  //             activeToolIcon =
+  //                 objectToolIcons[ctx.activeObjectTool] ?? activeToolIcon;
+  //           }
 
-            return Icon(activeToolIcon);
-          },
-        ),
-        // This group will be placed in the toolbar by default
-        commandIds:
-            ObjectTool.values
-                .where((e) => e != ObjectTool.select)
-                .where((e) => e != ObjectTool.move)
-                .map((tool) => 'tiled_object_tool_${tool.name}')
-                .toList(),
-        isDeletable: false, // This is a plugin-defined group
-        sourcePlugin: id,
-      ),
-    ];
-  }
+  //           return Icon(activeToolIcon);
+  //         },
+  //       ),
+  //       // This group will be placed in the toolbar by default
+  //       commandIds:
+  //           ObjectTool.values
+  //               .where((e) => e != ObjectTool.select)
+  //               .where((e) => e != ObjectTool.move)
+  //               .map((tool) => 'tiled_object_tool_${tool.name}')
+  //               .toList(),
+  //       isDeletable: false, // This is a plugin-defined group
+  //       sourcePlugin: id,
+  //     ),
+  //   ];
+  // }
 
   @override
   List<Command> getCommands(Ref ref) {
@@ -433,7 +434,7 @@ class TiledEditorPlugin extends EditorPlugin {
                 ctx is TiledEditorCommandContext &&
                 ctx.paintMode == TiledPaintMode.erase;
             return Icon(
-              Icons.rectangle_outlined,
+              (LucideIcons.eraser),
               color: isActive ? Theme.of(context).colorScheme.primary : null,
             );
           },
