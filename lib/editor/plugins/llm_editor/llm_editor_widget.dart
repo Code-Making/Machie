@@ -23,7 +23,6 @@ import 'widgets/chat_bubble.dart';
 import 'widgets/context_widgets.dart';
 import 'widgets/llm_editor_dialogs.dart';
 import 'widgets/streaming_chat_bubble.dart';
-import 'providers/gemini_provider.dart'; // Explicit import
 
 import 'llm_editor_controller.dart'; // NEW
 
@@ -215,19 +214,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     String userPrompt, {
     List<ContextItem>? context,
   }) async {
-    setState(() {});
-
-    final settings =
-        ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings]
-            as LlmEditorSettings?;
-            
-    if (settings == null) {
-      MachineToast.error('LLM settings are not available.');
-      _controller.stopStreaming();
-      return;
-    }
-    
-    // FIX: Phase 2 Logic -> Use Local Controller State
+    setState(() {});    
       final pid = _controller.currentProviderId;
       final settings = ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
       final apiKey = settings?.apiKeys[pid] ?? '';
