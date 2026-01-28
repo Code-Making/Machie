@@ -901,11 +901,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Future<EditorContent> getContent() async {
+    // Corrected to use .toJson() on underlying ChatMessage
     final Map<String, dynamic> output = {
         'version': 1,
         'providerId': _controller.currentProviderId,
         'model': _controller.currentModel?.toJson(),
-        'messages': _controller.messages.map((m) => m.toJson()).toList(),
+        // FIX IS HERE: .message.toJson()
+        'messages': _controller.messages.map((dm) => dm.message.toJson()).toList(),
     };
     const encoder = JsonEncoder.withIndent('  ');
     return EditorContentString(encoder.convert(output));
