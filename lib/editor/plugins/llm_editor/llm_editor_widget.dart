@@ -194,36 +194,48 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     String userPrompt, {
     List<ContextItem>? context,
   }) async {
-    setState(() {}); // Update UI to reflect loading state immediately
+    setState(() {});
 
     final settings =
         ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings]
             as LlmEditorSettings?;
+            
     if (settings == null) {
       MachineToast.error('LLM settings are not available.');
       _controller.stopStreaming();
-      setState(() {});
       return;
     }
+    
+    // FIX: Phase 2 Logic -> Use Local Controller State
+    final providerId = _controller.currentProviderId;
+    final model = _controller.currentModel;
+    final apiKey = settings.apiKeys[providerId] ?? '';
 
-    final model = settings.selectedModels[settings.selectedProviderId];
     if (model == null) {
       MachineToast.error(
-        'No LLM model selected. Please configure one in the settings.',
+        'No Model selected for this chat. Select one in the toolbar.',
       );
       _controller.stopStreaming();
-      setState(() {});
       return;
     }
 
-    final provider = ref.read(llmServiceProvider);
+    // Provider Construction
+    var provider = allLlmProviders.firstWhere(
+        (p) => p.id == providerId, 
+        orElse: () => allLlmProviders.first
+    );
+    // Explicit key injection
+    if (providerId == 'gemini') {
+        provider = GeminiProvider(apiKey);
+    }
+    // Phase 3 will clean this construction logic up
 
     final userMessage = ChatMessage(
       role: 'user',
       content: userPrompt,
       context: context,
     );
-    // Use the controller's current messages for the check
+    
     final conversationForTokenCheck = [
       ..._controller.messages.map((dm) => dm.message),
       userMessage,
@@ -244,7 +256,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           'Conversation is too long ($tokenCount tokens). The current model limit is ${model.inputTokenLimit} tokens.',
         );
         _controller.removeLastMessage();
-        setState(() {}); // To update UI
+        setState(() {});
         return;
       }
 
@@ -253,7 +265,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
         userMessage.copyWith(totalConversationTokenCount: tokenCount),
       );
     } catch (e) {
-      MachineToast.error('Failed to count tokens. Check API Key.');
+      MachineToast.error('Failed to count tokens. Check API Key or Model selection.');
       _controller.removeLastMessage();
       setState(() {});
       return;
@@ -267,6 +279,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             .sublist(0, _controller.messages.length - 1)
             .map((dm) => dm.message)
             .toList();
+            
     final responseStream = provider.generateResponse(
       conversation: conversationForApi,
       model: model,
@@ -302,7 +315,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
         _controller.appendChunkToStreamingMessage('\n\n--- Error ---\n$e');
         _controller.stopStreaming();
         _llmSubscription = null;
-        setState(() {}); // Update isLoading state
+        setState(() {});
       },
       onDone: () {
         if (mounted) {
@@ -310,7 +323,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           streamingMessage = streamingMessage.copyWith(content: finalContent);
           _controller.finalizeStreamingMessage(streamingMessage);
           _llmSubscription = null;
-          setState(() {}); // Update isLoading state
+          setState(() {});
         }
       },
       cancelOnError: true,
