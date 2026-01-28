@@ -737,7 +737,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-  Widget buildTopBar() { // Abstract this out in main build method
+  Widget _buildTopBar() { // Abstract this out in main build method
      return Container(
        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
        color: Theme.of(context).appBarTheme.backgroundColor?.withValues(alpha: 0.5),
