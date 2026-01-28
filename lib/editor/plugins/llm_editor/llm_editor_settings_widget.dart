@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'llm_editor_models.dart';
+import 'providers/llm_provider.dart';
+import 'providers/gemini_provider.dart';
 import 'providers/llm_provider_factory.dart';
 
 class LlmEditorSettingsUI extends ConsumerStatefulWidget {
@@ -21,36 +23,39 @@ class LlmEditorSettingsUI extends ConsumerStatefulWidget {
 
 class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
   late TextEditingController _apiKeyController;
-  bool _isLoadingModels = true;
+  bool _isLoadingModels = false;
   List<LlmModelInfo> _availableModels = [];
   late String _currentEditingProviderId;
 
   @override
   void initState() {
     super.initState();
-    // Default to the refactor provider, or dummy if not set
     _currentEditingProviderId = widget.settings.refactorProviderId;
     _apiKeyController = TextEditingController(
-      text: widget.settings.apiKeys[_currentEditingProviderId],
+      text: widget.settings.apiKeys[_currentEditingProviderId] ?? '',
     );
+    // Fetch models immediately
     _fetchModels();
   }
 
   @override
   void didUpdateWidget(covariant LlmEditorSettingsUI oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If external setting changed the provider ID
-    if (oldWidget.settings.refactorProviderId != widget.settings.refactorProviderId) {
+    // If the external settings changed the provider ID (rare in this view, but possible)
+    if (oldWidget.settings.refactorProviderId !=
+        widget.settings.refactorProviderId) {
+      setState(() {
         _currentEditingProviderId = widget.settings.refactorProviderId;
         _updateApiControllerText();
-        _fetchModels();
+      });
+      _fetchModels();
     }
   }
-  
+
   void _updateApiControllerText() {
     final key = widget.settings.apiKeys[_currentEditingProviderId];
     if (_apiKeyController.text != key) {
-        _apiKeyController.text = key ?? '';
+      _apiKeyController.text = key ?? '';
     }
   }
 
@@ -66,59 +71,53 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
       _isLoadingModels = true;
       _availableModels = [];
     });
-    
-    // We create a provider instance just to fetch list
-    // This is a bit inefficient creating a provider on the fly but sufficient for settings UI
-    // In a robust app, use the ref to get the service based on params.
-    final provider = allLlmProviders.firstWhere(
-        (p) => p.id == _currentEditingProviderId, 
-        orElse: () => allLlmProviders.first
-    );
-    
-    // Hack: We need to pass the API Key to the provider to list models if it requires auth
-    // The factories are auto-dispose so we can't easily reconfigure them here without updating global state.
-    // For now, we rely on the implementation detail that we update global settings API key 
-    // before calling fetchModels
-    
-    // Actually, let's just trigger a global ref read via the existing factory,
-    // assuming the User hit "Save" or we update state on fly. 
-    // But `llmServiceProvider` reads from `effectiveSettingsProvider`. 
-    // This widget updates a COPY. 
-    // We will simulate listing:
-    List<LlmModelInfo> models = [];
+
+    final currentId = _currentEditingProviderId;
+    // Use the key currently in the controller (so user can test without saving)
+    // fallback to saved settings if empty.
+    final currentKey = _apiKeyController.text.trim().isNotEmpty
+        ? _apiKeyController.text.trim()
+        : (widget.settings.apiKeys[currentId] ?? '');
+
     try {
-        // Warning: This won't work perfectly for Gemini until the settings are applied 
-        // because GeminiProvider needs the key from the 'live' settings. 
-        // For the purpose of this refactor, we accept this limitation or assume 
-        // the user applied keys previously.
-        // A better approach would be updating the factory to take a Config object.
-        models = await provider.listModels(); 
+      LlmProvider provider;
+      if (currentId == 'gemini') {
+        provider = GeminiProvider(currentKey);
+      } else {
+        provider = DummyProvider();
+      }
+
+      final models = await provider.listModels();
+
+      if (!mounted) return;
+      if (currentId != _currentEditingProviderId) return; // switched while loading
+
+      setState(() {
+        _availableModels = models;
+        _isLoadingModels = false;
+      });
+      
+      // Auto-select a model if none selected or invalid
+      final currentSelected = widget.settings.selectedModels[currentId];
+      if (models.isNotEmpty) {
+          if (currentSelected == null || !models.contains(currentSelected)) {
+              final newModels = Map<String, LlmModelInfo?>.from(widget.settings.selectedModels);
+              newModels[currentId] = models.first;
+              widget.onChanged(widget.settings.copyWith(selectedModels: newModels));
+          }
+      }
     } catch (e) {
-        models = [];
+      if (mounted) {
+        setState(() {
+          _isLoadingModels = false;
+        });
+      }
     }
-
-    if (!mounted) return;
-
-    final currentModel = widget.settings.selectedModels[_currentEditingProviderId];
-    
-    // Auto-select first available if current is invalid
-    if (models.isNotEmpty &&
-        (currentModel == null || !models.contains(currentModel))) {
-      final newModels = Map<String, LlmModelInfo?>.from(
-        widget.settings.selectedModels,
-      );
-      newModels[_currentEditingProviderId] = models.first;
-      widget.onChanged(widget.settings.copyWith(selectedModels: newModels));
-    }
-
-    setState(() {
-      _availableModels = models;
-      _isLoadingModels = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Current refactoring model selected
     final LlmModelInfo? selectedModelInfo =
         widget.settings.selectedModels[widget.settings.refactorProviderId];
 
@@ -126,39 +125,57 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
           child: Text(
-            "Global Refactoring & Defaults",
-            style: Theme.of(context).textTheme.titleSmall,
+            "Global Refactoring Configuration",
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.primary),
           ),
         ),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(
-            labelText: 'Provider (for Code Edits)',
-            helperText: 'Used by the "Refactor Selection" command',
-          ),
-          value: widget.settings.refactorProviderId,
-          items: allLlmProviders
-                  .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
-                  .toList(),
-          onChanged: (value) {
-            if (value != null) {
-                // Change UI state focus
-                _currentEditingProviderId = value;
-                _updateApiControllerText();
-                // Save setting
-                widget.onChanged(widget.settings.copyWith(
-                    refactorProviderId: value,
-                ));
+        
+        // 1. Provider Dropdown
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: DropdownButtonFormField<String>(
+            decoration: const InputDecoration(
+              labelText: 'AI Provider',
+              helperText: 'Select provider used for code modification commands',
+              border: OutlineInputBorder(),
+            ),
+            value: widget.settings.refactorProviderId,
+            items: allLlmProviders
+                .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                // Save new provider ID
+                final newSettings = widget.settings.copyWith(refactorProviderId: value);
+                widget.onChanged(newSettings);
+                
+                // Update Local UI State
+                setState(() {
+                   _currentEditingProviderId = value;
+                   _updateApiControllerText();
+                });
                 _fetchModels();
-            }
-          },
+              }
+            },
+          ),
         ),
         const SizedBox(height: 16),
-        TextFormField(
+
+        // 2. API Key Field
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: TextFormField(
             controller: _apiKeyController,
             decoration: InputDecoration(
-                labelText: 'API Key for ${_currentEditingProviderId}',
+              labelText: '${_currentEditingProviderId.toUpperCase()} API Key',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                 icon: const Icon(Icons.refresh),
+                 tooltip: 'Refresh Models',
+                 onPressed: _fetchModels,
+              )
             ),
             obscureText: true,
             onChanged: (value) {
@@ -168,53 +185,51 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
               newApiKeys[_currentEditingProviderId] = value;
               widget.onChanged(widget.settings.copyWith(apiKeys: newApiKeys));
             },
-            onEditingComplete: () {
-              // Trigger reload when done editing
-               // This won't effectively work until settings are committed by the parent SettingsScreen
-            },
-        ),
-        const SizedBox(height: 16),
-        if (_isLoadingModels)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20.0),
-            child: LinearProgressIndicator(),
-          )
-        else if (_availableModels.isNotEmpty)
-          DropdownButtonFormField<LlmModelInfo>(
-            decoration: const InputDecoration(labelText: 'Default Model'),
-            value: selectedModelInfo,
-            isExpanded: true,
-            items: _availableModels
-                    .map((m) => DropdownMenuItem(
-                        value: m,
-                        child: Text(m.displayName),
-                    ))
-                    .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                final newModels = Map<String, LlmModelInfo?>.from(
-                  widget.settings.selectedModels,
-                );
-                newModels[widget.settings.refactorProviderId] = value;
-                widget.onChanged(
-                  widget.settings.copyWith(selectedModels: newModels),
-                );
-              }
-            },
-          )
-        else
-          ListTile(
-            leading: Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            title: Text('No models found'),
-            subtitle: Text('Save API key settings first'),
+            onFieldSubmitted: (_) => _fetchModels(),
           ),
+        ),
+        
+        const SizedBox(height: 16),
 
+        // 3. Models Dropdown
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: _isLoadingModels
+              ? const Center(child: LinearProgressIndicator())
+              : DropdownButtonFormField<LlmModelInfo>(
+                  decoration: const InputDecoration(
+                      labelText: 'Default Model',
+                      border: OutlineInputBorder(),
+                  ),
+                  value: _availableModels.contains(selectedModelInfo) ? selectedModelInfo : null,
+                  isExpanded: true,
+                  hint: const Text('Select a model'),
+                  items: _availableModels
+                      .map((m) => DropdownMenuItem(
+                            value: m,
+                            child: Text(m.displayName),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      final newModels = Map<String, LlmModelInfo?>.from(
+                        widget.settings.selectedModels,
+                      );
+                      newModels[_currentEditingProviderId] = value;
+                      widget.onChanged(
+                        widget.settings.copyWith(selectedModels: newModels),
+                      );
+                    }
+                  },
+                ),
+        ),
+        
         if (selectedModelInfo != null)
            Padding(
-             padding: const EdgeInsets.only(top:8.0, left: 16.0),
+             padding: const EdgeInsets.all(16.0),
              child: Text(
-               'Limit: ${selectedModelInfo.inputTokenLimit} in / ${selectedModelInfo.outputTokenLimit} out',
-               style: Theme.of(context).textTheme.bodySmall,
+               'Tokens: ${selectedModelInfo.inputTokenLimit} In / ${selectedModelInfo.outputTokenLimit} Out',
+               style: Theme.of(context).textTheme.caption,
              ),
            ),
       ],

@@ -23,6 +23,7 @@ import 'widgets/chat_bubble.dart';
 import 'widgets/context_widgets.dart';
 import 'widgets/llm_editor_dialogs.dart';
 import 'widgets/streaming_chat_bubble.dart';
+import 'providers/gemini_provider.dart'; // Explicit import
 
 import 'llm_editor_controller.dart'; // NEW
 
@@ -76,19 +77,19 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   void init() {
-     // Load defaults from Global Settings if file has no metadata
-     final globalSettings = ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
-     final defaultProvider = globalSettings?.refactorProviderId ?? 'dummy';
-     final defaultModel = globalSettings?.selectedModels[defaultProvider];
-     
+    final settings = ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    // Fallback logic
+    final defaultProvider = settings?.refactorProviderId ?? 'dummy';
+    final defaultModel = settings?.selectedModels[defaultProvider];
+
     _controller = LlmEditorController(
       initialMessages: widget.tab.initialMessages,
       initialProviderId: widget.tab.initialProviderId ?? defaultProvider,
       initialModel: widget.tab.initialModel ?? defaultModel,
     );
-    
     _controller.addListener(_onControllerUpdate);
-    // Fetch models for the active provider immediately
+    _textController.addListener(_updateComposingTokenCount);
+
     _fetchModelsForCurrentProvider();
   }
 
@@ -132,30 +133,49 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     }
   }
   
-    Future<void> _fetchModelsForCurrentProvider() async {
-      final pid = _controller.currentProviderId;
-      final apiKey = (ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?)?.apiKeys[pid] ?? '';
-      
-      // We manually fetch because factory is rigid
-      final provider = allLlmProviders.firstWhere((p) => p.id == pid);
-      if (provider.id == 'gemini') {
-         // Force set key? 
-         // In phase 3 we will properly construct providers. 
-         // For now assuming GeminiProvider internals allow access or using same instance hack?
-         // Actually GeminiProvider stored the key in constructor. The one in allLlmProviders is likely empty key.
-         // FIX: Use ref.read() manually or create ephemeral provider
+  Future<void> _fetchModelsForCurrentProvider() async {
+    final providerId = _controller.currentProviderId;
+    
+    // Read LIVE settings for the key
+    final settings = ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    final apiKey = settings?.apiKeys[providerId] ?? '';
+
+    setState(() {
+      _isLoadingModels = true;
+      _availableModels = [];
+    });
+
+    try {
+      // Manually construct provider to ensure Key is passed
+      LlmProvider provider;
+      if (providerId == 'gemini') {
+          provider = GeminiProvider(apiKey);
+      } else {
+          provider = DummyProvider();
       }
+
+      final models = await provider.listModels();
+
+      if (!mounted) return;
       
-      try {
-          // Construct ephemeral provider with key to list models
-          // This duplicates logic but separates concerns.
-          // Note: In Phase 3 this gets cleaned up.
-          setState(() => _isLoadingModels = true);
-          
-          // Dirty Phase 2 fix: using settings directly
-          // See logic in GeminiProvider.listModels()
-      } catch (e) {
+      setState(() {
+        _availableModels = models;
+      });
+      
+      // Auto-Selection logic if current model is null or mismatch
+      if (models.isNotEmpty) {
+          if (_controller.currentModel == null || !models.contains(_controller.currentModel)) {
+             // Prefer one if previously saved ID matches
+             // But simpler here: default to first
+             _controller.setModel(models.first);
+          }
       }
+    } catch (e) {
+      // machine toast is noisy here if initial load fails silently
+      // print(e);
+    } finally {
+      if (mounted) setState(() => _isLoadingModels = false);
+    }
   }
 
   // Token counting methods
@@ -208,28 +228,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     }
     
     // FIX: Phase 2 Logic -> Use Local Controller State
-    final providerId = _controller.currentProviderId;
-    final model = _controller.currentModel;
-    final apiKey = settings.apiKeys[providerId] ?? '';
-
-    if (model == null) {
-      MachineToast.error(
-        'No Model selected for this chat. Select one in the toolbar.',
-      );
-      _controller.stopStreaming();
-      return;
-    }
-
-    // Provider Construction
-    var provider = allLlmProviders.firstWhere(
-        (p) => p.id == providerId, 
-        orElse: () => allLlmProviders.first
-    );
-    // Explicit key injection
-    if (providerId == 'gemini') {
-        provider = GeminiProvider(apiKey);
-    }
-    // Phase 3 will clean this construction logic up
+      final pid = _controller.currentProviderId;
+      final settings = ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+      final apiKey = settings?.apiKeys[pid] ?? '';
+      
+      final model = _controller.currentModel;
+      if (model == null) return;
+      
+      LlmProvider provider;
+      if (pid == 'gemini') provider = GeminiProvider(apiKey);
+      else provider = DummyProvider();
 
     final userMessage = ChatMessage(
       role: 'user',
@@ -738,42 +746,80 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-  Widget _buildTopBar() { // Abstract this out in main build method
-     return Container(
-       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-       color: Theme.of(context).appBarTheme.backgroundColor?.withValues(alpha: 0.5),
-       child: ListenableBuilder(
-         listenable: _controller,
-         builder: (context, _) {
-            // Dropdowns
-            return Row(
-              children: [
-                DropdownButton<String>(
-                    value: _controller.currentProviderId,
-                    underline: Container(),
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    items: allLlmProviders.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
-                    onChanged: (val) {
-                        if (val != null) {
-                            _controller.setProvider(val);
-                            // fetch models
-                        }
-                    },
+  Widget _buildTopBar() {
+    final theme = Theme.of(context);
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      decoration: BoxDecoration(
+         color: theme.appBarTheme.backgroundColor,
+         border: Border(bottom: BorderSide(color: theme.dividerColor, width: 0.5)),
+      ),
+      child: ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) {
+          return Row(
+            children: [
+              // Provider Dropdown
+              DropdownButton<String>(
+                value: _controller.currentProviderId,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.arrow_drop_down, size: 16),
+                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                items: allLlmProviders.map((p) => DropdownMenuItem(
+                   value: p.id, child: Text(p.name)
+                )).toList(),
+                onChanged: _controller.isLoading ? null : (newVal) {
+                   if (newVal != null && newVal != _controller.currentProviderId) {
+                       _controller.setProvider(newVal);
+                       _fetchModelsForCurrentProvider();
+                   }
+                },
+              ),
+              const VerticalDivider(indent: 12, endIndent: 12),
+              
+              // Model Dropdown
+              Expanded(
+                 child: _isLoadingModels 
+                   ? const Align(
+                       alignment: Alignment.centerLeft,
+                       child: SizedBox(width:16, height:16, child: CircularProgressIndicator(strokeWidth:2)),
+                     )
+                   : DropdownButton<LlmModelInfo>(
+                        isExpanded: true,
+                        value: _availableModels.contains(_controller.currentModel) ? _controller.currentModel : null,
+                        hint: const Text("Select Model"),
+                        underline: const SizedBox.shrink(),
+                        icon: const Icon(Icons.arrow_drop_down, size: 16),
+                        style: theme.textTheme.bodySmall,
+                        items: _availableModels.map((m) => DropdownMenuItem(
+                            value: m, 
+                            child: Text(m.displayName, overflow: TextOverflow.ellipsis)
+                        )).toList(),
+                        onChanged: _controller.isLoading ? null : (newVal) {
+                            if (newVal != null) _controller.setModel(newVal);
+                        },
+                   ),
+              ),
+              
+              // Token Stats
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                   color: theme.colorScheme.primaryContainer.withValues(alpha:0.4),
+                   borderRadius: BorderRadius.circular(4),
                 ),
-                const SizedBox(width: 12),
-                // Model Dropdown placeholder (requires _availableModels populated)
-                if (_controller.currentModel != null)
-                   Text(_controller.currentModel!.displayName)
-                else
-                   const Text("Select Model"),
-                
-                const Spacer(),
-                // Token count logic
-              ],
-            );
-         }
-       )
-     );
+                child: Text(
+                  'Tok: $_totalTokenCount / ${_controller.currentModel?.inputTokenLimit ?? '?'}',
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
+                ),
+              )
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildChatInput() {
