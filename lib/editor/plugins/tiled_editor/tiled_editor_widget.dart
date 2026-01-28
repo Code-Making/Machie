@@ -1797,7 +1797,9 @@ final editorContent = Listener(
                 onObjectReorder: (layerId, oldIndex, newIndex) {
                   notifier!.reorderObject(layerId, oldIndex, newIndex);
                 },
-
+                onObjectMove: (sourceLayerId, sourceIndex, targetLayerId, targetIndex) {
+                  notifier!.moveObject(sourceLayerId, sourceIndex, targetLayerId, targetIndex);
+                },
                 onAddLayer: _addLayer,
 
                 onLayerDelete: _deleteLayer,

@@ -32,7 +32,8 @@ class LayersPanel extends StatefulWidget {
   final void Function(int layerId, int objectId) onObjectVisibilityChanged;
 
   final void Function(int oldIndex, int newIndex) onLayerReorder;
-  final void Function(int layerId, int oldIndex, int newIndex) onObjectReorder;
+  final void Function(int layerId, int oldIndex, int newIndex) onObjectReorder;  
+  final void Function(int sourceLayerId, int sourceIndex, int targetLayerId, int targetIndex) onObjectMove;
 
   final VoidCallback onAddLayer;
 
@@ -53,6 +54,7 @@ class LayersPanel extends StatefulWidget {
     required this.onObjectVisibilityChanged,
     required this.onLayerReorder,
     required this.onObjectReorder,
+    required this.onObjectMove,
     required this.onAddLayer,
     required this.onLayerDelete,
     required this.onObjectDelete,
@@ -176,6 +178,7 @@ class _LayersPanelState extends State<LayersPanel> {
                   },
                   onReorderLayer: widget.onLayerReorder,
                   onReorderObject: widget.onObjectReorder,
+                  onMoveObject: widget.onObjectMove,
                 );
               },
             ),
@@ -232,6 +235,7 @@ class _HierarchyRow extends StatefulWidget {
   final VoidCallback onDelete;
   final Function(int, int) onReorderLayer;
   final Function(int, int, int) onReorderObject;
+  final Function(int, int, int, int) onMoveObject; // Add this
 
   const _HierarchyRow({
     required this.node,
@@ -245,6 +249,7 @@ class _HierarchyRow extends StatefulWidget {
     required this.onDelete,
     required this.onReorderLayer,
     required this.onReorderObject,
+    required this.onMoveObject,
   });
 
   @override
@@ -384,9 +389,17 @@ class _HierarchyRowState extends State<_HierarchyRow> {
         if (data.type == 'layer' && widget.node.isLayer) {
           return data.id != widget.node.layer!.id;
         }
-        if (data.type == 'object' && widget.node.isObject) {
-          return data.parentLayerId == widget.node.parentLayerId &&
-              data.id != widget.node.object!.id;
+        if (data.type == 'object') {
+          // Allow dropping object onto another object (reorder or move)
+          if (widget.node.isObject) {
+            // Can't drop onto itself
+             return !(data.parentLayerId == widget.node.parentLayerId &&
+                     data.id == widget.node.object!.id);
+          }
+          // Allow dropping object onto a Layer header (move to that layer)
+          if (widget.node.isLayer && widget.node.layer is ObjectGroup) {
+             return true;
+          }
         }
         return false;
       },
@@ -410,18 +423,33 @@ class _HierarchyRowState extends State<_HierarchyRow> {
       onAcceptWithDetails: (details) {
         setState(() => _dropPosition = null);
         final data = details.data;
+        
         if (data.type == 'layer' && widget.node.isLayer) {
           int targetIndex = widget.node.index;
           if (_dropPosition == _DropPosition.above) {
             targetIndex += 1;
           }
           widget.onReorderLayer(data.index, targetIndex);
-        } else if (data.type == 'object' && widget.node.isObject) {
-          int targetIndex = widget.node.index;
-          if (_dropPosition == _DropPosition.below) {
-            targetIndex += 1;
+        } else if (data.type == 'object') {
+          if (widget.node.isObject) {
+            // Target is an object
+            int targetIndex = widget.node.index;
+            if (_dropPosition == _DropPosition.below) {
+              targetIndex += 1;
+            }
+
+            if (data.parentLayerId == widget.node.parentLayerId) {
+              // Same layer reorder
+              widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
+            } else {
+              // Move to different layer
+              widget.onMoveObject(data.parentLayerId!, data.index, widget.node.parentLayerId!, targetIndex);
+            }
+          } else if (widget.node.isLayer && widget.node.layer is ObjectGroup) {
+            // Target is a layer header
+            // Insert at the beginning of the layer
+            widget.onMoveObject(data.parentLayerId!, data.index, widget.node.layer!.id!, 0);
           }
-          widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
         }
       },
       builder: (ctx, _, _) => InkWell(onTap: widget.onTap, child: draggable),

@@ -10,17 +10,49 @@ abstract class _HistoryAction {
   void redo(TiledMap map);
 }
 
-// class _WrapperAction implements _HistoryAction {
-//   final VoidCallback onUndo;
-//   final VoidCallback onRedo;
-//   _WrapperAction({required this.onUndo, required this.onRedo});
+class _ObjectMoveHistoryAction implements _HistoryAction {
+  final int sourceLayerId;
+  final int targetLayerId;
+  final int sourceIndex;
+  final int targetIndex;
 
-//   @override
-//   void undo(TiledMap map) => onUndo();
+  _ObjectMoveHistoryAction({
+    required this.sourceLayerId,
+    required this.targetLayerId,
+    required this.sourceIndex,
+    required this.targetIndex,
+  });
 
-//   @override
-//   void redo(TiledMap map) => onRedo();
-// }
+  @override
+  void undo(TiledMap map) {
+    final sourceLayer =
+        map.layers.firstWhereOrNull((l) => l.id == sourceLayerId)
+            as ObjectGroup?;
+    final targetLayer =
+        map.layers.firstWhereOrNull((l) => l.id == targetLayerId)
+            as ObjectGroup?;
+
+    if (sourceLayer != null && targetLayer != null) {
+      final obj = targetLayer.objects.removeAt(targetIndex);
+      sourceLayer.objects.insert(sourceIndex, obj);
+    }
+  }
+
+  @override
+  void redo(TiledMap map) {
+    final sourceLayer =
+        map.layers.firstWhereOrNull((l) => l.id == sourceLayerId)
+            as ObjectGroup?;
+    final targetLayer =
+        map.layers.firstWhereOrNull((l) => l.id == targetLayerId)
+            as ObjectGroup?;
+
+    if (sourceLayer != null && targetLayer != null) {
+      final obj = sourceLayer.objects.removeAt(sourceIndex);
+      targetLayer.objects.insert(targetIndex, obj);
+    }
+  }
+}
 
 class _ObjectReorderHistoryAction implements _HistoryAction {
   final int layerId;
@@ -326,6 +358,44 @@ class TiledMapNotifier extends ChangeNotifier {
     if (!_selectedObjects.contains(obj)) {
       _selectedObjects.add(obj);
     }
+    notifyListeners();
+  }
+  
+  void moveObject(
+    int sourceLayerId,
+    int sourceIndex,
+    int targetLayerId,
+    int targetIndex,
+  ) {
+    if (sourceLayerId == targetLayerId) {
+      reorderObject(sourceLayerId, sourceIndex, targetIndex);
+      return;
+    }
+
+    final sourceLayer =
+        _map.layers.firstWhereOrNull((l) => l.id == sourceLayerId)
+            as ObjectGroup?;
+    final targetLayer =
+        _map.layers.firstWhereOrNull((l) => l.id == targetLayerId)
+            as ObjectGroup?;
+
+    if (sourceLayer == null || targetLayer == null) return;
+    if (sourceIndex < 0 || sourceIndex >= sourceLayer.objects.length) return;
+
+    final obj = sourceLayer.objects.removeAt(sourceIndex);
+    
+    // Clamp target index to ensure it is valid in the new list
+    final actualTargetIndex = targetIndex.clamp(0, targetLayer.objects.length);
+    targetLayer.objects.insert(actualTargetIndex, obj);
+
+    _pushHistory(
+      _ObjectMoveHistoryAction(
+        sourceLayerId: sourceLayerId,
+        targetLayerId: targetLayerId,
+        sourceIndex: sourceIndex,
+        targetIndex: actualTargetIndex,
+      ),
+    );
     notifyListeners();
   }
 
@@ -735,31 +805,43 @@ class TiledMapNotifier extends ChangeNotifier {
     required int tileWidth,
     required int tileHeight,
   }) {
+    // 1. Capture the current data of all tile layers before resizing.
+    // We use a Map to associate data with Layer IDs.
     final oldLayersData = <int, List<List<Gid>>>{};
     for (final layer in _map.layers) {
       if (layer is TileLayer && layer.tileData != null) {
+        // Store reference to the old 2D list. 
+        // Since we replace layer.tileData with a new list below, this reference stays valid.
         oldLayersData[layer.id!] = layer.tileData!;
       }
     }
 
+    // 2. Update Map properties
     _map.width = width;
     _map.height = height;
     _map.tileWidth = tileWidth;
     _map.tileHeight = tileHeight;
 
+    // 3. Update Layers
     for (final layer in _map.layers) {
       if (layer is TileLayer) {
         final oldData = oldLayersData[layer.id];
         final oldHeight = oldData?.length ?? 0;
         final oldWidth = oldHeight > 0 ? (oldData?[0].length ?? 0) : 0;
 
+        // Update layer dimensions to match map
         layer.width = width;
         layer.height = height;
+
+        // Regenerate the tileData grid.
+        // - If resizing smaller: 'x < oldWidth' and 'y < oldHeight' ensures we only keep 
+        //   data that fits. Data outside is effectively deleted.
+        // - If resizing larger: We pad the new space with Gid(0) (empty tile).
         layer.tileData = List.generate(
           height,
           (y) => List.generate(width, (x) {
-            if (y < oldHeight && x < oldWidth) {
-              return oldData![y][x];
+            if (oldData != null && y < oldHeight && x < oldWidth) {
+              return oldData[y][x];
             }
             return Gid.fromInt(0);
           }),
