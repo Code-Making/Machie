@@ -766,14 +766,15 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
               const VerticalDivider(indent: 12, endIndent: 12),
               
               // Model Dropdown
-              Expanded(
+              SizedBox( // Changed from Expanded to SizedBox
+                 width: 200, // Set a fixed width, or adjust as needed
                  child: _isLoadingModels 
                    ? const Align(
                        alignment: Alignment.centerLeft,
                        child: SizedBox(width:16, height:16, child: CircularProgressIndicator(strokeWidth:2)),
                      )
                    : DropdownButton<LlmModelInfo>(
-                        isExpanded: true,
+                        // isExpanded: true, // Removed isExpanded as we are using SizedBox
                         value: _availableModels.contains(_controller.currentModel) ? _controller.currentModel : null,
                         hint: const Text("Select Model"),
                         underline: const SizedBox.shrink(),
