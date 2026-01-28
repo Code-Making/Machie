@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'llm_editor_models.dart';
 import 'providers/llm_provider.dart';
-import 'providers/gemini_provider.dart';
 import 'providers/llm_provider_factory.dart';
 
 class LlmEditorSettingsUI extends ConsumerStatefulWidget {
