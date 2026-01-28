@@ -1,12 +1,7 @@
-// =========================================
-// NEW FILE: lib/editor/plugins/llm_editor/llm_editor_plugin.dart
-// =========================================
-
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
@@ -38,7 +33,7 @@ class LlmEditorPlugin extends EditorPlugin {
   @override
   Widget get icon => const Icon(Icons.chat_bubble_outline);
   @override
-  int get priority => 2; // High priority for its specific file type.
+  int get priority => 2;
 
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
@@ -60,9 +55,6 @@ class LlmEditorPlugin extends EditorPlugin {
     onChanged: onChanged,
   );
 
-  // *** FIX: This function no longer accepts a WidgetRef. ***
-  // It now receives the dependencies it needs directly, making it safer to call
-  // after an 'await'.
   static Future<String> applyModification({
     required LlmProvider provider,
     required LlmEditorSettings? settings,
@@ -73,14 +65,14 @@ class LlmEditorPlugin extends EditorPlugin {
       throw Exception('LLM settings are not configured.');
     }
 
-    final model = settings.selectedModels[settings.selectedProviderId];
+    // FIX: Use refactorProviderId here
+    final model = settings.selectedModels[settings.refactorProviderId];
     if (model == null) {
       throw Exception(
-        'No LLM model selected. Please configure one in the settings.',
+        'No Refactoring model selected. Please configure the "Provider (for Code Edits)" in settings.',
       );
     }
 
-    // We add a system instruction to the prompt to guide the model's output.
     final fullPrompt =
         'You are an expert code modification assistant. Your task is to modify the user-provided code based on their instructions. '
         'You MUST respond with ONLY the modified code, enclosed in a single markdown code block. Do not include any explanations, apologies, or introductory text outside of the code block.'
@@ -93,24 +85,17 @@ class LlmEditorPlugin extends EditorPlugin {
         model: model,
       );
 
-      // Now, parse the response to extract code blocks.
       return _extractCodeFromMarkdown(rawResponse) ?? inputText;
     } catch (e) {
-      // Re-throw to allow the caller to manage UI state (like closing a loading dialog)
-      // and display a more context-aware error.
       rethrow;
     }
   }
 
-  /// Extracts code from markdown code blocks in a string.
-  /// If multiple blocks are found, they are concatenated.
   static String? _extractCodeFromMarkdown(String markdown) {
     final codeBlockRegex = RegExp(r'```(?:[a-zA-Z]+)?\n([\s\S]*?)```');
     final matches = codeBlockRegex.allMatches(markdown);
 
     if (matches.isEmpty) {
-      // As a fallback, if no fenced code blocks are found,
-      // return the whole string trimmed, assuming the model obeyed the prompt.
       final trimmed = markdown.trim();
       return trimmed.isNotEmpty ? trimmed : null;
     }
@@ -128,29 +113,38 @@ class LlmEditorPlugin extends EditorPlugin {
     String? id,
     Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
-    List<ChatMessage> messagesToShow;
-    LlmEditorHotStateDto? hotState;
-    if (initData.hotState != null) {
-      hotState = initData.hotState as LlmEditorHotStateDto;
-    } else {
-      hotState = null;
-    }
+    List<ChatMessage> messagesToShow = [];
+    String? initialProviderId;
+    LlmModelInfo? initialModel;
 
-    if (hotState != null && hotState.messages.isNotEmpty) {
-      // If cached state exists, it takes priority.
+    if (initData.hotState is LlmEditorHotStateDto) {
+      final hotState = initData.hotState as LlmEditorHotStateDto;
       messagesToShow = hotState.messages;
+      initialProviderId = hotState.selectedProviderId;
+      initialModel = hotState.selectedModel;
     } else {
-      // Otherwise, parse from the file content.
-      List<ChatMessage> messagesFromFile = [];
       final stringData = initData.initialContent as EditorContentString;
       final content = stringData.content;
       if (content.isNotEmpty) {
         try {
-          final List<dynamic> jsonList = jsonDecode(content);
-          messagesFromFile =
-              jsonList.map((item) => ChatMessage.fromJson(item)).toList();
+          final decoded = jsonDecode(content);
+          if (decoded is List) {
+             // Legacy format support
+             messagesToShow = decoded.map((i) => ChatMessage.fromJson(i)).toList();
+          } else if (decoded is Map<String, dynamic>) {
+             // New Format
+             if (decoded.containsKey('messages')) {
+               messagesToShow = (decoded['messages'] as List).map((i) => ChatMessage.fromJson(i)).toList();
+             }
+             initialProviderId = decoded['providerId'];
+             if (decoded['model'] != null) {
+                try {
+                  initialModel = LlmModelInfo.fromJson(decoded['model']);
+                } catch(_) {}
+             }
+          }
         } catch (e) {
-          messagesFromFile.add(
+          messagesToShow.add(
             ChatMessage(
               role: 'assistant',
               content:
@@ -159,13 +153,13 @@ class LlmEditorPlugin extends EditorPlugin {
           );
         }
       }
-      messagesToShow = messagesFromFile;
     }
 
-    // Pass the resolved list of messages to the tab.
     return LlmEditorTab(
       plugin: this,
       initialMessages: messagesToShow,
+      initialProviderId: initialProviderId,
+      initialModel: initialModel,
       id: id,
       onReadyCompleter: onReadyCompleter,
     );
@@ -210,24 +204,6 @@ class LlmEditorPlugin extends EditorPlugin {
             metadata?.file is! VirtualDocumentFile;
       },
     ),
-    //FIXME: BaseCommand(
-    //   id: 'save_as',
-    //   label: 'Save Chat As...',
-    //   icon: const Icon(Icons.save_as),
-    //   defaultPositions: [AppCommandPositions.appBar],
-    //   sourcePlugin: id,
-    //   execute: (ref) async {
-    //     final editorState = _getActiveEditorState(ref);
-    //     if (editorState == null) return;
-    //     await ref.read(editorServiceProvider).saveCurrentTabAs(
-    //       stringDataProvider: () async {
-    //         final content = await editorState.getContent();
-    //         return (content is EditorContentString) ? content.content : null;
-    //       },
-    //     );
-    //   },
-    //   canExecute: (ref) => _getActiveEditorState(ref) != null,
-    // ),
     BaseCommand(
       id: 'jump_to_next_code',
       label: 'Next Code Block',
@@ -253,22 +229,20 @@ class LlmEditorPlugin extends EditorPlugin {
       icon: const Icon(Icons.auto_fix_high),
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
-      canExecute: (ref, context) {
-        return context.hasSelection;
-      },
+      canExecute: (ref, context) => context.hasSelection,
       execute: (ref, textEditable) async {
         final selectedText = await textEditable.getSelectedText();
         if (selectedText.isEmpty) return;
 
-        // Grab the context and all dependencies from ref BEFORE the first await.
         final context = ref.read(navigatorKeyProvider).currentContext;
-        // *** FIX: Get dependencies from ref BEFORE the first await ***
         final settings =
             ref
                     .read(effectiveSettingsProvider)
                     .pluginSettings[LlmEditorSettings]
                 as LlmEditorSettings?;
+        // For refactoring, we use the global provider settings via factory
         final provider = ref.read(llmServiceProvider);
+        
         final project = ref.read(appNotifierProvider).value!.currentProject!;
         final activeTab = project.session.currentTab!;
         final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
@@ -276,27 +250,23 @@ class LlmEditorPlugin extends EditorPlugin {
 
         if (context == null || !context.mounted) return;
 
-        // Gather non-UI info.
         final displayPath = repo.fileHandler.getPathForDisplay(
           activeFile.uri,
           relativeTo: project.rootUri,
         );
 
-        // 1. Ask the user for their modification instructions.
         final userPrompt = await showTextInputDialog(
           context,
           title: 'Refactor Selection',
         );
 
         if (userPrompt == null || userPrompt.trim().isEmpty) {
-          return; // User cancelled.
+          return;
         }
 
-        // After an async gap, we must re-check if the context is still valid.
         if (!context.mounted) return;
 
         var isCancelled = false;
-        // 2. Show a loading indicator.
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -330,7 +300,6 @@ class LlmEditorPlugin extends EditorPlugin {
               '\n\nUser instructions: "$userPrompt"'
               '\n\nHere is the code selection to modify:';
 
-          // *** FIX: Pass the actual provider and settings, not the ref ***
           final modifiedText = await LlmEditorPlugin.applyModification(
             provider: provider,
             settings: settings,
@@ -356,7 +325,6 @@ class LlmEditorPlugin extends EditorPlugin {
     ),
   ];
 
-  // --- Hot State Caching ---
   @override
   String? get hotStateDtoType => 'com.machine.llm_editor_state';
   @override

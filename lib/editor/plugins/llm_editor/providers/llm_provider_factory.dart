@@ -17,9 +17,9 @@ final llmServiceProvider = Provider.autoDispose<LlmProvider>((ref) {
     effectiveSettingsProvider.select((s) {
       final settings =
           s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
-      final id = settings?.selectedProviderId ?? 'dummy';
+      // FIX: Use 'refactorProviderId'
+      final id = settings?.refactorProviderId ?? 'dummy';
       final key = settings?.apiKeys[id] ?? '';
-      // Return a record for easy comparison.
       return (id: id, key: key);
     }),
   );
@@ -28,7 +28,7 @@ final llmServiceProvider = Provider.autoDispose<LlmProvider>((ref) {
   final apiKey = providerConfig.key;
 
   switch (selectedId) {
-    case 'gemini': // NEW: Handle Gemini case
+    case 'gemini':
       return GeminiProvider(apiKey);
     case 'dummy':
     default:
