@@ -81,6 +81,7 @@ dependencies:
       url: git@github.com:hommes-doutant/xterm.dart.git
   lucide_icons_flutter: ^3.1.9
   flutter_markdown_plus: ^1.0.7
+  retry: ^3.1.2
  
 dev_dependencies:
   flutter_test:
