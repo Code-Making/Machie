@@ -799,19 +799,16 @@ class TiledMapNotifier extends ChangeNotifier {
     _pushHistory(_PropertyChangeHistoryAction(before, after));
   }
 
-  void updateMapProperties({
+void updateMapProperties({
     required int width,
     required int height,
     required int tileWidth,
     required int tileHeight,
   }) {
-    // 1. Capture the current data of all tile layers before resizing.
-    // We use a Map to associate data with Layer IDs.
+    // 1. Capture the current 2D data of all tile layers.
     final oldLayersData = <int, List<List<Gid>>>{};
     for (final layer in _map.layers) {
       if (layer is TileLayer && layer.tileData != null) {
-        // Store reference to the old 2D list. 
-        // Since we replace layer.tileData with a new list below, this reference stays valid.
         oldLayersData[layer.id!] = layer.tileData!;
       }
     }
@@ -829,23 +826,36 @@ class TiledMapNotifier extends ChangeNotifier {
         final oldHeight = oldData?.length ?? 0;
         final oldWidth = oldHeight > 0 ? (oldData?[0].length ?? 0) : 0;
 
-        // Update layer dimensions to match map
         layer.width = width;
         layer.height = height;
 
-        // Regenerate the tileData grid.
-        // - If resizing smaller: 'x < oldWidth' and 'y < oldHeight' ensures we only keep 
-        //   data that fits. Data outside is effectively deleted.
-        // - If resizing larger: We pad the new space with Gid(0) (empty tile).
-        layer.tileData = List.generate(
+        // A. Regenerate the 2D tileData grid
+        final newTileData = List.generate(
           height,
           (y) => List.generate(width, (x) {
+            // Only copy if the indices existed in the old bounds.
+            // This effectively deletes data that is now out of bounds.
             if (oldData != null && y < oldHeight && x < oldWidth) {
               return oldData[y][x];
             }
             return Gid.fromInt(0);
           }),
         );
+
+        layer.tileData = newTileData;
+
+        // B. Sync the 1D 'data' list.
+        // This is critical. If 'data' persists with old length/content, 
+        // parsers might read it linearly and cause "offset" or "shifting" tiles.
+        // We flatten the 2D grid and reconstruct the raw GIDs (including flags).
+        layer.data = newTileData.expand((row) => row).map((gid) {
+          int raw = gid.tile;
+          // Re-apply Tiled flip flags
+          if (gid.flips.horizontally) raw |= 0x80000000;
+          if (gid.flips.vertically) raw |= 0x40000000;
+          if (gid.flips.diagonally) raw |= 0x20000000;
+          return raw;
+        }).toList();
       }
     }
     notifyListeners();
