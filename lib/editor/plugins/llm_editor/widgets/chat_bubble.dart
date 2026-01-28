@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter_markdown/flutter_markdown.dart';
+// UPDATE: Use the new package
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../widgets/markdown_builders.dart';
@@ -31,23 +32,21 @@ class ChatBubble extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Builders are now created inside the build method.
+    // Builders are reused from your existing infrastructure
     final pathLinkBuilder = PathLinkBuilder(ref: ref);
     final delegatingCodeBuilder = DelegatingCodeBuilder(
       ref: ref,
       keys: displayMessage.codeBlockKeys,
     );
 
-    // State is read directly from the passed-in displayMessage model.
     final isUser = displayMessage.message.role == 'user';
     final isFolded = displayMessage.isFolded;
     final theme = Theme.of(context);
     final roleText = isUser ? "User" : "Assistant";
 
-    final backgroundColor =
-        isUser
-            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-            : theme.colorScheme.surface;
+    final backgroundColor = isUser
+        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+        : theme.colorScheme.surface;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -84,7 +83,6 @@ class ChatBubble extends ConsumerWidget {
                     size: 18,
                   ),
                   tooltip: isFolded ? 'Unfold Message' : 'Fold Message',
-                  // onPressed now calls the callback.
                   onPressed: onToggleFold,
                 ),
                 _buildPopupMenu(context, isUser: isUser),
@@ -94,30 +92,28 @@ class ChatBubble extends ConsumerWidget {
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            child:
-                isFolded
-                    ? const SizedBox(width: double.infinity)
-                    : Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      child:
-                          isUser
-                              ? _buildUserMessageBody(
-                                context,
-                                ref,
-                                delegatingCodeBuilder,
-                                pathLinkBuilder,
-                              )
-                              : _buildAssistantMessageBody(
-                                context,
-                                ref,
-                                delegatingCodeBuilder,
-                                pathLinkBuilder,
-                              ),
+            child: isFolded
+                ? const SizedBox(width: double.infinity)
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
                     ),
+                    child: isUser
+                        ? _buildUserMessageBody(
+                            context,
+                            ref,
+                            delegatingCodeBuilder,
+                            pathLinkBuilder,
+                          )
+                        : _buildAssistantMessageBody(
+                            context,
+                            ref,
+                            delegatingCodeBuilder,
+                            pathLinkBuilder,
+                          ),
+                  ),
           ),
         ],
       ),
@@ -132,11 +128,6 @@ class ChatBubble extends ConsumerWidget {
   ) {
     final hasContext = displayMessage.message.context?.isNotEmpty ?? false;
     final isContextFolded = displayMessage.isContextFolded;
-
-    // final userMessageDelegatingCodeBuilder = DelegatingCodeBuilder(
-    //   ref: ref,
-    //   keys: const [],
-    // );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,20 +153,19 @@ class ChatBubble extends ConsumerWidget {
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            child:
-                isContextFolded
-                    ? const SizedBox(width: double.infinity)
-                    : Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children:
-                          displayMessage.message.context!
-                              .map((item) => ContextItemViewChip(item: item))
-                              .toList(),
-                    ),
+            child: isContextFolded
+                ? const SizedBox(width: double.infinity)
+                : Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: displayMessage.message.context!
+                        .map((item) => ContextItemViewChip(item: item))
+                        .toList(),
+                  ),
           ),
           const Divider(height: 16),
         ],
+        // UPDATE: Using MarkdownBody from flutter_markdown_plus
         MarkdownBody(
           data: displayMessage.message.content,
           builders: {'code': codeBuilder, 'p': pathLinkBuilder},
@@ -193,6 +183,7 @@ class ChatBubble extends ConsumerWidget {
     DelegatingCodeBuilder codeBuilder,
     PathLinkBuilder pathBuilder,
   ) {
+    // UPDATE: Using MarkdownBody from flutter_markdown_plus
     return MarkdownBody(
       data: displayMessage.message.content,
       builders: {'code': codeBuilder, 'p': pathBuilder},
@@ -211,39 +202,38 @@ class ChatBubble extends ConsumerWidget {
         if (value == 'delete_after') onDeleteAfter();
         if (value == 'edit') onEdit();
       },
-      itemBuilder:
-          (BuildContext context) => <PopupMenuEntry<String>>[
-            if (isUser) ...[
-              const PopupMenuItem<String>(
-                value: 'edit',
-                child: ListTile(
-                  leading: Icon(Icons.edit),
-                  title: Text('Edit & Rerun'),
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'rerun',
-                child: ListTile(
-                  leading: Icon(Icons.refresh),
-                  title: Text('Rerun from here'),
-                ),
-              ),
-            ],
-            const PopupMenuItem<String>(
-              value: 'delete',
-              child: ListTile(
-                leading: Icon(Icons.delete_outline),
-                title: Text('Delete'),
-              ),
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        if (isUser) ...[
+          const PopupMenuItem<String>(
+            value: 'edit',
+            child: ListTile(
+              leading: Icon(Icons.edit),
+              title: Text('Edit & Rerun'),
             ),
-            const PopupMenuItem<String>(
-              value: 'delete_after',
-              child: ListTile(
-                leading: Icon(Icons.delete_sweep_outlined),
-                title: Text('Delete After'),
-              ),
+          ),
+          const PopupMenuItem<String>(
+            value: 'rerun',
+            child: ListTile(
+              leading: Icon(Icons.refresh),
+              title: Text('Rerun from here'),
             ),
-          ],
+          ),
+        ],
+        const PopupMenuItem<String>(
+          value: 'delete',
+          child: ListTile(
+            leading: Icon(Icons.delete_outline),
+            title: Text('Delete'),
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'delete_after',
+          child: ListTile(
+            leading: Icon(Icons.delete_sweep_outlined),
+            title: Text('Delete After'),
+          ),
+        ),
+      ],
     );
   }
 }
