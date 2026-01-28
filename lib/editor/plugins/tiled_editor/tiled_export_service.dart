@@ -1311,12 +1311,12 @@ class TiledExportService {
     final repo = resolver.repo;
     final flowService = _ref.read(flowExportServiceProvider);
 
-    // Collect futures to await all exports
     final futures = <Future>[];
 
-    _traverseMapObjects(mapToExport, (obj) {
-      if (obj.properties.has('flowGraph')) {
-        final propVal = obj.properties.getValue<String>('flowGraph');
+    // Helper to process properties
+    void checkProperties(CustomProperties properties) {
+      if (properties.has('flowGraph')) {
+        final propVal = properties.getValue<String>('flowGraph');
         if (propVal != null && propVal.isNotEmpty) {
           futures.add(
             Future(() async {
@@ -1370,14 +1370,23 @@ class TiledExportService {
                   );
                 }
 
+                // Update property reference in exported file
                 final newProps = Map<String, Property<Object>>.from(
-                  obj.properties.byName,
+                  properties.byName,
                 );
                 newProps['flowGraph'] = StringProperty(
                   name: 'flowGraph',
                   value: newFileName,
                 );
-                obj.properties = CustomProperties(newProps);
+                // We cannot reassign 'properties' directly on the object passed here easily 
+                // because CustomProperties is immutable-ish and we need to set it back on the parent.
+                // However, CustomProperties uses an internal map. 
+                // A safer way for the export logic (which operates on a deep copy) is:
+                // The 'properties' passed to this function is the actual object from the map copy.
+                // We can mutate the internal map if we had access, or we must mutate the parent object.
+                
+                // Since checkProperties takes the CustomProperties object, we need to know the parent to update it.
+                // Refactoring scan loop below.
               } catch (e) {
                 talker.warning(
                   'Failed to export Flow Graph dependency "$propVal": $e',
@@ -1387,9 +1396,138 @@ class TiledExportService {
           );
         }
       }
+    }
+
+    // Refactored scanning loop to allow updating the properties on the parent object
+    
+    // 1. Check Map root
+    if (mapToExport.properties.has('flowGraph')) {
+       // We handle the update logic inside the future for the specific property map
+       final props = mapToExport.properties;
+       final propVal = props.getValue<String>('flowGraph');
+       if (propVal != null && propVal.isNotEmpty) {
+         futures.add(_exportFlowGraph(
+           repo, resolver, flowService, destinationFolderUri, 
+           propVal, exportAsJson, talker, 
+           (newName) {
+             final newMap = Map<String, Property<Object>>.from(mapToExport.properties.byName);
+             newMap['flowGraph'] = StringProperty(name: 'flowGraph', value: newName);
+             mapToExport.properties = CustomProperties(newMap);
+           }
+         ));
+       }
+    }
+
+    // 2. Check Layers
+    void scanLayers(List<Layer> layers) {
+      for (final layer in layers) {
+        if (layer is Group) scanLayers(layer.layers);
+        
+        if (layer.properties.has('flowGraph')) {
+           final propVal = layer.properties.getValue<String>('flowGraph');
+           if (propVal != null && propVal.isNotEmpty) {
+             futures.add(_exportFlowGraph(
+               repo, resolver, flowService, destinationFolderUri, 
+               propVal, exportAsJson, talker, 
+               (newName) {
+                 final newMap = Map<String, Property<Object>>.from(layer.properties.byName);
+                 newMap['flowGraph'] = StringProperty(name: 'flowGraph', value: newName);
+                 layer.properties = CustomProperties(newMap);
+               }
+             ));
+           }
+        }
+      }
+    }
+    scanLayers(mapToExport.layers);
+
+    // 3. Check Objects
+    _traverseMapObjects(mapToExport, (obj) {
+      if (obj.properties.has('flowGraph')) {
+         final propVal = obj.properties.getValue<String>('flowGraph');
+         if (propVal != null && propVal.isNotEmpty) {
+           futures.add(_exportFlowGraph(
+             repo, resolver, flowService, destinationFolderUri, 
+             propVal, exportAsJson, talker, 
+             (newName) {
+               final newMap = Map<String, Property<Object>>.from(obj.properties.byName);
+               newMap['flowGraph'] = StringProperty(name: 'flowGraph', value: newName);
+               obj.properties = CustomProperties(newMap);
+             }
+           ));
+         }
+      }
     });
 
     await Future.wait(futures);
+  }
+  
+  Future<void> _exportFlowGraph(
+    ProjectRepository repo,
+    TiledAssetResolver resolver,
+    FlowExportService flowService,
+    String destinationFolderUri,
+    String propVal,
+    bool exportAsJson,
+    Talker talker,
+    Function(String) updateCallback,
+  ) async {
+    try {
+      final fgCanonicalKey = repo.resolveRelativePath(
+        resolver.tmxPath,
+        propVal,
+      );
+      final fgFile = await repo.fileHandler.resolvePath(
+        repo.rootUri,
+        fgCanonicalKey,
+      );
+      if (fgFile == null) {
+        talker.warning("Flow Graph file not found: $propVal");
+        return;
+      }
+
+      final exportName = p.basenameWithoutExtension(fgFile.name);
+      String newFileName;
+
+      if (exportAsJson) {
+        final content = await repo.readFile(fgFile.uri);
+        final graph = FlowGraph.deserialize(content);
+        final fgPath = repo.fileHandler.getPathForDisplay(
+          fgFile.uri,
+          relativeTo: repo.rootUri,
+        );
+        final fgResolver = FlowGraphAssetResolver(
+          resolver.rawAssets,
+          repo,
+          fgPath,
+        );
+
+        newFileName = '$exportName.json';
+
+        await flowService.export(
+          graph: graph,
+          resolver: fgResolver,
+          destinationFolderUri: destinationFolderUri,
+          fileName: exportName,
+          embedSchema: true,
+        );
+      } else {
+        newFileName = '$exportName.fg';
+        final bytes = await repo.readFileAsBytes(fgFile.uri);
+        await repo.createDocumentFile(
+          destinationFolderUri,
+          newFileName,
+          initialBytes: bytes,
+          overwrite: true,
+        );
+      }
+      
+      updateCallback(newFileName);
+    } catch (e) {
+      talker.warning(
+        'Failed to export Flow Graph dependency "$propVal": $e',
+      );
+    }
   }
 
   Future<void> _copyAndRelinkAssets(

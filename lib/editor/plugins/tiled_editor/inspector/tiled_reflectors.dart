@@ -594,6 +594,20 @@ extension TiledMapReflector on TiledMap {
         getter: () => backgroundColorHex,
         setter: (v) => backgroundColorHex = v,
       ),
+      FlowGraphReferencePropertyDescriptor(
+        name: 'flowGraph',
+        label: 'Flow Graph (.fg)',
+        getter: () => properties.getValue<String>('flowGraph') ?? '',
+        setter: (val) {
+          final map = Map<String, Property<Object>>.from(properties.byName);
+          if (val.isEmpty) {
+            map.remove('flowGraph');
+          } else {
+            map['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
+          }
+          properties = CustomProperties(map);
+        },
+      ),
       CustomPropertiesDescriptor(
         name: 'properties',
         label: 'Custom Properties',
@@ -685,6 +699,20 @@ extension LayerReflector on Layer {
           label: 'Display Color',
           getter: () => layer.color.toHex(prefix: '#', includeAlpha: true),
           setter: (v) => layer.color = colorDataFromHex(v),
+        ),
+        FlowGraphReferencePropertyDescriptor(
+          name: 'flowGraph',
+          label: 'Flow Graph (.fg)',
+          getter: () => layer.properties.getValue<String>('flowGraph') ?? '',
+          setter: (val) {
+            final map = Map<String, Property<Object>>.from(layer.properties.byName);
+            if (val.isEmpty) {
+              map.remove('flowGraph');
+            } else {
+              map['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
+            }
+            layer.properties = CustomProperties(map);
+          },
         ),
       ]);
     } else if (layer is ImageLayer) {
