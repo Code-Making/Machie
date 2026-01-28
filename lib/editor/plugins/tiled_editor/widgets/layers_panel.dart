@@ -18,7 +18,7 @@ class _LayerPanelDragData {
     : type = 'object';
 }
 
-enum _DropPosition { above, below /*, inside*/ }
+enum _DropPosition { above, below, inside }
 
 class LayersPanel extends StatefulWidget {
   final List<Layer> layers;
@@ -235,7 +235,7 @@ class _HierarchyRow extends StatefulWidget {
   final VoidCallback onDelete;
   final Function(int, int) onReorderLayer;
   final Function(int, int, int) onReorderObject;
-  final Function(int, int, int, int) onMoveObject; // Add this
+  final Function(int, int, int, int) onMoveObject;
 
   const _HierarchyRow({
     required this.node,
@@ -281,7 +281,6 @@ class _HierarchyRowState extends State<_HierarchyRow> {
               : null,
       child: Row(
         children: [
-          // Expander for ObjectGroups
           if (widget.node.isLayer && widget.node.layer is ObjectGroup)
             GestureDetector(
               onTap: widget.onToggleExpand,
@@ -293,11 +292,9 @@ class _HierarchyRowState extends State<_HierarchyRow> {
           else
             const SizedBox(width: 20),
 
-          // Icon
           Icon(_getIcon(), size: 16),
           const SizedBox(width: 8),
 
-          // Name
           Expanded(
             child: Text(
               _getName(),
@@ -313,7 +310,6 @@ class _HierarchyRowState extends State<_HierarchyRow> {
             ),
           ),
 
-          // Actions
           IconButton(
             icon: Icon(
               isVisible ? Icons.visibility : Icons.visibility_off,
@@ -326,8 +322,6 @@ class _HierarchyRowState extends State<_HierarchyRow> {
             icon: const Icon(Icons.edit_outlined, size: 16),
             onPressed: widget.onInspect,
           ),
-          // Only show delete for objects here to save space, or for layers too if desired.
-          // Let's show for both but smaller.
           IconButton(
             icon: const Icon(
               Icons.delete_outline,
@@ -340,7 +334,6 @@ class _HierarchyRowState extends State<_HierarchyRow> {
       ),
     );
 
-    // Drop Indicator Painter
     if (_dropPosition != null) {
       content = CustomPaint(
         foregroundPainter: _DropIndicatorPainter(
@@ -351,7 +344,6 @@ class _HierarchyRowState extends State<_HierarchyRow> {
       );
     }
 
-    // Draggable
     final draggable = LongPressDraggable<_LayerPanelDragData>(
       data:
           widget.node.isLayer
@@ -390,13 +382,12 @@ class _HierarchyRowState extends State<_HierarchyRow> {
           return data.id != widget.node.layer!.id;
         }
         if (data.type == 'object') {
-          // Allow dropping object onto another object (reorder or move)
+          // Case 1: Dropping onto another object (Reorder or Move to that object's layer)
           if (widget.node.isObject) {
-            // Can't drop onto itself
              return !(data.parentLayerId == widget.node.parentLayerId &&
                      data.id == widget.node.object!.id);
           }
-          // Allow dropping object onto a Layer header (move to that layer)
+          // Case 2: Dropping onto an ObjectGroup Header (Move to this layer)
           if (widget.node.isLayer && widget.node.layer is ObjectGroup) {
              return true;
           }
@@ -407,12 +398,20 @@ class _HierarchyRowState extends State<_HierarchyRow> {
         final renderBox = context.findRenderObject() as RenderBox;
         final localPos = renderBox.globalToLocal(details.offset);
         final height = renderBox.size.height;
+        final data = details.data;
 
         _DropPosition newPos;
-        if (localPos.dy < height * 0.5) {
-          newPos = _DropPosition.above;
+
+        // If dragging an Object onto an ObjectGroup Header, treat as "Inside"
+        if (data.type == 'object' && widget.node.isLayer && widget.node.layer is ObjectGroup) {
+          newPos = _DropPosition.inside;
         } else {
-          newPos = _DropPosition.below;
+          // Standard reordering (Objects over Objects, Layers over Layers)
+          if (localPos.dy < height * 0.5) {
+            newPos = _DropPosition.above;
+          } else {
+            newPos = _DropPosition.below;
+          }
         }
 
         if (_dropPosition != newPos) {
@@ -432,22 +431,21 @@ class _HierarchyRowState extends State<_HierarchyRow> {
           widget.onReorderLayer(data.index, targetIndex);
         } else if (data.type == 'object') {
           if (widget.node.isObject) {
-            // Target is an object
+            // Dropped onto an object -> Reorder relative to this object
             int targetIndex = widget.node.index;
             if (_dropPosition == _DropPosition.below) {
               targetIndex += 1;
             }
 
             if (data.parentLayerId == widget.node.parentLayerId) {
-              // Same layer reorder
+              // Same layer
               widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
             } else {
-              // Move to different layer
+              // Move to new layer
               widget.onMoveObject(data.parentLayerId!, data.index, widget.node.parentLayerId!, targetIndex);
             }
           } else if (widget.node.isLayer && widget.node.layer is ObjectGroup) {
-            // Target is a layer header
-            // Insert at the beginning of the layer
+            // Dropped onto ObjectGroup Header -> Move to this layer (at top)
             widget.onMoveObject(data.parentLayerId!, data.index, widget.node.layer!.id!, 0);
           }
         }
@@ -498,7 +496,15 @@ class _DropIndicatorPainter extends CustomPainter {
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke;
 
-    if (position == _DropPosition.above) {
+    if (position == _DropPosition.inside) {
+      // Highlight the entire row box
+      final rect = Offset.zero & size;
+      canvas.drawRect(
+        rect, 
+        Paint()..color = color.withValues(alpha: 0.15)..style = PaintingStyle.fill
+      );
+      canvas.drawRect(rect, paint);
+    } else if (position == _DropPosition.above) {
       canvas.drawLine(Offset(0, 1), Offset(size.width, 1), paint);
     } else if (position == _DropPosition.below) {
       canvas.drawLine(
