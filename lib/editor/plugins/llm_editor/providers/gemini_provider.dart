@@ -7,6 +7,7 @@ import 'package:retry/retry.dart';
 import '../llm_editor_models.dart';
 import '../llm_editor_types.dart';
 import 'llm_provider.dart';
+import '../../../../utils/cancel_token.dart'; // Import the new class
 
 class GeminiProvider implements LlmProvider {
   final String _apiKey;
@@ -227,60 +228,78 @@ class GeminiProvider implements LlmProvider {
   Future<String> generateSimpleResponse({
     required String prompt,
     required LlmModelInfo model,
+    CancelToken? cancelToken,
   }) async {
     if (_apiKey.isEmpty) {
       throw Exception('Google Gemini API key is not set.');
     }
-
+    
+    // Create a client and a completer to manage the Future's state
     final client = http.Client();
-    final uri = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent',
-    );
-    final headers = {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': _apiKey,
-    };
+    final completer = Completer<String>();
 
-    final body = jsonEncode({
-      'contents': [
-        {
-          'parts': [
-            {'text': prompt},
-          ],
-        },
-      ],
-      'generationConfig': {
-        'responseMimeType': 'text/plain',
-      },
+    // Register a cancellation listener
+    cancelToken?.onCancel(() {
+      // If cancelled, close the client (aborts the request) and
+      // complete the future with an error.
+      client.close();
+      if (!completer.isCompleted) {
+        completer.completeError(Exception("Request cancelled by user"));
+      }
     });
 
+    // Run the request logic
     try {
+      final uri = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent',
+      );
+      final headers = {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': _apiKey,
+      };
+      final body = jsonEncode({
+        'contents': [{'parts': [{'text': prompt}]}],
+        'generationConfig': {'responseMimeType': 'text/plain'},
+      });
+      
       final response = await const RetryOptions(maxAttempts: 3).retry(
         () => client
             .post(uri, headers: headers, body: body)
-            .timeout(const Duration(seconds: 30)),
+            .timeout(const Duration(seconds: 45)), // Increased timeout for refactor
         retryIf: (e) => e is http.ClientException || e is TimeoutException,
       );
 
+      // If the future has already been cancelled and completed with an error, do nothing.
+      if (completer.isCompleted) return completer.future;
+
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        final content =
-            jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final content = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
         if (content != null) {
-          return content as String;
+          completer.complete(content as String);
         } else {
           final blockReason = jsonResponse['promptFeedback']?['blockReason'];
           if (blockReason != null) {
-            throw Exception('Prompt blocked: $blockReason');
+            completer.completeError(Exception('Prompt blocked: $blockReason'));
+          } else {
+            completer.completeError(Exception('Empty response from API.'));
           }
-          throw Exception('Empty response from API.');
         }
       } else {
-        throw Exception('API Error (${response.statusCode}): ${response.body}');
+        completer.completeError(Exception('API Error (${response.statusCode}): ${response.body}'));
+      }
+    } catch (e) {
+      if (!completer.isCompleted) {
+        completer.completeError(e);
       }
     } finally {
-      client.close();
+      // Always close the client unless it was already closed by cancellation
+      if (!(cancelToken?.isCancelled ?? false)) {
+        client.close();
+      }
     }
+    
+    return completer.future;
   }
 
   List<Map<String, dynamic>> _buildContents(List<ChatMessage> conversation) {

@@ -11,6 +11,7 @@ import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project/project_repository.dart';
 import '../../../project/project_models.dart';
 import '../../../settings/settings_notifier.dart';
+import '../../../utils/cancel_token.dart'; // Import the new class
 import '../../../utils/toast.dart';
 import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../models/editor_plugin_models.dart';
@@ -60,6 +61,7 @@ class LlmEditorPlugin extends EditorPlugin {
     required LlmEditorSettings? settings,
     required String prompt,
     required String inputText,
+    CancelToken? cancelToken, // Pass it down
   }) async {
     if (settings == null) {
       throw Exception('LLM settings are not configured.');
@@ -80,10 +82,11 @@ class LlmEditorPlugin extends EditorPlugin {
         '\n\nHere is the code to modify:\n\n---\n$inputText\n---';
 
     try {
-      final rawResponse = await provider.generateSimpleResponse(
-        prompt: fullPrompt,
-        model: model,
-      );
+    final rawResponse = await provider.generateSimpleResponse(
+      prompt: fullPrompt,
+      model: model,
+      cancelToken: cancelToken, // Pass it here
+    );
 
       return _extractCodeFromMarkdown(rawResponse) ?? inputText;
     } catch (e) {
@@ -266,7 +269,8 @@ class LlmEditorPlugin extends EditorPlugin {
 
         if (!context.mounted) return;
 
-        var isCancelled = false;
+        final cancelToken = CancelToken();
+
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -284,8 +288,8 @@ class LlmEditorPlugin extends EditorPlugin {
                   actions: [
                     TextButton(
                       onPressed: () {
-                        isCancelled = true;
-                        Navigator.of(ctx).pop();
+                    cancelToken.cancel();
+                    Navigator.of(ctx).pop();
                       },
                       child: const Text('Stop'),
                     ),
@@ -305,11 +309,10 @@ class LlmEditorPlugin extends EditorPlugin {
             settings: settings,
             prompt: fullPrompt,
             inputText: selectedText,
+            cancelToken: cancelToken,
           );
 
           if (context.mounted) Navigator.of(context).pop();
-
-          if (isCancelled) return;
 
           if (modifiedText != selectedText) {
             textEditable.replaceSelection(modifiedText);
@@ -317,9 +320,15 @@ class LlmEditorPlugin extends EditorPlugin {
             MachineToast.info("AI did not suggest any changes.");
           }
         } catch (e) {
+          // Pop the dialog on error
           if (context.mounted) Navigator.of(context).pop();
-          if (isCancelled) return;
-          MachineToast.error("Failed to apply AI modification: $e");
+          
+          // Don't show an error toast if the error was due to cancellation
+          if (e is Exception && e.toString().contains("cancelled")) {
+            MachineToast.info("AI modification cancelled.");
+          } else {
+            MachineToast.error("Failed to apply AI modification: $e");
+          }
         }
       },
     ),

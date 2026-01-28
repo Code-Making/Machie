@@ -2,6 +2,7 @@ import 'dart:async';
 import '../llm_editor_models.dart';
 import '../llm_editor_types.dart';
 export 'gemini_provider.dart'; 
+import '../../../../utils/cancel_token.dart'; // Import the new class
 
 abstract class LlmProvider {
   String get id;
@@ -23,6 +24,7 @@ abstract class LlmProvider {
   Future<String> generateSimpleResponse({
     required String prompt,
     required LlmModelInfo model,
+    CancelToken? cancelToken,
   });
 
   Future<int> countTokens({
@@ -101,8 +103,12 @@ class DummyProvider implements LlmProvider {
   Future<String> generateSimpleResponse({
     required String prompt,
     required LlmModelInfo model,
+    CancelToken? cancelToken,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
+    if (cancelToken?.isCancelled ?? false) {
+      throw Exception("Cancelled");
+    }
     return "/* Dummy Refactor */\n$prompt";
   }
 }
