@@ -10,6 +10,7 @@ import '../../flow_graph/models/flow_schema_models.dart';
 import '../models/object_class_model.dart';
 import '../tiled_asset_resolver.dart';
 import 'property_descriptors.dart';
+import '../tiled_map_notifier.dart';
 
 // extension on CustomProperties {
 //   T? getValue<T>(String name) {
@@ -73,7 +74,7 @@ class TiledReflector {
     if (obj is TiledObject) {
       return _getTiledObjectDescriptors(obj, map, schema, resolver, talker);
     }
-    if (obj is TiledMap) return (obj).getDescriptors();
+    if (obj is TiledMap) return (obj).getDescriptors(notifier);
     if (obj is Layer) return (obj).getDescriptors();
     if (obj is Tileset) return (obj).getDescriptors();
 
