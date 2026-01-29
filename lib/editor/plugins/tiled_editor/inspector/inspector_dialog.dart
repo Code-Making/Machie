@@ -168,7 +168,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
             
       // Copy custom properties (important for FlowGraph)
       if (target.properties.isNotEmpty) {
-         newMap.properties = CustomProperties({
+         newMap.properties = tiled.CustomProperties({
            for (var p in target.properties) p.name: deepCopyProperty(p)
          });
       }
