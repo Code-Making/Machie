@@ -40,7 +40,6 @@ dependencies:
   dart_git:
     path: ../dart-git
     # git: https://github.com/hommes-doutant/dart-git.git
-  file_picker: ^10.1.9
   path_provider: ^2.1.5
   re_highlight: ^0.0.3
   external_path: ^2.2.0
