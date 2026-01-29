@@ -733,7 +733,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-  Widget _buildTopBar() {
+Widget _buildTopBar() {
     final theme = Theme.of(context);
     return Container(
       height: 48,
@@ -745,68 +745,73 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       child: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                // Provider Dropdown
-                DropdownButton<String>(
-                  value: _controller.currentProviderId,
-                  underline: const SizedBox.shrink(),
-                  icon: const Icon(Icons.arrow_drop_down, size: 16),
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                  items: allLlmProviders.map((p) => DropdownMenuItem(
-                     value: p.id, child: Text(p.name)
-                  )).toList(),
-                  onChanged: _controller.isLoading ? null : (newVal) {
-                     if (newVal != null && newVal != _controller.currentProviderId) {
-                         _controller.setProvider(newVal);
-                         _fetchModelsForCurrentProvider();
-                     }
-                  },
-                ),
-                const VerticalDivider(indent: 12, endIndent: 12),
-                
-                // Model Dropdown
-                SizedBox( // Changed from Expanded to SizedBox
-                   width: 200, // Set a fixed width, or adjust as needed
-                   child: _isLoadingModels 
-                     ? const Align(
-                         alignment: Alignment.centerLeft,
-                         child: SizedBox(width:16, height:16, child: CircularProgressIndicator(strokeWidth:2)),
-                       )
-                     : DropdownButton<LlmModelInfo>(
-                          // isExpanded: true, // Removed isExpanded as we are using SizedBox
-                          value: _availableModels.contains(_controller.currentModel) ? _controller.currentModel : null,
-                          hint: const Text("Select Model"),
-                          underline: const SizedBox.shrink(),
-                          icon: const Icon(Icons.arrow_drop_down, size: 16),
-                          style: theme.textTheme.bodySmall,
-                          items: _availableModels.map((m) => DropdownMenuItem(
-                              value: m, 
-                              child: Text(m.displayName, overflow: TextOverflow.ellipsis)
-                          )).toList(),
-                          onChanged: _controller.isLoading ? null : (newVal) {
-                              if (newVal != null) _controller.setModel(newVal);
-                          },
-                     ),
-                ),
-                
-                // Token Stats
-                Container(
-                  margin: const EdgeInsets.only(left: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                     color: theme.colorScheme.primaryContainer.withValues(alpha:0.4),
-                     borderRadius: BorderRadius.circular(4),
+          return Row(
+            children: [
+              Expanded( // Wrap the scrollable content in Expanded
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // Provider Dropdown
+                      DropdownButton<String>(
+                        value: _controller.currentProviderId,
+                        underline: const SizedBox.shrink(),
+                        icon: const Icon(Icons.arrow_drop_down, size: 16),
+                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        items: allLlmProviders.map((p) => DropdownMenuItem(
+                           value: p.id, child: Text(p.name)
+                        )).toList(),
+                        onChanged: _controller.isLoading ? null : (newVal) {
+                           if (newVal != null && newVal != _controller.currentProviderId) {
+                               _controller.setProvider(newVal);
+                               _fetchModelsForCurrentProvider();
+                           }
+                        },
+                      ),
+                      const VerticalDivider(indent: 12, endIndent: 12),
+                      
+                      // Model Dropdown
+                      SizedBox( // Changed from Expanded to SizedBox
+                         width: 200, // Set a fixed width, or adjust as needed
+                         child: _isLoadingModels 
+                           ? const Align(
+                               alignment: Alignment.centerLeft,
+                               child: SizedBox(width:16, height:16, child: CircularProgressIndicator(strokeWidth:2)),
+                             )
+                           : DropdownButton<LlmModelInfo>(
+                                // isExpanded: true, // Removed isExpanded as we are using SizedBox
+                                value: _availableModels.contains(_controller.currentModel) ? _controller.currentModel : null,
+                                hint: const Text("Select Model"),
+                                underline: const SizedBox.shrink(),
+                                icon: const Icon(Icons.arrow_drop_down, size: 16),
+                                style: theme.textTheme.bodySmall,
+                                items: _availableModels.map((m) => DropdownMenuItem(
+                                    value: m, 
+                                    child: Text(m.displayName, overflow: TextOverflow.ellipsis)
+                                )).toList(),
+                                onChanged: _controller.isLoading ? null : (newVal) {
+                                    if (newVal != null) _controller.setModel(newVal);
+                                },
+                           ),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    'Tok: $_totalTokenCount / ${_controller.currentModel?.inputTokenLimit ?? '?'}',
-                    style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
-                  ),
-                )
-              ],
-            ),
+                ),
+              ),
+              // Token Stats
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                   color: theme.colorScheme.primaryContainer.withValues(alpha:0.4),
+                   borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Tok: $_totalTokenCount / ${_controller.currentModel?.inputTokenLimit ?? '?'}',
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
+                ),
+              )
+            ],
           );
         },
       ),
