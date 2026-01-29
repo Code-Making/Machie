@@ -270,33 +270,39 @@ class LlmEditorPlugin extends EditorPlugin {
         if (!context.mounted) return;
 
         final cancelToken = CancelToken();
+        final dialogContextCompleter = Completer<BuildContext>();
 
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder:
-              (ctx) => PopScope(
-                canPop: false,
-                child: AlertDialog(
-                  content: const Row(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(width: 24),
-                      Text("Applying AI modification..."),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                    cancelToken.cancel();
-                    Navigator.of(ctx).pop();
-                      },
-                      child: const Text('Stop'),
-                    ),
+          builder: (dialogCtx) {
+            if (!dialogContextCompleter.isCompleted) {
+              dialogContextCompleter.complete(dialogCtx);
+            }
+            return PopScope(
+              canPop: false,
+              child: AlertDialog(
+                content: const Row(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(width: 24),
+                    Text("Applying AI modification..."),
                   ],
                 ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      // FIX: The stop button ONLY cancels the token.
+                      // It does NOT pop the dialog. The 'finally' block will handle that.
+                      cancelToken.cancel();
+                    },
+                    child: const Text('Stop'),
+                  ),
+                ],
               ),
-        );
+            ),
+          );
+        final dialogContext = await dialogContextCompleter.future;
 
         try {
           final fullPrompt =
@@ -312,22 +318,22 @@ class LlmEditorPlugin extends EditorPlugin {
             cancelToken: cancelToken,
           );
 
-          if (context.mounted) Navigator.of(context).pop();
-
           if (modifiedText != selectedText) {
             textEditable.replaceSelection(modifiedText);
           } else {
             MachineToast.info("AI did not suggest any changes.");
           }
         } catch (e) {
-          // Pop the dialog on error
-          if (context.mounted) Navigator.of(context).pop();
-          
-          // Don't show an error toast if the error was due to cancellation
-          if (e is Exception && e.toString().contains("cancelled")) {
+          // Now we can safely distinguish the error type
+          if (e is CancellationException) {
             MachineToast.info("AI modification cancelled.");
           } else {
             MachineToast.error("Failed to apply AI modification: $e");
+          }
+        } finally {
+          // FIX: The dialog is ALWAYS popped here, exactly once.
+          if (dialogContext.mounted) {
+            Navigator.of(dialogContext).pop();
           }
         }
       },
