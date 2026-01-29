@@ -26,6 +26,7 @@ class TiledAssetResolver {
   /// The key is the project-relative path to the .fg file.
   final Map<String, List<FlowGraphParameter>> _fgParamCache = {};
   final Map<String, TiledMap> _externalMapCache = {};
+  final Map<String, TexturePackerSpriteData?> _resolvedSpriteCache = {};
 
   TiledAssetResolver(this._assets, this._repo, this._tmxPath, [this._talker]);
 
@@ -163,9 +164,6 @@ class TiledAssetResolver {
         object.properties['initialFrame'] ?? object.properties['initialAnim'];
 
     if (frameProp is! StringProperty || frameProp.value.isEmpty) {
-      _talker?.debug(
-        "[Resolver] Object ${object.id}: initialFrame/Anim is empty or missing.",
-      );
       return null;
     }
 
@@ -173,11 +171,23 @@ class TiledAssetResolver {
     final atlasProp = object.properties['atlas'];
 
     if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-      _talker?.debug(
-        "[Resolver] Object ${object.id}: Looking for '$spriteName' in atlas '${atlasProp.value}'",
-      );
-      return _findSpriteInAtlases(spriteName, [atlasProp.value]);
-    } else {}
+      final atlasPath = atlasProp.value;
+      // Create a unique key for the cache based on the atlas file and sprite name
+      final cacheKey = '$atlasPath|$spriteName';
+
+      // 1. Check cache first to avoid re-scanning
+      if (_resolvedSpriteCache.containsKey(cacheKey)) {
+        return _resolvedSpriteCache[cacheKey];
+      }
+
+      // 2. Perform the expensive lookup
+      // Note: Debug log removed from here to prevent frame spam
+      final result = _findSpriteInAtlases(spriteName, [atlasPath]);
+      
+      // 3. Store result (even if null) to prevent repeated lookups
+      _resolvedSpriteCache[cacheKey] = result;
+      return result;
+    }
 
     return null;
   }
