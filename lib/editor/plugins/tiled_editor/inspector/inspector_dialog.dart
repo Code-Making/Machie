@@ -38,6 +38,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
 
 class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   late Object _beforeState;
+  late Object _workingTarget;
   bool _hasChanges = false;
 
   bool _isLoadingParams = false;
@@ -47,6 +48,11 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   void initState() {
     super.initState();
     _beforeState = _deepCopyTarget(widget.target);
+    if (widget.target is tiled.TiledMap) {
+      _workingTarget = _deepCopyTarget(widget.target);
+    } else {
+      _workingTarget = widget.target;
+    }
     _loadFlowGraphParametersIfNeeded();
   }
 
@@ -77,11 +83,69 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     widget.resolver.clearExternalMapCache();
 
     if (_hasChanges) {
-      final afterState = _deepCopyTarget(widget.target);
-      widget.notifier.recordPropertyChange(_beforeState, afterState);
-      widget.notifier.notifyChange();
+      if (widget.target is tiled.TiledMap) {
+        _applyMapChanges(); // 4. Special handling for Map
+      } else {
+        // Standard behavior for Objects/Layers
+        final afterState = _deepCopyTarget(widget.target);
+        widget.notifier.recordPropertyChange(_beforeState, afterState);
+        widget.notifier.notifyChange();
+      }
     }
     super.dispose();
+  }
+  
+  void _applyMapChanges() {
+    final map = widget.target as tiled.TiledMap;
+    final workingMap = _workingTarget as tiled.TiledMap;
+
+    // A. Apply Dimensions (This handles Data Culling + History via Notifier)
+    if (map.width != workingMap.width ||
+        map.height != workingMap.height ||
+        map.tileWidth != workingMap.tileWidth ||
+        map.tileHeight != workingMap.tileHeight) {
+      
+      widget.notifier.updateMapProperties(
+        width: workingMap.width,
+        height: workingMap.height,
+        tileWidth: workingMap.tileWidth,
+        tileHeight: workingMap.tileHeight,
+      );
+    }
+
+    // B. Apply other properties directly (BG Color, Render Order, Custom Props)
+    bool otherPropsChanged = false;
+    final beforeMapSnapshot = _beforeState as tiled.TiledMap;
+
+    if (map.backgroundColorHex != workingMap.backgroundColorHex) {
+      map.backgroundColorHex = workingMap.backgroundColorHex;
+      otherPropsChanged = true;
+    }
+    if (map.renderOrder != workingMap.renderOrder) {
+      map.renderOrder = workingMap.renderOrder;
+      otherPropsChanged = true;
+    }
+    // Simple check for property map changes
+    if (map.properties != workingMap.properties) {
+      map.properties = workingMap.properties;
+      otherPropsChanged = true;
+    }
+
+    // Record generic history for non-dimension changes
+    if (otherPropsChanged) {
+      // Create a "Before" snapshot that assumes dimensions are already updated 
+      // (since updateMapProperties ran first), but has old props.
+      final propBefore = _deepCopyTarget(map) as tiled.TiledMap;
+      propBefore.backgroundColorHex = beforeMapSnapshot.backgroundColorHex;
+      propBefore.renderOrder = beforeMapSnapshot.renderOrder;
+      propBefore.properties = beforeMapSnapshot.properties;
+      
+      final propAfter = _deepCopyTarget(map);
+      
+      widget.notifier.recordPropertyChange(propBefore, propAfter);
+    }
+    
+    widget.notifier.notifyChange();
   }
 
   Object _deepCopyTarget(Object target) {
@@ -101,6 +165,13 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
             )
             ..backgroundColorHex = target.backgroundColorHex
             ..renderOrder = target.renderOrder;
+            
+      // Copy custom properties (important for FlowGraph)
+      if (target.properties.isNotEmpty) {
+         newMap.properties = CustomProperties({
+           for (var p in target.properties) p.name: deepCopyProperty(p)
+         });
+      }
       return newMap;
     }
     if (target is tiled.Tileset) {
@@ -133,12 +204,12 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
     // --- MODIFICATION: Pass the TiledMap to the reflector ---
     final descriptors = TiledReflector.getDescriptors(
-      obj: widget.target,
+      obj: _workingTarget, // 5. Bind UI to working target
       map: widget.notifier.map,
       schema: schema,
       resolver: widget.resolver,
       talker: talker,
-      notifier: widget.notifier, // <--- ADD THIS
+      // Removed notifier param
     );
 
     return AlertDialog(

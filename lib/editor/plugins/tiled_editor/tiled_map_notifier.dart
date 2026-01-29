@@ -10,6 +10,85 @@ abstract class _HistoryAction {
   void redo(TiledMap map);
 }
 
+class _MapResizeHistoryAction implements _HistoryAction {
+  final int beforeWidth, beforeHeight, beforeTileWidth, beforeTileHeight;
+  final int afterWidth, afterHeight, afterTileWidth, afterTileHeight;
+  final Map<int, List<List<Gid>>> beforeLayerData;
+  final Map<int, List<List<Gid>>> afterLayerData;
+
+  _MapResizeHistoryAction({
+    required this.beforeWidth,
+    required this.beforeHeight,
+    required this.beforeTileWidth,
+    required this.beforeTileHeight,
+    required this.afterWidth,
+    required this.afterHeight,
+    required this.afterTileWidth,
+    required this.afterTileHeight,
+    required this.beforeLayerData,
+    required this.afterLayerData,
+  });
+
+  @override
+  void undo(TiledMap map) {
+    _applyState(
+      map,
+      beforeWidth,
+      beforeHeight,
+      beforeTileWidth,
+      beforeTileHeight,
+      beforeLayerData,
+    );
+  }
+
+  @override
+  void redo(TiledMap map) {
+    _applyState(
+      map,
+      afterWidth,
+      afterHeight,
+      afterTileWidth,
+      afterTileHeight,
+      afterLayerData,
+    );
+  }
+
+  void _applyState(
+    TiledMap map,
+    int w,
+    int h,
+    int tw,
+    int th,
+    Map<int, List<List<Gid>>> data,
+  ) {
+    map.width = w;
+    map.height = h;
+    map.tileWidth = tw;
+    map.tileHeight = th;
+
+    for (final layer in map.layers) {
+      if (layer is TileLayer && data.containsKey(layer.id)) {
+        layer.width = w;
+        layer.height = h;
+        
+        // Deep copy the 2D grid from history to the layer
+        final restoredData =
+            data[layer.id]!.map((row) => List<Gid>.from(row)).toList();
+        layer.tileData = restoredData;
+
+        // Reconstruct the 1D data array to ensure parsers/painters stay in sync
+        layer.data = restoredData.expand((row) => row).map((gid) {
+          int raw = gid.tile;
+          if (gid.flips.horizontally) raw |= 0x80000000;
+          if (gid.flips.vertically) raw |= 0x40000000;
+          if (gid.flips.diagonally) raw |= 0x20000000;
+          return raw;
+        }).toList();
+      }
+    }
+  }
+}
+
 class _ObjectMoveHistoryAction implements _HistoryAction {
   final int sourceLayerId;
   final int targetLayerId;
@@ -800,74 +879,90 @@ class TiledMapNotifier extends ChangeNotifier {
   }
 
 void updateMapProperties({
-  required int width,
-  required int height,
-  required int tileWidth,
-  required int tileHeight,
-}) {
-  // 1. Update Map properties
-  _map.width = width;
-  _map.height = height;
-  _map.tileWidth = tileWidth;
-  _map.tileHeight = tileHeight;
+    required int width,
+    required int height,
+    required int tileWidth,
+    required int tileHeight,
+  }) {
+    // 1. Capture BEFORE state (Deep Copy)
+    final beforeData = _captureAllTileData();
+    final beforeW = _map.width;
+    final beforeH = _map.height;
+    final beforeTW = _map.tileWidth;
+    final beforeTH = _map.tileHeight;
 
-  // 2. Recursively resize all TileLayers
-  void resizeLayers(List<Layer> layers) {
-    for (var layer in layers) {
-      if (layer is Group) {
-        resizeLayers(layer.layers);
-      } else {
-        // Deep copy the layer before modification
-        final newLayer = deepCopyLayer(layer);
+    // 2. Perform the Resize Logic
+    _map.width = width;
+    _map.height = height;
+    _map.tileWidth = tileWidth;
+    _map.tileHeight = tileHeight;
 
-        if (newLayer is TileLayer) {
-          // Capture the old data reference and dimensions before modifying the layer
-          final oldData = newLayer.tileData;
-          final oldHeight = oldData?.length ?? 0;
-          final oldWidth = (oldHeight > 0 && oldData != null) ? oldData[0].length : 0;
+    for (final layer in _map.layers) {
+      if (layer is TileLayer) {
+        final oldData = beforeData[layer.id];
+        final oldHeight = oldData?.length ?? 0;
+        final oldWidth = oldHeight > 0 ? (oldData?[0].length ?? 0) : 0;
 
-          // Update the layer's dimensions to match the new map size
-          newLayer.width = width;
-          newLayer.height = height;
+        layer.width = width;
+        layer.height = height;
 
-          // Regenerate the 2D tileData grid from scratch
-          final newTileData = List.generate(
-            height,
-            (y) => List.generate(width, (x) {
-              // STRICT CHECK: Only copy if the coordinate existed in the OLD bounds.
-              // Data outside [oldWidth, oldHeight] is effectively deleted.
-              if (oldData != null && y < oldHeight && x < oldWidth) {
-                final oldGid = oldData[y][x];
-                // Create new Gid instance to break references
-                return Gid(oldGid.tile, oldGid.flips);
-              }
-              // New area gets empty tile
-              return Gid(0, Flips.defaults());
-            }),
-          );
+        // Regenerate 2D Grid
+        final newTileData = List.generate(
+          height,
+          (y) => List.generate(width, (x) {
+            if (oldData != null && y < oldHeight && x < oldWidth) {
+              return oldData[y][x];
+            }
+            return Gid.fromInt(0);
+          }),
+        );
+        layer.tileData = newTileData;
 
-          newLayer.tileData = newTileData;
-
-          // Rebuild the 1D flat data list.
-          // This ensures the serialization (XML/JSON) matches the new dimensions exactly.
-          newLayer.data = newTileData.expand((row) => row).map((gid) {
-            int raw = gid.tile;
-            // Re-apply Tiled flip flags
-            if (gid.flips.horizontally) raw |= 0x80000000;
-            if (gid.flips.vertically) raw |= 0x40000000;
-            if (gid.flips.diagonally) raw |= 0x20000000;
-            return raw;
-          }).toList();
-        }
-        // Replace the original layer with the modified deep copy
-        layers[layers.indexOf(layer)] = newLayer;
+        // Regenerate 1D List (Crucial for offsets)
+        layer.data = newTileData.expand((row) => row).map((gid) {
+          int raw = gid.tile;
+          if (gid.flips.horizontally) raw |= 0x80000000;
+          if (gid.flips.vertically) raw |= 0x40000000;
+          if (gid.flips.diagonally) raw |= 0x20000000;
+          return raw;
+        }).toList();
       }
     }
+
+    // 3. Capture AFTER state (Deep Copy)
+    final afterData = _captureAllTileData();
+
+    // 4. Push History Action
+    _pushHistory(
+      _MapResizeHistoryAction(
+        beforeWidth: beforeW,
+        beforeHeight: beforeH,
+        beforeTileWidth: beforeTW,
+        beforeTileHeight: beforeTH,
+        afterWidth: width,
+        afterHeight: height,
+        afterTileWidth: tileWidth,
+        afterTileHeight: tileHeight,
+        beforeLayerData: beforeData,
+        afterLayerData: afterData,
+      ),
+    );
+
+    notifyListeners();
   }
 
-  resizeLayers(_map.layers);
-  notifyListeners();
-}
+  /// Helper to deep copy all tile data for history snapshots
+  Map<int, List<List<Gid>>> _captureAllTileData() {
+    final data = <int, List<List<Gid>>>{};
+    for (final layer in _map.layers) {
+      if (layer is TileLayer && layer.tileData != null) {
+        data[layer.id!] = layer.tileData!
+            .map((row) => List<Gid>.from(row))
+            .toList();
+      }
+    }
+    return data;
+  }
 
   Future<void> addTileset(Tileset newTileset) async {
     _map.tilesets.add(newTileset);
