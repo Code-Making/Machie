@@ -11,6 +11,7 @@ import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project/project_repository.dart';
 import '../../../project/project_models.dart';
 import '../../../settings/settings_notifier.dart';
+import '../../../utils/cancellation_exception.dart';
 import '../../../utils/cancel_token.dart'; // Import the new class
 import '../../../utils/toast.dart';
 import '../../../widgets/dialogs/file_explorer_dialogs.dart';

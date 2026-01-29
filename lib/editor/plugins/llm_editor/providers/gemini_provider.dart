@@ -4,10 +4,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:retry/retry.dart';
 
+import 'llm_provider.dart';
 import '../llm_editor_models.dart';
 import '../llm_editor_types.dart';
-import 'llm_provider.dart';
-import '../../../../utils/cancel_token.dart'; // Import the new class
+import '../../../../utils/cancellation_exception.dart'; // Import the new exception
+import '../../../../utils/cancel_token.dart';
 
 class GeminiProvider implements LlmProvider {
   final String _apiKey;
@@ -240,11 +241,9 @@ class GeminiProvider implements LlmProvider {
 
     // Register a cancellation listener
     cancelToken?.onCancel(() {
-      // If cancelled, close the client (aborts the request) and
-      // complete the future with an error.
       client.close();
       if (!completer.isCompleted) {
-        completer.completeError(Exception("Request cancelled by user"));
+        completer.completeError(CancellationException("Request cancelled by user"));
       }
     });
 
