@@ -138,6 +138,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       schema: schema,
       resolver: widget.resolver,
       talker: talker,
+      notifier: widget.notifier, // <--- ADD THIS
     );
 
     return AlertDialog(

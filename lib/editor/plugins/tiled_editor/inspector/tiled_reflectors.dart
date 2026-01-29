@@ -66,6 +66,7 @@ class TiledReflector {
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
     Talker? talker,
+    TiledMapNotifier? notifier,
   }) {
     if (obj == null) return [];
 
@@ -555,7 +556,7 @@ ColorPropertyDescriptor(
 }
 
 extension TiledMapReflector on TiledMap {
-  List<PropertyDescriptor> getDescriptors() {
+  List<PropertyDescriptor> getDescriptors(TiledMapNotifier? notifier) { // <--- ACCEPT NOTIFIER
     return [
       EnumPropertyDescriptor<RenderOrder>(
         name: 'renderOrder',
@@ -568,26 +569,73 @@ extension TiledMapReflector on TiledMap {
         name: 'width',
         label: 'Width (tiles)',
         getter: () => width,
-        setter: (v) => width = v,
+        setter: (v) {
+          // Use notifier to ensure layer data is resized/truncated
+          if (notifier != null) {
+            notifier.updateMapProperties(
+              width: v,
+              height: height,
+              tileWidth: tileWidth,
+              tileHeight: tileHeight,
+            );
+          } else {
+            width = v;
+          }
+        },
       ),
       IntPropertyDescriptor(
         name: 'height',
         label: 'Height (tiles)',
         getter: () => height,
-        setter: (v) => height = v,
+        setter: (v) {
+          // Use notifier to ensure layer data is resized/truncated
+          if (notifier != null) {
+            notifier.updateMapProperties(
+              width: width,
+              height: v,
+              tileWidth: tileWidth,
+              tileHeight: tileHeight,
+            );
+          } else {
+            height = v;
+          }
+        },
       ),
       IntPropertyDescriptor(
         name: 'tileWidth',
         label: 'Tile Width (px)',
         getter: () => tileWidth,
-        setter: (v) => tileWidth = v,
+        setter: (v) {
+          if (notifier != null) {
+            notifier.updateMapProperties(
+              width: width,
+              height: height,
+              tileWidth: v,
+              tileHeight: tileHeight,
+            );
+          } else {
+            tileWidth = v;
+          }
+        },
       ),
       IntPropertyDescriptor(
         name: 'tileHeight',
         label: 'Tile Height (px)',
         getter: () => tileHeight,
-        setter: (v) => tileHeight = v,
+        setter: (v) {
+          if (notifier != null) {
+            notifier.updateMapProperties(
+              width: width,
+              height: height,
+              tileWidth: tileWidth,
+              tileHeight: v,
+            );
+          } else {
+            tileHeight = v;
+          }
+        },
       ),
+      // ... rest of descriptors (backgroundColor, properties, flowGraph, etc.)
       ColorPropertyDescriptor(
         name: 'backgroundColor',
         label: 'Background Color',

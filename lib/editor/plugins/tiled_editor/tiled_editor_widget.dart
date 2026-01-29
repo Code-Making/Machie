@@ -607,6 +607,26 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     syncCommandContext();
     setState(() {});
   }
+  
+  void inspectMapProperties() {
+    // final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
+    final resolver = resolverState.valueOrNull;
+
+    if (_notifier == null || resolver == null) return;
+
+    showDialog(
+      context: context,
+      builder:
+          (_) => InspectorDialog(
+            target: _notifier!.map,
+            title: 'Map Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+            resolver: resolver,
+          ),
+    );
+  }
 
   void _editMapProperties() async {
     final result = await showDialog<Map<String, int>>(
@@ -655,25 +675,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     );
   }
 
-  void inspectMapProperties() {
-    // final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
-    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
-    final resolver = resolverState.valueOrNull;
 
-    if (_notifier == null || resolver == null) return;
-
-    showDialog(
-      context: context,
-      builder:
-          (_) => InspectorDialog(
-            target: _notifier!.map,
-            title: 'Map Properties',
-            notifier: _notifier!,
-            editorKey: widget.tab.editorKey,
-            resolver: resolver,
-          ),
-    );
-  }
 
   Future<void> _addTileset() async {
     final relativeImagePath = await showDialog<String>(
