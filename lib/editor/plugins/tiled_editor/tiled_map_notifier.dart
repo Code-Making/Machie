@@ -800,31 +800,35 @@ class TiledMapNotifier extends ChangeNotifier {
   }
 
 void updateMapProperties({
-    required int width,
-    required int height,
-    required int tileWidth,
-    required int tileHeight,
-  }) {
-    // 1. Update Map properties
-    _map.width = width;
-    _map.height = height;
-    _map.tileWidth = tileWidth;
-    _map.tileHeight = tileHeight;
+  required int width,
+  required int height,
+  required int tileWidth,
+  required int tileHeight,
+}) {
+  // 1. Update Map properties
+  _map.width = width;
+  _map.height = height;
+  _map.tileWidth = tileWidth;
+  _map.tileHeight = tileHeight;
 
-    // 2. Recursively resize all TileLayers
-    void resizeLayers(List<Layer> layers) {
-      for (final layer in layers) {
-        if (layer is Group) {
-          resizeLayers(layer.layers);
-        } else if (layer is TileLayer) {
+  // 2. Recursively resize all TileLayers
+  void resizeLayers(List<Layer> layers) {
+    for (var layer in layers) {
+      if (layer is Group) {
+        resizeLayers(layer.layers);
+      } else {
+        // Deep copy the layer before modification
+        final newLayer = deepCopyLayer(layer);
+
+        if (newLayer is TileLayer) {
           // Capture the old data reference and dimensions before modifying the layer
-          final oldData = layer.tileData;
+          final oldData = newLayer.tileData;
           final oldHeight = oldData?.length ?? 0;
           final oldWidth = (oldHeight > 0 && oldData != null) ? oldData[0].length : 0;
 
           // Update the layer's dimensions to match the new map size
-          layer.width = width;
-          layer.height = height;
+          newLayer.width = width;
+          newLayer.height = height;
 
           // Regenerate the 2D tileData grid from scratch
           final newTileData = List.generate(
@@ -842,11 +846,11 @@ void updateMapProperties({
             }),
           );
 
-          layer.tileData = newTileData;
+          newLayer.tileData = newTileData;
 
           // Rebuild the 1D flat data list.
           // This ensures the serialization (XML/JSON) matches the new dimensions exactly.
-          layer.data = newTileData.expand((row) => row).map((gid) {
+          newLayer.data = newTileData.expand((row) => row).map((gid) {
             int raw = gid.tile;
             // Re-apply Tiled flip flags
             if (gid.flips.horizontally) raw |= 0x80000000;
@@ -855,12 +859,15 @@ void updateMapProperties({
             return raw;
           }).toList();
         }
+        // Replace the original layer with the modified deep copy
+        layers[layers.indexOf(layer)] = newLayer;
       }
     }
-
-    resizeLayers(_map.layers);
-    notifyListeners();
   }
+
+  resizeLayers(_map.layers);
+  notifyListeners();
+}
 
   Future<void> addTileset(Tileset newTileset) async {
     _map.tilesets.add(newTileset);
