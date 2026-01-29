@@ -16,7 +16,7 @@ class TiledMapPainter extends CustomPainter {
   final TiledAssetResolver resolver;
   final bool showGrid;
   final Matrix4 transform;
-  final Talker? talker; // [DIAGNOSTIC] Add field
+  final Talker? talker;
   final Set<String> _loggedErrors = {};
 
   final List<TiledObject> selectedObjects;
@@ -28,6 +28,7 @@ class TiledMapPainter extends CustomPainter {
   final Point? floatingSelectionPosition;
 
   final Map<int, TextPainter> _textPainterCache = {};
+  final Map<int, TexturePackerSpriteData?> _spriteDataCache = {}; // Cache for sprite data resolver calls
 
   TiledMapPainter({
     required this.map,
@@ -41,7 +42,7 @@ class TiledMapPainter extends CustomPainter {
     required this.settings,
     this.floatingSelection,
     this.floatingSelectionPosition,
-    this.talker, // [DIAGNOSTIC] Add arg
+    this.talker,
   });
 
   @override
@@ -76,46 +77,6 @@ class TiledMapPainter extends CustomPainter {
     }
   }
 
-  /// Schema lookup: Uses the object's 'atlas' property to find the specific file,
-  /// then looks for 'initialFrame' or 'initialAnim'.
-  // TexturePackerSpriteData? _findSchemaSpriteData(TiledObject object) {
-  //   // 1. Check for file property
-  //   final atlasProp = object.properties['atlas'];
-  //   if (atlasProp is! StringProperty || atlasProp.value.isEmpty) return null;
-
-  //   // 2. Check for frame/anim property
-  //   final frameProp =
-  //       object.properties['initialFrame'] ?? object.properties['initialAnim'];
-  //   if (frameProp is! StringProperty || frameProp.value.isEmpty) return null;
-
-  //   // 3. Resolve the specific asset
-  //   // The atlas property is relative to the TMX file
-  //   final canonicalKey = resolver.repo.resolveRelativePath(
-  //     resolver.tmxPath,
-  //     atlasProp.value,
-  //   );
-  //   final asset = resolver.getAsset(canonicalKey);
-
-  //   if (asset is! TexturePackerAssetData) return null;
-
-  //   // 4. Find the sprite within that asset
-  //   final spriteName = frameProp.value;
-
-  //   // Direct frame match
-  //   if (asset.frames.containsKey(spriteName)) {
-  //     return asset.frames[spriteName];
-  //   }
-
-  //   // Animation match (get first frame)
-  //   if (asset.animations.containsKey(spriteName)) {
-  //     final firstFrame = asset.animations[spriteName]!.firstOrNull;
-  //     if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
-  //       return asset.frames[firstFrame];
-  //     }
-  //   }
-
-  //   return null;
-  // }
 
   void _paintFloatingSelection(Canvas canvas) {
     final selection = floatingSelection!;
@@ -589,8 +550,11 @@ class TiledMapPainter extends CustomPainter {
 
       // Sprite Rendering
       bool customDrawDone = false;
-      // Replace the old internal lookup with a direct call to the resolver.
-      final spriteData = resolver.getSpriteDataForObject(object, map);
+      // calls to the resolver should be cached
+      final spriteData = _spriteDataCache.putIfAbsent(
+        object.id,
+        () => resolver.getSpriteDataForObject(object, map),
+      );
 
       if (spriteData != null) {
         final srcRect = spriteData.sourceRect;
@@ -816,7 +780,12 @@ class TiledMapPainter extends CustomPainter {
   bool shouldRepaint(covariant TiledMapPainter oldDelegate) {
     if (oldDelegate.transform != transform) {
       _textPainterCache.clear();
+      // Clearing sprite cache as visual transform changes might impact
+      // object rendering, or if the underlying map data could have changed (unlikely for final map)
+      // but safer to clear if visual context changes.
+      _spriteDataCache.clear();
     }
+    // For simplicity, we always repaint. In a real scenario, this would be more granular.
     return true;
   }
 
