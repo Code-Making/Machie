@@ -10,6 +10,7 @@ import 'package:vector_math/vector_math_64.dart' as vector;
 import '../../../logs/logs_provider.dart';
 import 'tiled_asset_resolver.dart';
 import 'tiled_editor_settings_model.dart';
+import '../../../asset_cache/asset_models.dart';
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
