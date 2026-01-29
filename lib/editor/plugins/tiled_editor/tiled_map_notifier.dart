@@ -805,66 +805,50 @@ void updateMapProperties({
     required int tileWidth,
     required int tileHeight,
   }) {
-    // 1. recursively capture the old data
-    final oldLayersData = <int, List<List<Gid>>>{};
-    void captureData(List<Layer> layers) {
-      for (final layer in layers) {
-        if (layer is TileLayer && layer.tileData != null) {
-          oldLayersData[layer.id!] = layer.tileData!;
-        } else if (layer is Group) {
-          captureData(layer.layers);
-        }
-      }
-    }
-    captureData(_map.layers);
-
-    // 2. Update Map properties
+    // 1. Update Map properties
     _map.width = width;
     _map.height = height;
     _map.tileWidth = tileWidth;
     _map.tileHeight = tileHeight;
 
-    // 3. recursively update layers
-    void updateLayers(List<Layer> layers) {
+    // 2. Recursively resize all TileLayers
+    void resizeLayers(List<Layer> layers) {
       for (final layer in layers) {
         if (layer is Group) {
-          updateLayers(layer.layers);
+          resizeLayers(layer.layers);
         } else if (layer is TileLayer) {
-          final oldData = oldLayersData[layer.id];
+          // Capture the old data reference and dimensions before modifying the layer
+          final oldData = layer.tileData;
           final oldHeight = oldData?.length ?? 0;
-          final oldWidth = oldHeight > 0 ? (oldData?[0].length ?? 0) : 0;
+          final oldWidth = (oldHeight > 0 && oldData != null) ? oldData[0].length : 0;
 
+          // Update the layer's dimensions to match the new map size
           layer.width = width;
           layer.height = height;
 
-          // Regenerate 2D tileData with new dimensions.
-          // Data outside the new bounds is ignored (culled/deleted).
-          // New space is padded with empty tiles.
+          // Regenerate the 2D tileData grid from scratch
           final newTileData = List.generate(
             height,
             (y) => List.generate(width, (x) {
+              // STRICT CHECK: Only copy if the coordinate existed in the OLD bounds.
+              // Data outside [oldWidth, oldHeight] is effectively deleted.
               if (oldData != null && y < oldHeight && x < oldWidth) {
-                // Create a new Gid instance to avoid reference issues
                 final oldGid = oldData[y][x];
+                // Create new Gid instance to break references
                 return Gid(oldGid.tile, oldGid.flips);
               }
-              // For new cells or cells outside the old bounds (culled cells),
-              // return an empty Gid.
+              // New area gets empty tile
               return Gid(0, Flips.defaults());
             }),
           );
 
           layer.tileData = newTileData;
 
-          // Re-calculate the 1D flat data array entirely from the new 2D grid.
-          // This ensures the serialized data matches the visual grid exactly
-          // after culling/padding.
+          // Rebuild the 1D flat data list.
+          // This ensures the serialization (XML/JSON) matches the new dimensions exactly.
           layer.data = newTileData.expand((row) => row).map((gid) {
             int raw = gid.tile;
-            // Re-apply Tiled flip flags to the raw integer
-            // 0x80000000 = Horizontal flip
-            // 0x40000000 = Vertical flip
-            // 0x20000000 = Diagonal flip
+            // Re-apply Tiled flip flags
             if (gid.flips.horizontally) raw |= 0x80000000;
             if (gid.flips.vertically) raw |= 0x40000000;
             if (gid.flips.diagonally) raw |= 0x20000000;
@@ -873,8 +857,8 @@ void updateMapProperties({
         }
       }
     }
-    updateLayers(_map.layers);
 
+    resizeLayers(_map.layers);
     notifyListeners();
   }
 
