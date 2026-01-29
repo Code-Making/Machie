@@ -321,7 +321,6 @@ class TiledMapPainter extends CustomPainter {
   }
 
   void _paintTileLayer(Canvas canvas, TileLayer layer) {
-    // ... [No changes to existing tile logic] ...
     final visibleRect = canvas.getDestinationClipBounds();
     final startX = (visibleRect.left / map.tileWidth - 1).floor().clamp(
       0,

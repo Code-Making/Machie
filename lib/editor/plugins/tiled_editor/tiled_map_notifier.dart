@@ -799,7 +799,7 @@ class TiledMapNotifier extends ChangeNotifier {
     _pushHistory(_PropertyChangeHistoryAction(before, after));
   }
 
-  void updateMapProperties({
+void updateMapProperties({
     required int width,
     required int height,
     required int tileWidth,
@@ -838,7 +838,7 @@ class TiledMapNotifier extends ChangeNotifier {
           layer.height = height;
 
           // Regenerate 2D tileData with new dimensions.
-          // Data outside the new bounds is ignored (deleted).
+          // Data outside the new bounds is ignored (culled/deleted).
           // New space is padded with empty tiles.
           final newTileData = List.generate(
             height,
@@ -848,6 +848,8 @@ class TiledMapNotifier extends ChangeNotifier {
                 final oldGid = oldData[y][x];
                 return Gid(oldGid.tile, oldGid.flips);
               }
+              // For new cells or cells outside the old bounds (culled cells),
+              // return an empty Gid.
               return Gid(0, Flips.defaults());
             }),
           );
@@ -855,7 +857,8 @@ class TiledMapNotifier extends ChangeNotifier {
           layer.tileData = newTileData;
 
           // Re-calculate the 1D flat data array entirely from the new 2D grid.
-          // This ensures the serialized data matches the visual grid exactly.
+          // This ensures the serialized data matches the visual grid exactly
+          // after culling/padding.
           layer.data = newTileData.expand((row) => row).map((gid) {
             int raw = gid.tile;
             // Re-apply Tiled flip flags to the raw integer
