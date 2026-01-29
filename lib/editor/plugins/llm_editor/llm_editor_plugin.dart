@@ -300,7 +300,7 @@ class LlmEditorPlugin extends EditorPlugin {
                   ),
                 ],
               ),
-            ),
+            );}
           );
         final dialogContext = await dialogContextCompleter.future;
 
