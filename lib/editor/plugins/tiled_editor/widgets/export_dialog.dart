@@ -21,7 +21,7 @@ class ExportDialog extends ConsumerStatefulWidget {
 
   const ExportDialog({
     super.key,
-    required this,
+    required this.notifier,
     required this.talker,
     required this.tabId,
     required this.initialMapName,
@@ -103,7 +103,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       await ref
           .read(tiledExportServiceProvider)
           .exportMap(
-            map: widget.map,
+            map: widget.notifier.map,
             resolver: resolverAsync.value!,
             destinationFolderUri: _destinationFolderUri!,
             mapFileName: _mapNameController.text.trim(),

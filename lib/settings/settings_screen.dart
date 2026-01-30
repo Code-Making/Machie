@@ -311,7 +311,7 @@ class _ProjectSpecificSettingsCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(projectSettingsProvider);
+    final notifier = ref.read(projectSettingsProvider.notifier);
     return Card(
       margin: const EdgeInsets.all(8),
       child: ExpansionTile(
@@ -496,7 +496,7 @@ class CommandSettingsScreen extends ConsumerWidget {
               icon: const Icon(Icons.delete, color: Colors.redAccent),
               onPressed:
                   () =>
-                      ref.read(commandProvider).deleteGroup(group.id),
+                      ref.read(commandProvider.notifier).deleteGroup(group.id),
             ),
         ],
       ),
@@ -535,7 +535,7 @@ class CommandSettingsScreen extends ConsumerWidget {
     required String positionId,
   }) {
     final state = ref.watch(commandProvider);
-    final notifier = ref.read(commandProvider);
+    final notifier = ref.read(commandProvider.notifier);
 
     final originalPluginGroups = notifier.pluginDefinedGroups;
 
@@ -718,7 +718,7 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final notifier = widget.ref.read(commandProvider);
+    final notifier = widget.ref.read(commandProvider.notifier);
     final state = widget.ref.watch(commandProvider);
     final bool isAddingToGroup = widget.toPositionId.startsWith('group_');
     final allCommands =
@@ -833,7 +833,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   }
 
   void _onConfirm() {
-    final notifier = widget.ref.read(commandProvider);
+    final notifier = widget.ref.read(commandProvider.notifier);
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
 

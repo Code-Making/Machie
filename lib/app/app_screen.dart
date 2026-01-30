@@ -61,7 +61,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     final isFullScreen =
         ref.read(appNotifierProvider).value?.isFullScreen ?? false;
     if (isFullScreen) {
-      ref.read(appNotifierProvider).toggleFullScreen();
+      ref.read(appNotifierProvider.notifier).toggleFullScreen();
       return true;
     }
 

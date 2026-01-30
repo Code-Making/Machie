@@ -21,7 +21,7 @@ class FlowGraphExportDialog extends ConsumerStatefulWidget {
   const FlowGraphExportDialog({
     super.key,
     required this.tabId,
-    required this,
+    required this.notifier,
   });
 
   @override
@@ -103,7 +103,7 @@ class _FlowGraphExportDialogState extends ConsumerState<FlowGraphExportDialog> {
       await ref
           .read(flowExportServiceProvider)
           .export(
-            graph: widget.graph,
+            graph: widget.notifier.graph,
             resolver: resolverAsync.value!,
             destinationFolderUri: _destinationUri!,
             fileName: _nameController.text.trim(),

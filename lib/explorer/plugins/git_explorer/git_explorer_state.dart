@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'git_object_file.dart';
 import 'git_provider.dart';
 
-final gitHistoryStartHashProvider = NotifierProvider<GitHash?>((ref) => null);
+final gitHistoryStartHashProvider = StateProvider<GitHash?>((ref) => null);
 
 final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((
   ref,
@@ -125,10 +125,10 @@ final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider.family<
 
 // ... (The rest of the file is unchanged) ...
 final gitExplorerExpandedFoldersProvider =
-    Provider.autoDispose<Set<String>>((ref) => {});
+    StateProvider.autoDispose<Set<String>>((ref) => {});
 
 // SIMPLIFIED: The selected hash now defaults to whatever the history start hash is.
-final selectedGitCommitHashProvider = Provider<GitHash?>((ref) {
+final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   return ref.watch(gitHistoryStartHashProvider);
 });
 
@@ -147,7 +147,7 @@ class GitTreeCacheNotifier
     ref.listen<GitHash?>(selectedGitCommitHashProvider, (previous, next) {
       if (previous != next && next != null) {
         state = {};
-        ref.read(gitExplorerExpandedFoldersProvider).state = {};
+        ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
         loadDirectory('');
       }
     });

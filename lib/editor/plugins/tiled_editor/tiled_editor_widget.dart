@@ -186,7 +186,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
 
     ref
-        .read(commandContextProvider(widget.tab.id))
+        .read(commandContextProvider(widget.tab.id).notifier)
         .state = TiledEditorCommandContext(
       mode: _mode,
       isGridVisible: _showGrid,
@@ -264,7 +264,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       // START OF CHANGES
       final queries = uris.map((uri) => AssetQuery(path: uri)).toSet();
       final assetDataMap = await ref
-          .read(assetMapProvider(widget.tab.id))
+          .read(assetMapProvider(widget.tab.id).notifier)
           .updateUris(queries);
       // END OF CHANGES
 
@@ -390,7 +390,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final uris = await _collectAssetUris(_notifier!.map);
     // START OF CHANGES
     final queries = uris.map((uri) => AssetQuery(path: uri)).toSet();
-    ref.read(assetMapProvider(widget.tab.id)).updateUris(queries);
+    ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(queries);
     // END OF CHANGES
   }
 

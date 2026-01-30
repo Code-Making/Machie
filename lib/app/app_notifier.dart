@@ -497,7 +497,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void clearBottomToolbarOverride() =>
       _updateStateSync((s) => s.copyWith(clearBottomToolbarOverride: true));
 
-  void clearClipboard() => ref.read(clipboardProvider).state = null;
+  void clearClipboard() => ref.read(clipboardProvider.notifier).state = null;
 
   Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
     final previousState = state.value;

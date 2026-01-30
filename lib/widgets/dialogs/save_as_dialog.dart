@@ -35,7 +35,7 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _currentPathUri.isNotEmpty) {
         ref
-            .read(projectHierarchyServiceProvider)
+            .read(projectHierarchyServiceProvider.notifier)
             .loadDirectory(_currentPathUri);
       }
     });
@@ -131,7 +131,7 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
           onTap: () {
             // Trigger a lazy-load for the new directory
             ref
-                .read(projectHierarchyServiceProvider)
+                .read(projectHierarchyServiceProvider.notifier)
                 .loadDirectory(dir.uri);
             setState(() {
               _currentPathUri = dir.uri;
@@ -159,7 +159,7 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
                     final newPath = fileHandler.getParentUri(_currentPathUri);
                     // Trigger a lazy-load for the parent directory
                     ref
-                        .read(projectHierarchyServiceProvider)
+                        .read(projectHierarchyServiceProvider.notifier)
                         .loadDirectory(newPath);
                     setState(() {
                       _currentPathUri = newPath;

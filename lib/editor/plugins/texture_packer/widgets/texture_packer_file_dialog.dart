@@ -14,7 +14,7 @@ class TexturePackerImportResult {
   TexturePackerImportResult(this.files, this.asSprites);
 }
 
-final _tpFilePickerLastPathProvider = Provider<String?>((ref) => null);
+final _tpFilePickerLastPathProvider = StateProvider<String?>((ref) => null);
 
 class TexturePackerFilePickerDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
@@ -44,15 +44,15 @@ class _TexturePackerFilePickerDialogState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref
-            .read(projectHierarchyServiceProvider)
+            .read(projectHierarchyServiceProvider.notifier)
             .loadDirectory(_currentPathUri);
       }
     });
   }
 
   void _setCurrentPath(String newPath) {
-    ref.read(projectHierarchyServiceProvider).loadDirectory(newPath);
-    ref.read(_tpFilePickerLastPathProvider).state = newPath;
+    ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
+    ref.read(_tpFilePickerLastPathProvider.notifier).state = newPath;
     setState(() => _currentPathUri = newPath);
   }
 

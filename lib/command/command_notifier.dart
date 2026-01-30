@@ -13,14 +13,14 @@ import '../settings/settings_notifier.dart'; // Import for effectiveSettingsProv
 
 export 'command_models.dart';
 
-final commandProvider = NotifierProvider<CommandNotifier, CommandState>((
+final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
   ref,
 ) {
   final plugins = ref.watch(activePluginsProvider);
   return CommandNotifier(ref: ref, plugins: plugins);
 });
 
-class CommandNotifier extends Notifier<CommandState> {
+class CommandNotifier extends StateNotifier<CommandState> {
   final Ref ref;
   final List<Command> _allRegisteredCommands = [];
   final Map<String, CommandGroup> _pluginDefinedGroups = {};

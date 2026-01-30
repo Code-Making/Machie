@@ -272,7 +272,7 @@ class TexturePackerPlugin extends EditorPlugin {
             await SlicingPropertiesDialog.show(
               editor!.context,
               editor.widget.tab.id,
-              editor,
+              editor.notifier,
             );
           }
         },
@@ -291,7 +291,7 @@ class TexturePackerPlugin extends EditorPlugin {
               builder:
                   (_) => TexturePackerExportDialog(
                     tabId: editor.widget.tab.id,
-                    notifier: editor,
+                    notifier: editor.notifier,
                   ),
             );
           }

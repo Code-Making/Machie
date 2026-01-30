@@ -54,7 +54,7 @@ class EditorService {
     ProjectMetadata projectMetadata,
   ) async {
     final plugins = _ref.read(activePluginsProvider);
-    final metadataNotifier = _ref.read(tabMetadataProvider);
+    final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
     final talker = _ref.read(talkerProvider);
 
@@ -161,14 +161,14 @@ class EditorService {
   void markCurrentTabDirty() {
     final tabId = _currentTab?.id;
     if (tabId != null) {
-      _ref.read(tabMetadataProvider).markDirty(tabId);
+      _ref.read(tabMetadataProvider.notifier).markDirty(tabId);
     }
   }
 
   void markCurrentTabClean() {
     final tabId = _currentTab?.id;
     if (tabId != null) {
-      _ref.read(tabMetadataProvider).markClean(tabId);
+      _ref.read(tabMetadataProvider.notifier).markClean(tabId);
     }
   }
 
@@ -180,15 +180,15 @@ class EditorService {
     final newProject = project.copyWith(
       session: project.session.copyWith(tabs: newTabs),
     );
-    _ref.read(appNotifierProvider).updateCurrentProject(newProject);
+    _ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
   }
 
   void setBottomToolbarOverride(Widget? widget) {
-    _ref.read(appNotifierProvider).setBottomToolbarOverride(widget);
+    _ref.read(appNotifierProvider.notifier).setBottomToolbarOverride(widget);
   }
 
   void clearBottomToolbarOverride() {
-    _ref.read(appNotifierProvider).clearBottomToolbarOverride();
+    _ref.read(appNotifierProvider.notifier).clearBottomToolbarOverride();
   }
 
   Future<void> saveCurrentTabAs() async {
@@ -234,8 +234,8 @@ class EditorService {
                   .convert((editorContent as EditorContentBytes).bytes)
                   .toString();
 
-      _ref.read(tabMetadataProvider).updateFile(tab.id, newFile);
-      _ref.read(tabMetadataProvider).markClean(tab.id);
+      _ref.read(tabMetadataProvider.notifier).updateFile(tab.id, newFile);
+      _ref.read(tabMetadataProvider.notifier).markClean(tab.id);
 
       await _ref
           .read(hotStateCacheServiceProvider)
@@ -268,7 +268,7 @@ class EditorService {
     }
 
     final repo = _ref.read(projectRepositoryProvider);
-    final appNotifier = _ref.read(appNotifierProvider);
+    final appNotifier = _ref.read(appNotifierProvider.notifier);
     final explorerService = _ref.read(explorerServiceProvider);
     final context = _ref.read(navigatorKeyProvider).currentContext;
 
@@ -334,7 +334,7 @@ class EditorService {
       return false;
     }
 
-    final appNotifier = _ref.read(appNotifierProvider);
+    final appNotifier = _ref.read(appNotifierProvider.notifier);
     final metadataMap = _ref.read(tabMetadataProvider);
     final existingTabId =
         metadataMap.entries
@@ -490,7 +490,7 @@ class EditorService {
     EditorTab newTab,
     DocumentFile file,
   ) {
-    _ref.read(tabMetadataProvider).initTab(newTab.id, file);
+    _ref.read(tabMetadataProvider.notifier).initTab(newTab.id, file);
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(
       tabs: [...project.session.tabs, newTab],
@@ -514,14 +514,14 @@ class EditorService {
     try {
       final editorContent = await editorState.getContent();
       final saveResult = await contentProvider.saveContent(file, editorContent);
-      _ref.read(tabMetadataProvider).markClean(tabToSave.id);
+      _ref.read(tabMetadataProvider.notifier).markClean(tabToSave.id);
       await _ref
           .read(hotStateCacheServiceProvider)
           .clearTabState(project.id, tabToSave.id);
       editorState.onSaveSuccess(saveResult.newContentHash);
       if (saveResult.savedFile.uri != file.uri) {
         _ref
-            .read(tabMetadataProvider)
+            .read(tabMetadataProvider.notifier)
             .updateFile(tabToSave.id, saveResult.savedFile);
       }
     } on RequiresSaveAsException {
@@ -585,7 +585,7 @@ class EditorService {
       ),
     );
 
-    _ref.read(tabMetadataProvider).removeTab(closedTab.id);
+    _ref.read(tabMetadataProvider.notifier).removeTab(closedTab.id);
 
     _ref
         .read(hotStateCacheServiceProvider)
@@ -625,7 +625,7 @@ class EditorService {
             .firstWhereOrNull((entry) => entry.value.file.uri == oldUri)
             ?.key;
     if (tabId != null) {
-      _ref.read(tabMetadataProvider).updateFile(tabId, newFile);
+      _ref.read(tabMetadataProvider.notifier).updateFile(tabId, newFile);
     }
   }
 }

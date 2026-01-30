@@ -18,7 +18,7 @@ class FlowGraphCanvas extends StatefulWidget {
 
   const FlowGraphCanvas({
     super.key,
-    required this,
+    required this.notifier,
     required this.schemaMap,
     required this.settings,
   });
@@ -34,8 +34,8 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
   @override
   void initState() {
     super.initState();
-    final initialPos = widget.graph.viewportPosition;
-    final initialScale = widget.graph.viewportScale;
+    final initialPos = widget.notifier.graph.viewportPosition;
+    final initialScale = widget.notifier.graph.viewportScale;
     final matrix =
         Matrix4.identity()
           ..translateByDouble(initialPos.dx, initialPos.dy, 0.0, 1.0)
@@ -65,7 +65,7 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     final localPos = _globalToLocal(details.globalPosition);
 
     // 2. Iterate connections and check collision
-    final graph = widget.graph;
+    final graph = widget.notifier.graph;
     final nodes = graph.nodes;
 
     for (final conn in graph.connections) {
@@ -97,7 +97,7 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
         final path = FlowLayoutUtils.generateConnectionPath(outPos, inPos);
         // Check if tap is near this path (10px threshold)
         if (FlowLayoutUtils.isPointNearPath(localPos, path, threshold: 12.0)) {
-          widget.removeConnection(conn);
+          widget.notifier.removeConnection(conn);
           return; // Stop after deleting one
         }
       }
@@ -109,13 +109,13 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     final currentScale = _transformCtrl.value.getMaxScaleOnAxis();
 
     return ListenableBuilder(
-      listenable: widget,
+      listenable: widget.notifier,
       builder: (context, _) {
-        final graph = widget.graph;
+        final graph = widget.notifier.graph;
         return Stack(
           children: [
             GestureDetector(
-              onTap: () => widget.clearSelection(),
+              onTap: () => widget.notifier.clearSelection(),
               // NEW: Handle Double Tap
               onDoubleTapDown: _handleDoubleTap,
               child: InteractiveViewer(
@@ -147,9 +147,9 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
                             nodes: graph.nodes,
                             schemaMap: widget.schemaMap,
                             pendingConnection:
-                                widget.pendingConnection,
+                                widget.notifier.pendingConnection,
                             pendingCursor:
-                                widget.pendingConnectionPointer,
+                                widget.notifier.pendingConnectionPointer,
                           ),
                         ),
                       ),
@@ -160,9 +160,9 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
                           child: SchemaNodeWidget(
                             node: node,
                             schema: widget.schemaMap[node.type],
-                            isSelected: widget.selectedNodeIds
+                            isSelected: widget.notifier.selectedNodeIds
                                 .contains(node.id),
-                            notifier: widget,
+                            notifier: widget.notifier,
                             globalToLocal: _globalToLocal,
                             canvasScale: currentScale,
                           ),

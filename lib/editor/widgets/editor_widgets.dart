@@ -128,7 +128,7 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
           },
           onReorder:
               (oldIndex, newIndex) => ref
-                  .read(appNotifierProvider)
+                  .read(appNotifierProvider.notifier)
                   .reorderTabs(oldIndex, newIndex),
           buildDefaultDragHandles: false,
           children: [
@@ -192,7 +192,7 @@ class TabWidget extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => ref.read(appNotifierProvider).switchTab(index),
+        onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
         child: Container(
           constraints: const BoxConstraints(maxWidth: 220),
           padding: const EdgeInsets.only(right: 8),
@@ -215,7 +215,7 @@ class TabWidget extends ConsumerWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap:
                     () =>
-                        ref.read(appNotifierProvider).closeTab(index),
+                        ref.read(appNotifierProvider.notifier).closeTab(index),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8.0,

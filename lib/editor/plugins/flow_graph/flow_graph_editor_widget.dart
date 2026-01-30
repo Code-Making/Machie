@@ -80,7 +80,7 @@ class FlowGraphEditorWidgetState
 
     if (!const SetEquality().equals(newQueries, _requiredAssetQueries)) {
       _requiredAssetQueries = newQueries;
-      ref.read(assetMapProvider(widget.tab.id)).updateUris(newQueries);
+      ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(newQueries);
     }
   }
 
@@ -104,7 +104,7 @@ class FlowGraphEditorWidgetState
     final hasSelection = _notifier.selectedNodeIds.isNotEmpty;
 
     ref
-        .read(commandContextProvider(widget.tab.id))
+        .read(commandContextProvider(widget.tab.id).notifier)
         .state = FlowGraphCommandContext(hasSelection: hasSelection);
   }
 

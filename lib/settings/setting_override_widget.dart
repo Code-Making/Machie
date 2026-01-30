@@ -36,15 +36,15 @@ class SettingOverrideWidget extends ConsumerWidget {
                   )
                   .key;
           ref
-              .read(settingsProvider)
+              .read(settingsProvider.notifier)
               .updateExplorerPluginSettings(pluginId, newSettings);
         } else {
-          ref.read(settingsProvider).updatePluginSettings(newSettings);
+          ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
         }
       });
     }
 
-    final projectSettingsNotifier = ref.read(projectSettingsProvider);
+    final projectSettingsNotifier = ref.read(projectSettingsProvider.notifier);
 
     // This logic to determine the state and callbacks is also unchanged and correct.
     bool isOverridden = false;
@@ -82,11 +82,11 @@ class SettingOverrideWidget extends ConsumerWidget {
                         )
                         .key;
                 ref
-                    .read(settingsProvider)
+                    .read(settingsProvider.notifier)
                     .updateExplorerPluginSettings(pluginId, newSettings);
               } else {
                 ref
-                    .read(settingsProvider)
+                    .read(settingsProvider.notifier)
                     .updatePluginSettings(newSettings);
               }
             };

@@ -105,7 +105,7 @@ class FileContextCommands {
     ProjectDocumentFile item,
     List<EditorPlugin> compatiblePlugins,
   ) {
-    final appNotifier = ref.read(appNotifierProvider);
+    final appNotifier = ref.read(appNotifierProvider.notifier);
     final clipboardContent = ref.watch(clipboardProvider);
     final repo = ref.read(projectRepositoryProvider);
     final explorerService = ref.read(explorerServiceProvider);
@@ -213,7 +213,7 @@ class FileContextCommands {
         sourcePlugin: 'FileExplorer',
         canExecuteFor: (ref, item) => true,
         executeFor: (ref, item) async {
-          ref.read(clipboardProvider).state = ClipboardItem(
+          ref.read(clipboardProvider.notifier).state = ClipboardItem(
             uri: item.uri,
             isFolder: item.isDirectory,
             operation: ClipboardOperation.cut,
@@ -227,7 +227,7 @@ class FileContextCommands {
         sourcePlugin: 'FileExplorer',
         canExecuteFor: (ref, item) => true,
         executeFor: (ref, item) async {
-          ref.read(clipboardProvider).state = ClipboardItem(
+          ref.read(clipboardProvider.notifier).state = ClipboardItem(
             uri: item.uri,
             isFolder: item.isDirectory,
             operation: ClipboardOperation.copy,

@@ -139,7 +139,7 @@ class FlowGraphEditorPlugin extends EditorPlugin {
               builder:
                   (_) => FlowGraphExportDialog(
                     tabId: editor.widget.tab.id,
-                    notifier: editor,
+                    notifier: editor.notifier,
                   ),
             );
           }
@@ -153,7 +153,7 @@ class FlowGraphEditorPlugin extends EditorPlugin {
         defaultPositions: [AppCommandPositions.appBar],
         sourcePlugin: id,
         execute:
-            (ref) async => _getEditorState(ref)?.deleteSelection(),
+            (ref) async => _getEditorState(ref)?.notifier.deleteSelection(),
         canExecute: (ref) {
           final ctx = ref.watch(activeCommandContextProvider);
           return ctx is FlowGraphCommandContext && ctx.hasSelection;

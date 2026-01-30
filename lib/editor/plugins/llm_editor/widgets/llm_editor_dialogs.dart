@@ -15,7 +15,7 @@ import '../../../../utils/code_themes.dart';
 import '../llm_editor_models.dart';
 import 'context_widgets.dart';
 
-final filePickerLastPathProvider = Provider<String?>((ref) => null);
+final filePickerLastPathProvider = StateProvider<String?>((ref) => null);
 
 class EditMessageDialog extends ConsumerStatefulWidget {
   final ChatMessage initialMessage;
@@ -202,15 +202,15 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref
-            .read(projectHierarchyServiceProvider)
+            .read(projectHierarchyServiceProvider.notifier)
             .loadDirectory(_currentPathUri);
       }
     });
   }
 
   void _setCurrentPath(String newPath) {
-    ref.read(projectHierarchyServiceProvider).loadDirectory(newPath);
-    ref.read(filePickerLastPathProvider).state = newPath;
+    ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
+    ref.read(filePickerLastPathProvider.notifier).state = newPath;
     setState(() => _currentPathUri = newPath);
   }
 

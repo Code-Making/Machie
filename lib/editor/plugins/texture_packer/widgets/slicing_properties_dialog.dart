@@ -13,7 +13,7 @@ class SlicingPropertiesDialog extends ConsumerStatefulWidget {
   const SlicingPropertiesDialog({
     super.key,
     required this.tabId,
-    required this,
+    required this.notifier,
   });
 
   static Future<void> show(
@@ -48,7 +48,7 @@ class _SlicingPropertiesDialogState
 
     SlicingConfig config = const SlicingConfig();
     if (_activeId != null) {
-      final sourceConfig = widget.findSourceImageConfig(_activeId!);
+      final sourceConfig = widget.notifier.findSourceImageConfig(_activeId!);
       if (sourceConfig != null) {
         config = sourceConfig.slicing;
       }
@@ -84,7 +84,7 @@ class _SlicingPropertiesDialogState
     );
 
     
-    widget.updateSlicingConfig(_activeId!, newConfig);
+    widget.notifier.updateSlicingConfig(_activeId!, newConfig);
     Navigator.of(context).pop();
   }
 

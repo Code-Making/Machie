@@ -62,7 +62,7 @@ class RefactorEditorPlugin extends EditorPlugin {
             modifiedDate: DateTime.now(),
           );
           ref
-              .read(appNotifierProvider)
+              .read(appNotifierProvider.notifier)
               .openFileInEditor(refactorSessionFile);
         },
       ),

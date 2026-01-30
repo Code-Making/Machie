@@ -65,7 +65,7 @@ class FileTraversalUtil {
     onFileFound,
   }) async {
     // Get the notifier instance to call its methods (e.g., loadDirectory)
-    final hierarchyService = ref.read(projectHierarchyServiceProvider);
+    final hierarchyService = ref.read(projectHierarchyServiceProvider.notifier);
 
     // 1. Load directory (Hydrating state as per your architecture)
     // Read the current state map from the provider directly

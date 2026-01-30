@@ -81,7 +81,7 @@ class ProjectService {
       projectStateJson: projectStateJson,
     );
 
-    _ref.read(projectRepositoryProvider).state = repo;
+    _ref.read(projectRepositoryProvider.notifier).state = repo;
 
     // The try/catch here is now a secondary safety net, but the primary
     // check above will handle most rehydration failures.
@@ -189,8 +189,8 @@ class ProjectService {
     }
 
     await _ref.read(hotStateCacheServiceProvider).clearProjectCache(project.id);
-    _ref.read(projectRepositoryProvider).state = null;
-    _ref.read(tabMetadataProvider).clear();
+    _ref.read(projectRepositoryProvider.notifier).state = null;
+    _ref.read(tabMetadataProvider.notifier).clear();
   }
 
   Future<bool> recoverPermissionForProject(

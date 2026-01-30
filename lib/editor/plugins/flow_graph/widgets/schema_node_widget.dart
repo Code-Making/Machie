@@ -25,7 +25,7 @@ class SchemaNodeWidget extends StatelessWidget {
     required this.node,
     required this.schema,
     required this.isSelected,
-    required this,
+    required this.notifier,
     required this.globalToLocal,
     required this.canvasScale,
   });

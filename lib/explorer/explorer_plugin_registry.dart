@@ -16,7 +16,7 @@ final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
   return [FileExplorerPlugin(), SearchExplorerPlugin(), GitExplorerPlugin()];
 });
 
-final activeExplorerProvider = Provider<ExplorerPlugin>((ref) {
+final activeExplorerProvider = StateProvider<ExplorerPlugin>((ref) {
   return ref.watch(explorerRegistryProvider).first;
 });
 
@@ -52,7 +52,7 @@ class ActiveExplorerNotifier {
     final newSettings = updater(currentSettings);
 
     _ref
-        .read(settingsProvider)
+        .read(settingsProvider.notifier)
         .updateExplorerPluginSettings(
           activePlugin.id,
           newSettings as MachineSettings,

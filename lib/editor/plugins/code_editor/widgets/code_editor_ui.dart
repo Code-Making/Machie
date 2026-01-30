@@ -20,7 +20,7 @@ class CustomEditorIndicator extends StatelessWidget {
     super.key,
     required this.controller,
     required this.chunkController,
-    required this,
+    required this.notifier,
     required this.bracketHighlightNotifier,
   });
 
@@ -64,7 +64,7 @@ class CustomLineNumberWidget extends StatelessWidget {
   const CustomLineNumberWidget({
     super.key,
     required this.controller,
-    required this,
+    required this.notifier,
     required this.highlightedLines,
   });
 

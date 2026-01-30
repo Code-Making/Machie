@@ -76,7 +76,7 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
             '[Lifecycle] App paused. Flushing state and notifying service.',
           );
       await hotStateCacheService.flush();
-      await ref.read(appNotifierProvider).saveNonHotState();
+      await ref.read(appNotifierProvider.notifier).saveNonHotState();
       await hotStateCacheService.notifyUiPaused();
     }
 
@@ -85,7 +85,7 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
           .read(talkerProvider)
           .info('[Lifecycle] App detached. Stopping service immediately.');
       await hotStateCacheService.flush();
-      await ref.read(appNotifierProvider).saveNonHotState();
+      await ref.read(appNotifierProvider.notifier).saveNonHotState();
     }
   }
 
