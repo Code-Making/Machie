@@ -108,7 +108,6 @@ class ProjectSettingsNotifier extends StateNotifier<ProjectSettingsState?> {
     );
   }
 
-  /
   void updateProjectTypeSettings(ProjectSettings newSettings) {
     final project = _currentProject;
     if (project == null || state == null) return;
