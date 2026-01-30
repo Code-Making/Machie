@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'git_object_file.dart';
 import 'git_provider.dart';
 
-final gitHistoryStartHashProvider = Provider<GitHash?>((ref) => null);
+final gitHistoryStartHashProvider = NotifierProvider<GitHash?>((ref) => null);
 
 final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((
   ref,
