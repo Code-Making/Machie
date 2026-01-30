@@ -7,13 +7,15 @@
 Machine, A Flutter-based editor app.
 </h1>
 
-## Overview
+# Overview
 
 Machine is first and foremost a code editor app. But, it offers an architecture to ease the process of building other editors.
 
 Each editor is a plugin, that have access to the same building blocks (file opening/saving/caching, etc). It makes writing new pluginss easier, and less error-prone.
 
 Machine uses a per-project type of file handling with explorer plugins to interact with the file system inside the project folder boundary (file hierarchy/search/git)
+
+This app is currently Android-only, but every platform-specific code should already have a layer of abstraction.
 
 ## Features
 - SAF folder project managemdnt
@@ -36,5 +38,7 @@ Machine uses a per-project type of file handling with explorer plugins to intera
 ### Termux Terminal
 
 ## Explorers
-
+### File
+### Search
+### Git
 # Credits
