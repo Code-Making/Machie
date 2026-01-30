@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final clipboardProvider = NotifierProvider<ClipboardItem?>((ref) => null);
+final clipboardProvider = NotifierProvider<ClipboardNotifier, ClipboardItem?>(
+  ClipboardNotifier.new,
+);
 
 enum ClipboardOperation { cut, copy }
 
@@ -13,4 +15,11 @@ class ClipboardItem {
     required this.isFolder,
     required this.operation,
   });
+}
+
+class ClipboardNotifier extends Notifier<ClipboardItem?> {
+  @override
+  ClipboardItem? build() {
+    return null;
+  }
 }

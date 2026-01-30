@@ -36,17 +36,12 @@ final activePluginsProvider =
 
 class PluginManager extends Notifier<List<EditorPlugin>> {
   PluginManager(Set<EditorPlugin> plugins)
-      : super(_sortPlugins(plugins.toList()));
+    : super(_sortPlugins(plugins.toList()));
 
   static List<EditorPlugin> _sortPlugins(List<EditorPlugin> plugins) {
     // Sorts plugins in descending order of priority.
     plugins.sort((a, b) => b.priority.compareTo(a.priority));
     return plugins;
-  }
-
-  @override
-  List<EditorPlugin> build() {
-    throw UnimplementedError();
   }
 
   void registerPlugin(EditorPlugin plugin) {
