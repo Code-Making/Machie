@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/legacy.dart';
-import 'package:riverpod/legacy.dart';
 
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:re_editor/re_editor.dart';

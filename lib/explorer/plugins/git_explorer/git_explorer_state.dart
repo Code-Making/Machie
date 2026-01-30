@@ -5,8 +5,6 @@ import 'package:dart_git/storage/interfaces.dart';
 import 'package:dart_git/utils/file_mode.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
-import 'package:riverpod/legacy.dart';
 
 import 'git_object_file.dart';
 import 'git_provider.dart';
