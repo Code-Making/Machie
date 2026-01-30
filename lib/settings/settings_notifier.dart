@@ -11,25 +11,43 @@ import '../explorer/explorer_plugin_registry.dart';
 export 'settings_models.dart';
 export '../project/project_settings_notifier.dart';
 
-final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>((
-  ref,
-) {
-  final plugins = ref.watch(activePluginsProvider);
-  final explorerPlugins = ref.watch(explorerRegistryProvider);
-  return SettingsNotifier(plugins: plugins, explorerPlugins: explorerPlugins);
-});
+// FIX: NotifierProvider expects a constructor reference or a builder without arguments
+// if the Notifier itself has no arguments and initializes state via build().
+// Or, if it takes arguments, it would be a FamilyNotifierProvider.
+// Here, SettingsNotifier will get its dependencies via ref.watch in its build method.
+final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>(
+  SettingsNotifier.new,
+);
 
 class SettingsNotifier extends Notifier<AppSettings> {
-  SettingsNotifier({
-    required List<EditorPlugin> plugins,
-    required List<ExplorerPlugin> explorerPlugins,
-  }) : super(
-         AppSettings(
-           pluginSettings: _getDefaultSettings(plugins),
-           explorerPluginSettings: _getDefaultExplorerSettings(explorerPlugins),
-         ),
-       ) {
-    loadSettings();
+  // FIX: Remove constructor parameters and the super call.
+  // The initial state is now provided by the `build` method.
+  // The constructor is implicitly `SettingsNotifier();`
+  // We remove the explicit constructor that took `plugins` and `explorerPlugins`
+  // because those dependencies are now watched directly within the `build` method.
+
+  // FIX: Implement the `build` method as required by `Notifier`.
+  @override
+  AppSettings build() {
+    // Watch dependencies directly within the build method.
+    final plugins = ref.watch(activePluginsProvider);
+    final explorerPlugins = ref.watch(explorerRegistryProvider);
+
+    // Initialize the default state synchronously.
+    final initialSettings = AppSettings(
+      pluginSettings: _getDefaultSettings(plugins),
+      explorerPluginSettings: _getDefaultExplorerSettings(explorerPlugins),
+    );
+
+    // Schedule the async settings loading to happen after the initial state
+    // has been returned and the notifier is fully built.
+    // This maintains the original behavior of loading settings after
+    // the initial default state is set.
+    Future.microtask(() {
+      loadSettings();
+    });
+
+    return initialSettings;
   }
 
   static Map<Type, MachineSettings> _getDefaultSettings(
