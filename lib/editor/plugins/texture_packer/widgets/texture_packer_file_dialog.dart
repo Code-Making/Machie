@@ -44,15 +44,15 @@ class _TexturePackerFilePickerDialogState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref
-            .read(projectHierarchyServiceProvider.notifier)
+            .read(projectHierarchyServiceProvider)
             .loadDirectory(_currentPathUri);
       }
     });
   }
 
   void _setCurrentPath(String newPath) {
-    ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
-    ref.read(_tpFilePickerLastPathProvider.notifier).state = newPath;
+    ref.read(projectHierarchyServiceProvider).loadDirectory(newPath);
+    ref.read(_tpFilePickerLastPathProvider).state = newPath;
     setState(() => _currentPathUri = newPath);
   }
 

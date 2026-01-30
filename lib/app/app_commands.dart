@@ -36,7 +36,7 @@ class AppCommands {
       defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: 'App',
       execute: (ref) async {
-        ref.read(appNotifierProvider.notifier).toggleFullScreen();
+        ref.read(appNotifierProvider).toggleFullScreen();
       },
     ),
   ];

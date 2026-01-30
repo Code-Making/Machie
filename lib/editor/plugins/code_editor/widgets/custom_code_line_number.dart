@@ -18,7 +18,7 @@ class CustomCodeLineNumber extends LeafRenderObjectWidget {
 
   const CustomCodeLineNumber({
     super.key,
-    required this.notifier,
+    required this,
     required this.controller,
     required this.highlightedLines,
     required this.highlightColor,
@@ -47,7 +47,7 @@ class CustomCodeLineNumber extends LeafRenderObjectWidget {
   ) {
     renderObject
       ..controller = controller
-      ..notifier = notifier
+      . = notifier
       ..textStyle = textStyle
       ..focusedTextStyle = focusedTextStyle
       ..highlightedLines = highlightedLines
@@ -67,7 +67,7 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
 
   CustomCodeLineNumberRenderObject({
     required super.controller,
-    required super.notifier, // Receive as a normal parameter
+    required super, // Receive as a normal parameter
     required super.textStyle,
     required super.focusedTextStyle,
     required super.minNumberCount,
@@ -88,7 +88,7 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
       return;
     }
     _notifier = value;
-    super.notifier = value; // The superclass handles adding/removing listeners.
+    super = value; // The superclass handles adding/removing listeners.
   }
 
   Set<int> get highlightedLines => _highlightedLines;

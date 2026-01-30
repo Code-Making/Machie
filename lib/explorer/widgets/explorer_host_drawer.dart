@@ -56,7 +56,7 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
       (p) => p.id == activePluginId,
     );
     if (activePlugin != null) {
-      ref.read(activeExplorerProvider.notifier).state = activePlugin;
+      ref.read(activeExplorerProvider).state = activePlugin;
     }
   }
 
@@ -116,7 +116,7 @@ class ExplorerTypeDropdown extends ConsumerWidget {
         onChanged: (plugin) async {
           if (plugin != null && plugin.id != activeExplorer.id) {
             // 1. Update the local state provider immediately for a snappy UI response.
-            ref.read(activeExplorerProvider.notifier).state = plugin;
+            ref.read(activeExplorerProvider).state = plugin;
 
             // 2. Call the synchronous service method to get the updated project object.
             final explorerService = ref.read(explorerServiceProvider);
@@ -128,7 +128,7 @@ class ExplorerTypeDropdown extends ConsumerWidget {
             // 3. Update the global app state with the new project object.
             // The project will be saved later by the AppNotifier's lifecycle hooks.
             ref
-                .read(appNotifierProvider.notifier)
+                .read(appNotifierProvider)
                 .updateCurrentProject(newProject);
           }
         },
@@ -161,7 +161,7 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
     final knownProjects =
         ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ??
         [];
-    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final appNotifier = ref.read(appNotifierProvider);
 
     return DropdownButtonHideUnderline(
       child: DropdownButton<String>(
@@ -283,7 +283,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
               ),
               onTap: () async {
                 await ref
-                    .read(appNotifierProvider.notifier)
+                    .read(appNotifierProvider)
                     .openKnownProject(projectMeta.id);
                 if (context.mounted) Navigator.pop(context);
               },
@@ -311,7 +311,7 @@ class ManageProjectsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final appState = ref.watch(appNotifierProvider).value;
     final knownProjects = appState?.knownProjects ?? [];
-    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final appNotifier = ref.read(appNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Manage Projects')),

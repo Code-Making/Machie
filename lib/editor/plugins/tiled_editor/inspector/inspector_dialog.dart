@@ -27,7 +27,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
     super.key,
     required this.target,
     required this.title,
-    required this.notifier,
+    required this,
     required this.editorKey,
     required this.resolver,
   });
@@ -88,8 +88,8 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       } else {
         // Standard behavior for Objects/Layers
         final afterState = _deepCopyTarget(widget.target);
-        widget.notifier.recordPropertyChange(_beforeState, afterState);
-        widget.notifier.notifyChange();
+        widget.recordPropertyChange(_beforeState, afterState);
+        widget.notifyChange();
       }
     }
     super.dispose();
@@ -105,7 +105,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         map.tileWidth != workingMap.tileWidth ||
         map.tileHeight != workingMap.tileHeight) {
       
-      widget.notifier.updateMapProperties(
+      widget.updateMapProperties(
         width: workingMap.width,
         height: workingMap.height,
         tileWidth: workingMap.tileWidth,
@@ -142,10 +142,10 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       
       final propAfter = _deepCopyTarget(map);
       
-      widget.notifier.recordPropertyChange(propBefore, propAfter);
+      widget.recordPropertyChange(propBefore, propAfter);
     }
     
-    widget.notifier.notifyChange();
+    widget.notifyChange();
   }
 
   Object _deepCopyTarget(Object target) {
@@ -193,7 +193,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         _loadFlowGraphParametersIfNeeded();
       }
     }
-    widget.notifier.notifyChange();
+    widget.notifyChange();
   }
 
   @override
@@ -205,7 +205,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     // --- MODIFICATION: Pass the TiledMap to the reflector ---
     final descriptors = TiledReflector.getDescriptors(
       obj: _workingTarget, // 5. Bind UI to working target
-      map: widget.notifier.map,
+      map: widget.map,
       schema: schema,
       resolver: widget.resolver,
       talker: talker,

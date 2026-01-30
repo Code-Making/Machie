@@ -24,7 +24,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   void initState() {
     super.initState();
     _textController.addListener(() {
-      ref.read(searchProvider.notifier).search(_textController.text);
+      ref.read(searchProvider).search(_textController.text);
     });
   }
 
@@ -119,7 +119,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                     onTapped: () async {
                       final navigator = Navigator.of(context);
                       final success = await ref
-                          .read(appNotifierProvider.notifier)
+                          .read(appNotifierProvider)
                           .openFileInEditor(file);
                       if (success && mounted) {
                         navigator.pop();

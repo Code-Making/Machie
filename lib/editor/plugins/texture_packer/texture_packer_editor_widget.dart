@@ -84,7 +84,7 @@ class TexturePackerEditorWidgetState
     final currentSourceId = ref.read(activeSourceImageIdProvider);
     if (currentSourceId != null) {
       if (_notifier.findSourceImageConfig(currentSourceId) == null) {
-        ref.read(activeSourceImageIdProvider.notifier).state = null;
+        ref.read(activeSourceImageIdProvider).state = null;
       }
     }
 
@@ -161,7 +161,7 @@ class TexturePackerEditorWidgetState
 
       
       // This ensures that when PixiExportService runs, the assets are ready.
-      ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(newQueries);
+      ref.read(assetMapProvider(widget.tab.id)).updateUris(newQueries);
     }
   }
 
@@ -314,7 +314,7 @@ class TexturePackerEditorWidgetState
         SpriteDefinition(sourceImageId: activeImageId, gridRect: rect),
       );
 
-      ref.read(selectedNodeIdProvider.notifier).state = newNode.id;
+      ref.read(selectedNodeIdProvider).state = newNode.id;
     }
   }
 
@@ -564,7 +564,7 @@ class TexturePackerEditorWidgetState
     }
 
     ref
-        .read(commandContextProvider(widget.tab.id).notifier)
+        .read(commandContextProvider(widget.tab.id))
         .state = TexturePackerCommandContext(
       mode: _mode,
       isSourceImagesPanelVisible: _isSourceImagesPanelVisible,
@@ -603,7 +603,7 @@ class TexturePackerEditorWidgetState
       if (next != null) {
         final def = _notifier.project.definitions[next];
         if (def is SpriteDefinition) {
-          ref.read(activeSourceImageIdProvider.notifier).state =
+          ref.read(activeSourceImageIdProvider).state =
               def.sourceImageId;
         }
       }

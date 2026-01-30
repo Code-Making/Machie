@@ -33,7 +33,7 @@ class SourceImagesPanel extends ConsumerStatefulWidget {
 
   const SourceImagesPanel({
     super.key,
-    required this.notifier,
+    required this,
     required this.onAddImage,
     required this.onClose,
   });
@@ -57,7 +57,7 @@ class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
 
   List<_FlatSourceNode> _buildFlatList() {
     final List<_FlatSourceNode> flatList = [];
-    final root = widget.notifier.project.sourceImagesRoot;
+    final root = widget.project.sourceImagesRoot;
 
     void traverse(SourceImageNode node, int depth, String parentId, int index) {
       if (node.id != 'root') {
@@ -90,7 +90,7 @@ class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
   Future<void> _createFolder(BuildContext context) async {
     final name = await showTextInputDialog(context, title: 'New Folder');
     if (name != null && name.trim().isNotEmpty) {
-      widget.notifier.addSourceNode(
+      widget.addSourceNode(
         name: name.trim(),
         type: SourceNodeType.folder,
         parentId: 'root',
@@ -133,8 +133,8 @@ class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
               itemBuilder: (context, index) {
                 if (index == flatList.length) {
                   return _SourceRootDropZone(
-                    notifier: widget.notifier,
-                    rootNode: widget.notifier.project.sourceImagesRoot,
+                    notifier: widget,
+                    rootNode: widget.project.sourceImagesRoot,
                   );
                 }
 
@@ -144,7 +144,7 @@ class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
                   flatNode: item,
                   isExpanded: _expandedIds.contains(item.node.id),
                   onToggleExpand: () => _toggleExpansion(item.node.id),
-                  notifier: widget.notifier,
+                  notifier: widget,
                 );
               },
             ),
@@ -191,7 +191,7 @@ class _SourceItemRow extends ConsumerStatefulWidget {
     required this.flatNode,
     required this.isExpanded,
     required this.onToggleExpand,
-    required this.notifier,
+    required this,
   });
 
   @override
@@ -314,13 +314,13 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
 
         switch (_dropPosition!) {
           case _SourceDropPos.above:
-            widget.notifier.moveSourceNode(draggedId, pId, idx);
+            widget.moveSourceNode(draggedId, pId, idx);
             break;
           case _SourceDropPos.below:
-            widget.notifier.moveSourceNode(draggedId, pId, idx + 1);
+            widget.moveSourceNode(draggedId, pId, idx + 1);
             break;
           case _SourceDropPos.inside:
-            widget.notifier.moveSourceNode(draggedId, node.id, 0);
+            widget.moveSourceNode(draggedId, node.id, 0);
             if (!widget.isExpanded) widget.onToggleExpand();
             break;
         }
@@ -330,7 +330,7 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
         return InkWell(
           onTap: () {
             if (!_isContainer) {
-              ref.read(activeSourceImageIdProvider.notifier).state = node.id;
+              ref.read(activeSourceImageIdProvider).state = node.id;
             }
           },
           child: draggable,
@@ -350,7 +350,7 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
             content: 'Links will be broken.',
           );
           if (confirm) {
-            widget.notifier.removeSourceNode(widget.flatNode.node.id);
+            widget.removeSourceNode(widget.flatNode.node.id);
           }
         }
       },
@@ -368,7 +368,7 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
 class _SourceRootDropZone extends StatefulWidget {
   final TexturePackerNotifier notifier;
   final SourceImageNode rootNode;
-  const _SourceRootDropZone({required this.notifier, required this.rootNode});
+  const _SourceRootDropZone({required this, required this.rootNode});
   @override
   State<_SourceRootDropZone> createState() => _SourceRootDropZoneState();
 }
@@ -386,7 +386,7 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
       onLeave: (_) => setState(() => _hover = false),
       onAcceptWithDetails: (details) {
         setState(() => _hover = false);
-        widget.notifier.moveSourceNode(
+        widget.moveSourceNode(
           details.data,
           'root',
           widget.rootNode.children.length,

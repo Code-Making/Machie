@@ -202,15 +202,15 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref
-            .read(projectHierarchyServiceProvider.notifier)
+            .read(projectHierarchyServiceProvider)
             .loadDirectory(_currentPathUri);
       }
     });
   }
 
   void _setCurrentPath(String newPath) {
-    ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
-    ref.read(filePickerLastPathProvider.notifier).state = newPath;
+    ref.read(projectHierarchyServiceProvider).loadDirectory(newPath);
+    ref.read(filePickerLastPathProvider).state = newPath;
     setState(() => _currentPathUri = newPath);
   }
 

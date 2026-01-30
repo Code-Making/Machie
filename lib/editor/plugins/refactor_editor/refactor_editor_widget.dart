@@ -602,7 +602,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
             as RefactorSettings;
 
     final hierarchyNotifier = ref.read(
-      projectHierarchyServiceProvider.notifier,
+      projectHierarchyServiceProvider,
     );
     var directoryState =
         ref.read(projectHierarchyServiceProvider)[directoryUri];

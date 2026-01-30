@@ -380,7 +380,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
             if (file != null) {
               await ref
-                  .read(appNotifierProvider.notifier)
+                  .read(appNotifierProvider)
                   .openFileInEditor(file, explicitPlugin: this);
             } else {
               MachineToast.error(
@@ -404,7 +404,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
             modifiedDate: DateTime.now(),
           );
           await ref
-              .read(appNotifierProvider.notifier)
+              .read(appNotifierProvider)
               .openFileInEditor(scratchpadFile, explicitPlugin: this);
         }
       },

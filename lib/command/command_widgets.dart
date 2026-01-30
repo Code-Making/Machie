@@ -12,7 +12,7 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
   positionId,
 ) {
   final commandState = ref.watch(commandProvider);
-  final notifier = ref.read(commandProvider.notifier);
+  final notifier = ref.read(commandProvider);
   final currentPlugin = ref.watch(
     appNotifierProvider.select(
       (s) => s.value?.currentProject?.session.currentTab?.plugin,
@@ -305,7 +305,7 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
   }
 
   List<Command> _getCommandsInGroup(WidgetRef ref) {
-    final notifier = ref.read(commandProvider.notifier);
+    final notifier = ref.read(commandProvider);
     final currentPluginId = ref.watch(
       appNotifierProvider.select(
         (s) => s.value?.currentProject?.session.currentTab?.plugin.id,

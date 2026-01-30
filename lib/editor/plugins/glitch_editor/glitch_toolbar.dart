@@ -17,7 +17,7 @@ class GlitchToolbar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(plugin.brushSettingsProvider);
-    final notifier = ref.read(plugin.brushSettingsProvider.notifier);
+    final notifier = ref.read(plugin.brushSettingsProvider);
 
     return Material(
       // We can make it slightly transparent to hint at the content behind it.
@@ -207,10 +207,10 @@ class GlitchToolbar extends ConsumerWidget {
             max: max,
             onChanged: onChanged,
             onChangeStart:
-                (_) => ref.read(plugin.isSlidingProvider.notifier).state = true,
+                (_) => ref.read(plugin.isSlidingProvider).state = true,
             onChangeEnd:
                 (_) =>
-                    ref.read(plugin.isSlidingProvider.notifier).state = false,
+                    ref.read(plugin.isSlidingProvider).state = false,
           ),
         ),
       ],

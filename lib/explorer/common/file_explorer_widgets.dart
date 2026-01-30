@@ -139,7 +139,7 @@ class _FileExplorerItem extends ConsumerWidget {
     void onFileTapped() async {
       final navigator = Navigator.of(context);
       final success = await ref
-          .read(appNotifierProvider.notifier)
+          .read(appNotifierProvider)
           .openFileInEditor(item);
 
       if (success && context.mounted && navigator.canPop()) {
@@ -150,11 +150,11 @@ class _FileExplorerItem extends ConsumerWidget {
     void onExpansionChanged(bool isExpanded) {
       if (isExpanded) {
         ref
-            .read(projectHierarchyServiceProvider.notifier)
+            .read(projectHierarchyServiceProvider)
             .loadDirectory(item.uri);
       }
       ref
-          .read(fileExplorerExpandedFoldersProvider.notifier)
+          .read(fileExplorerExpandedFoldersProvider)
           .toggle(item.uri, isExpanded);
     }
 

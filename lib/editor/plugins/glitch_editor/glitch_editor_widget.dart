@@ -212,7 +212,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
       canUndo: _undoStack.isNotEmpty,
       canRedo: _redoStack.isNotEmpty,
     );
-    ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
+    ref.read(commandContextProvider(widget.tab.id)).state = newContext;
   }
 
   @override

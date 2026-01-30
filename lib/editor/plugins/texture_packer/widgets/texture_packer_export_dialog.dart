@@ -19,7 +19,7 @@ class TexturePackerExportDialog extends ConsumerStatefulWidget {
   const TexturePackerExportDialog({
     super.key,
     required this.tabId,
-    required this.notifier,
+    required this,
   });
 
   @override
@@ -93,7 +93,7 @@ class _TexturePackerExportDialogState
       await ref
           .read(pixiExportServiceProvider)
           .export(
-            project: widget.notifier.project,
+            project: widget.project,
             resolver: resolverAsync.value!,
             destinationFolderUri: _destinationUri!,
             fileName: _nameController.text.trim(),

@@ -234,7 +234,7 @@ class GlitchEditorPlugin extends EditorPlugin {
       sourcePlugin: id,
       execute:
           (ref) async =>
-              ref.read(isZoomModeProvider.notifier).update((state) => !state),
+              ref.read(isZoomModeProvider).update((state) => !state),
     ),
     BaseCommand(
       id: 'toggle_brush_settings',

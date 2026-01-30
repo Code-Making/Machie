@@ -40,7 +40,7 @@ class _FileOrFolderPickerDialogState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _currentPathUri.isNotEmpty) {
         ref
-            .read(projectHierarchyServiceProvider.notifier)
+            .read(projectHierarchyServiceProvider)
             .loadDirectory(_currentPathUri);
       }
     });
@@ -133,7 +133,7 @@ class _FileOrFolderPickerDialogState
             if (item.isDirectory) {
               // Tapping a directory navigates into it.
               ref
-                  .read(projectHierarchyServiceProvider.notifier)
+                  .read(projectHierarchyServiceProvider)
                   .loadDirectory(item.uri);
               setState(() => _currentPathUri = item.uri);
             } else {
@@ -175,7 +175,7 @@ class _FileOrFolderPickerDialogState
                   : () {
                     final newPath = fileHandler.getParentUri(_currentPathUri);
                     ref
-                        .read(projectHierarchyServiceProvider.notifier)
+                        .read(projectHierarchyServiceProvider)
                         .loadDirectory(newPath);
                     setState(() => _currentPathUri = newPath);
                   },

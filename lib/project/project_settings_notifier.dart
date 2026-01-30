@@ -120,8 +120,8 @@ class ProjectSettingsNotifier extends Notifier<ProjectSettingsState?> {
     if (project == null) return;
 
     final newProject = project.copyWith(settings: newSettingsState);
-    _ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
-    _ref.read(appNotifierProvider.notifier).saveAppState();
+    _ref.read(appNotifierProvider).updateCurrentProject(newProject);
+    _ref.read(appNotifierProvider).saveAppState();
   }
 }
 

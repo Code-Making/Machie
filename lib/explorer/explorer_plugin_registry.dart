@@ -52,7 +52,7 @@ class ActiveExplorerNotifier {
     final newSettings = updater(currentSettings);
 
     _ref
-        .read(settingsProvider.notifier)
+        .read(settingsProvider)
         .updateExplorerPluginSettings(
           activePlugin.id,
           newSettings as MachineSettings,

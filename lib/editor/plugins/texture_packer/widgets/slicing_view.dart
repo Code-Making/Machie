@@ -26,7 +26,7 @@ class SlicingView extends ConsumerWidget {
   const SlicingView({
     super.key,
     required this.tabId,
-    required this.notifier,
+    required this,
     required this.transformationController,
     required this.dragSelection,
     required this.isPanZoomMode,

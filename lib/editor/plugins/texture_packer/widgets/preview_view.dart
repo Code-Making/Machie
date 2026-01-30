@@ -18,7 +18,7 @@ import '../texture_packer_settings.dart';
 class PreviewView extends ConsumerStatefulWidget {
   final String tabId;
   final TexturePackerNotifier notifier;
-  const PreviewView({super.key, required this.tabId, required this.notifier});
+  const PreviewView({super.key, required this.tabId, required this});
 
   @override
   ConsumerState<PreviewView> createState() => _PreviewViewState();
@@ -48,12 +48,12 @@ class _PreviewViewState extends ConsumerState<PreviewView>
       if (status == AnimationStatus.completed) {
         final selectedId = ref.read(selectedNodeIdProvider);
         if (selectedId != null) {
-          final node = _findNodeById(widget.notifier.project.tree, selectedId);
+          final node = _findNodeById(widget.project.tree, selectedId);
           if (node?.type == PackerItemType.animation) {
             final state = ref.read(previewProvider(widget.tabId));
             if (!state.isLooping) {
               ref
-                  .read(previewProvider(widget.tabId).notifier)
+                  .read(previewProvider(widget.tabId))
                   .state = state.copyWith(isPlaying: false);
               _animationController.reset();
             }
@@ -80,7 +80,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
   }
 
   SourceImageConfig? _findSourceConfig(String sourceId) {
-    return widget.notifier.findSourceImageConfig(sourceId);
+    return widget.findSourceImageConfig(sourceId);
   }
 
   List<PackerItemNode> _collectItemsInFolder(PackerItemNode folder) {
@@ -210,7 +210,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
           );
         } else {
           final node = _findNodeById(
-            widget.notifier.project.tree,
+            widget.project.tree,
             selectedNodeId,
           );
 
@@ -232,7 +232,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
             content = _buildAtlasPreview(items, resolver, previewState);
             contentSize = const Size(500, 500);
           } else {
-            final definition = widget.notifier.project.definitions[node.id];
+            final definition = widget.project.definitions[node.id];
 
             if (definition is SpriteDefinition) {
               _animationController.stop();
@@ -244,7 +244,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
 
               if (node.children.isNotEmpty) {
                 final firstFrameDef =
-                    widget.notifier.project.definitions[node.children.first.id];
+                    widget.project.definitions[node.children.first.id];
                 if (firstFrameDef is SpriteDefinition) {
                   contentSize = _getSpriteSize(firstFrameDef) ?? Size.zero;
                 }
@@ -358,7 +358,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
 
     final frameNode = animNode.children[frameIndex];
     final spriteDef =
-        widget.notifier.project.definitions[frameNode.id] as SpriteDefinition?;
+        widget.project.definitions[frameNode.id] as SpriteDefinition?;
 
     if (spriteDef == null) return const Icon(Icons.error_outline);
 
@@ -381,7 +381,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
       children:
           items.map((node) {
             if (node.type == PackerItemType.sprite) {
-              final def = widget.notifier.project.definitions[node.id];
+              final def = widget.project.definitions[node.id];
               if (def is SpriteDefinition) {
                 final size = _getSpriteSize(def);
                 return Container(
@@ -392,7 +392,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
                 );
               }
             } else if (node.type == PackerItemType.animation) {
-              final def = widget.notifier.project.definitions[node.id];
+              final def = widget.project.definitions[node.id];
               if (def is AnimationDefinition && node.children.isNotEmpty) {
                 int frameIndex = 0;
                 if (state.isPlaying && def.speed > 0) {
@@ -406,7 +406,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
 
                 final frameNode = node.children[frameIndex];
                 final spriteDef =
-                    widget.notifier.project.definitions[frameNode.id];
+                    widget.project.definitions[frameNode.id];
 
                 if (spriteDef is SpriteDefinition) {
                   final size = _getSpriteSize(spriteDef);

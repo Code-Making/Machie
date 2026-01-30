@@ -42,7 +42,7 @@ class PersistenceSelectionScreen extends ConsumerWidget {
               if (newMetadata != null && context.mounted) {
                 // If successful, pass the metadata to the AppNotifier to open it.
                 await ref
-                    .read(appNotifierProvider.notifier)
+                    .read(appNotifierProvider)
                     .createNewProject(newMetadata);
                 if (!context.mounted) return;
                 // Pop all the way back to the main screen.

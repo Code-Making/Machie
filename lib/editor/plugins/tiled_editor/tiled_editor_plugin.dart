@@ -510,7 +510,7 @@ class TiledEditorPlugin extends EditorPlugin {
         defaultPositions: [paintToolsToolbar],
         sourcePlugin: id,
         execute: (ref) async {
-          _getEditorState(ref)?.notifier?.deleteFloatingSelection();
+          _getEditorState(ref)??.deleteFloatingSelection();
         },
         canExecute: (ref) {
           final ctx = ref.watch(activeCommandContextProvider);

@@ -244,7 +244,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       canUndo: _undoStack.isNotEmpty,
       canRedo: _redoStack.isNotEmpty,
     );
-    ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
+    ref.read(commandContextProvider(widget.tab.id)).state = newContext;
   }
 
   void _pushUndoState(RecipeData dataToPush) {

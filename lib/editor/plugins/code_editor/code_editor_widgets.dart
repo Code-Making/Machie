@@ -521,7 +521,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       return;
     }
 
-    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final appNotifier = ref.read(appNotifierProvider);
     final repo = ref.read(projectRepositoryProvider);
     final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
@@ -762,7 +762,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       appBarOverrideKey: appBarOverrideKey,
     );
 
-    ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
+    ref.read(commandContextProvider(widget.tab.id)).state = newContext;
   }
 
   void setMark() {

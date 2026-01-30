@@ -18,7 +18,7 @@ class AppTabContextCommands {
           return (project?.session.tabs.length ?? 0) > 1;
         },
         executeFor: (ref, activeTab, targetTab) async {
-          final notifier = ref.read(appNotifierProvider.notifier);
+          final notifier = ref.read(appNotifierProvider);
           final tabs =
               ref.read(appNotifierProvider).value!.currentProject!.session.tabs;
           final targetIndex = tabs.indexOf(targetTab);

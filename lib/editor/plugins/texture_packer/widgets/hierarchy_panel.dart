@@ -30,7 +30,7 @@ class HierarchyPanel extends ConsumerStatefulWidget {
 
   const HierarchyPanel({
     super.key,
-    required this.notifier,
+    required this,
     required this.onClose,
   });
 
@@ -55,7 +55,7 @@ class _HierarchyPanelState extends ConsumerState<HierarchyPanel> {
   /// Flattens the recursive tree into a linear list based on expansion state.
   List<_FlatNode> _buildFlatList() {
     final List<_FlatNode> flatList = [];
-    final root = widget.notifier.project.tree;
+    final root = widget.project.tree;
 
     void traverse(PackerItemNode node, int depth, String parentId, int index) {
       // Don't add the invisible 'root' container itself to the UI list
@@ -95,7 +95,7 @@ class _HierarchyPanelState extends ConsumerState<HierarchyPanel> {
         type == PackerItemType.folder ? 'New Folder' : 'New Animation';
     final name = await showTextInputDialog(context, title: title);
     if (name != null && name.trim().isNotEmpty) {
-      widget.notifier.createNode(
+      widget.createNode(
         type: type,
         name: name.trim(),
         parentId: parentId ?? ref.read(selectedNodeIdProvider) ?? 'root',
@@ -136,7 +136,7 @@ class _HierarchyPanelState extends ConsumerState<HierarchyPanel> {
             child: GestureDetector(
               // Clicking empty space deselects
               onTap:
-                  () => ref.read(selectedNodeIdProvider.notifier).state = null,
+                  () => ref.read(selectedNodeIdProvider).state = null,
               child: ListView.builder(
                 itemCount:
                     flatList.length +
@@ -145,8 +145,8 @@ class _HierarchyPanelState extends ConsumerState<HierarchyPanel> {
                   if (index == flatList.length) {
                     // Bottom "Root" drop zone
                     return _HierarchyRootDropZone(
-                      notifier: widget.notifier,
-                      rootNode: widget.notifier.project.tree,
+                      notifier: widget,
+                      rootNode: widget.project.tree,
                     );
                   }
 
@@ -156,7 +156,7 @@ class _HierarchyPanelState extends ConsumerState<HierarchyPanel> {
                     flatNode: item,
                     isExpanded: _expandedIds.contains(item.node.id),
                     onToggleExpand: () => _toggleExpansion(item.node.id),
-                    notifier: widget.notifier,
+                    notifier: widget,
                   );
                 },
               ),
@@ -205,7 +205,7 @@ class _HierarchyItemRow extends ConsumerStatefulWidget {
     required this.flatNode,
     required this.isExpanded,
     required this.onToggleExpand,
-    required this.notifier,
+    required this,
   });
 
   @override
@@ -351,15 +351,15 @@ class _HierarchyItemRowState extends ConsumerState<_HierarchyItemRow> {
         switch (_dropPosition!) {
           case _DropPosition.above:
             // Move into same parent, at current index
-            widget.notifier.moveNode(draggedId, targetParent, targetIndex);
+            widget.moveNode(draggedId, targetParent, targetIndex);
             break;
           case _DropPosition.below:
             // Move into same parent, at current index + 1
-            widget.notifier.moveNode(draggedId, targetParent, targetIndex + 1);
+            widget.moveNode(draggedId, targetParent, targetIndex + 1);
             break;
           case _DropPosition.inside:
             // Move into THIS node, at end (or 0)
-            widget.notifier.moveNode(draggedId, node.id, 0);
+            widget.moveNode(draggedId, node.id, 0);
             if (!widget.isExpanded) widget.onToggleExpand();
             break;
         }
@@ -369,7 +369,7 @@ class _HierarchyItemRowState extends ConsumerState<_HierarchyItemRow> {
         // We handle visual feedback via onMove state + CustomPainter
         return InkWell(
           onTap:
-              () => ref.read(selectedNodeIdProvider.notifier).state = node.id,
+              () => ref.read(selectedNodeIdProvider).state = node.id,
           child: draggable,
         );
       },
@@ -398,7 +398,7 @@ class _HierarchyItemRowState extends ConsumerState<_HierarchyItemRow> {
             initialValue: widget.flatNode.node.name,
           );
           if (newName != null && newName.trim().isNotEmpty) {
-            widget.notifier.renameNode(widget.flatNode.node.id, newName.trim());
+            widget.renameNode(widget.flatNode.node.id, newName.trim());
           }
         } else if (value == 'delete') {
           final confirm = await showConfirmDialog(
@@ -406,7 +406,7 @@ class _HierarchyItemRowState extends ConsumerState<_HierarchyItemRow> {
             title: 'Delete?',
             content: 'Cannot be undone.',
           );
-          if (confirm) widget.notifier.deleteNode(widget.flatNode.node.id);
+          if (confirm) widget.deleteNode(widget.flatNode.node.id);
         }
       },
       itemBuilder:
@@ -426,7 +426,7 @@ class _HierarchyRootDropZone extends StatefulWidget {
   final PackerItemNode rootNode;
 
   const _HierarchyRootDropZone({
-    required this.notifier,
+    required this,
     required this.rootNode,
   });
 
@@ -450,7 +450,7 @@ class _HierarchyRootDropZoneState extends State<_HierarchyRootDropZone> {
         final draggedId = details.data;
         setState(() => _isHovered = false);
         // Move to root, at the very end
-        widget.notifier.moveNode(
+        widget.moveNode(
           draggedId,
           'root',
           widget.rootNode.children.length,
