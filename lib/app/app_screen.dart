@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/app/app_screen.dart
-// =========================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -27,7 +23,6 @@ class AppScreen extends ConsumerStatefulWidget {
 
 class _AppScreenState extends ConsumerState<AppScreen> {
   late final GlobalKey<ScaffoldState> _scaffoldKey;
-  // This flag is correctly defined here as a member of the State class.
   bool _isExitDialogShowing = false;
 
   @override
@@ -43,20 +38,13 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     super.dispose();
   }
 
-  // THE FIX: The interceptor now uses the correct API from the package documentation.
   Future<bool> _backButtonInterceptor(
     bool stopDefaultButtonEvent,
     RouteInfo info,
   ) async {
-    // === GUARD CLAUSES ===
-    // If any of these are true, we return `false` to let the default back
-    // button behavior (like navigating back) happen.
 
     if (!mounted) return false;
 
-    // 1. Get the current route's name. The root route is always '/'.
-    //    If we are on any other named route (like '/settings') or an overlay
-    //    route (which often has a null name), we should not intercept.
     bool canPop = Navigator.of(context).canPop();
     final currentRouteName = ModalRoute.of(context)?.settings.name;
     if (currentRouteName != '/') {
@@ -65,20 +53,16 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     if (canPop == true) {
       return false;
     }
-    // 2. The drawer is part of the Scaffold's state, not a separate route,
-    //    so we still need to check for it manually.
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
       return false;
     }
 
-    // === INTERCEPTION LOGIC ===
-    // If we've gotten this far, we are on the home screen with no overlays open.
 
     final isFullScreen =
         ref.read(appNotifierProvider).value?.isFullScreen ?? false;
     if (isFullScreen) {
       ref.read(appNotifierProvider.notifier).toggleFullScreen();
-      return true; // We handled it. Stop further processing.
+      return true;
     }
 
     if (_isExitDialogShowing) {
@@ -126,18 +110,11 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         ) ??
         GeneralSettings();
 
-    // REMOVED: The watch for appBarOverride is now in the new _AppScreenAppBar widget.
-    // final appBarOverride = ref.watch(
-    //   activeCommandContextProvider.select((context) => context.appBarOverride)
-    // );
     final double toolbarHeight =
         Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
 
     return Scaffold(
       key: _scaffoldKey,
-      // UPDATED: The complex logic is replaced by the new, self-contained widget.
-      // This is only rebuilt when high-level state like isFullScreen changes,
-      // not when the command context's appBarOverride changes.
       appBar:
           (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
               ? _AppScreenAppBar(
@@ -162,11 +139,6 @@ class _AppScreenState extends ConsumerState<AppScreen> {
   }
 }
 
-/// A dedicated widget to build the app bar.
-///
-/// It encapsulates the watch on `activeCommandContextProvider` so that only the
-/// AppBar rebuilds when the command context changes, not the entire `AppScreen`.
-/// It implements `PreferredSizeWidget` to be a valid `Scaffold.appBar`.
 class _AppScreenAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const _AppScreenAppBar({
     required this.scaffoldKey,
@@ -182,18 +154,14 @@ class _AppScreenAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Encapsulated watch: only this widget rebuilds when the override changes.
     final appBarOverride = ref.watch(
       activeCommandContextProvider.select((context) => context.appBarOverride),
     );
 
-    // If an override from the command context is active, render it directly.
-    // This widget, being a PreferredSizeWidget, provides the necessary constraints.
     if (appBarOverride != null) {
       return appBarOverride;
     }
 
-    // Otherwise, build the default AppBar.
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.menu),
@@ -211,9 +179,6 @@ class _AppScreenAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize {
-    // Return the default toolbar height. The actual widget returned by `build`
-    // (AppBar or a custom override) will manage its own height, making this a
-    // safe and standard approach for custom PreferredSizeWidgets.
     return Size.fromHeight(height);
   }
 }

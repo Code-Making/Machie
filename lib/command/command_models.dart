@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
@@ -144,7 +143,7 @@ class CommandGroup {
   final bool showLabels;
   final String sourcePlugin;
   final bool isDeletable;
-  final List<CommandPosition> defaultPositions; // <-- ADD THIS
+  final List<CommandPosition> defaultPositions;
 
   const CommandGroup({
     required this.id,
@@ -155,7 +154,7 @@ class CommandGroup {
     this.showLabels = true,
     this.sourcePlugin = 'User',
     this.isDeletable = true,
-    this.defaultPositions = const [], // <-- ADD THIS
+    this.defaultPositions = const [],
   });
 
   Widget get finalIcon => icon ?? CommandIcon.getIcon(iconName);
@@ -168,7 +167,7 @@ class CommandGroup {
     bool? showLabels,
     String? sourcePlugin,
     bool? isDeletable,
-    List<CommandPosition>? defaultPositions, // <-- ADD THIS
+    List<CommandPosition>? defaultPositions,
   }) {
     return CommandGroup(
       id: id,
@@ -180,12 +179,10 @@ class CommandGroup {
       sourcePlugin: sourcePlugin ?? this.sourcePlugin,
       isDeletable: isDeletable ?? this.isDeletable,
       defaultPositions:
-          defaultPositions ?? this.defaultPositions, // <-- ADD THIS
+          defaultPositions ?? this.defaultPositions,
     );
   }
 
-  // Serialization and Deserialization remain unchanged as defaultPositions
-  // are defined at runtime by plugins, not stored in user preferences.
   Map<String, dynamic> toJson() => {
     'id': id,
     'label': label,

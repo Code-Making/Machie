@@ -1,5 +1,3 @@
-// FILE: lib/data/cache/background_task/android_foreground_cache_service.dart
-
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import '../../../logs/logs_provider.dart';

@@ -19,17 +19,14 @@ import 'settings/settings_screen.dart';
 // --------------------
 
 final appStartupProvider = FutureProvider<void>((ref) async {
-  // This provider now ONLY contains ASYNCHRONOUS startup logic.
   final talker = ref.read(talkerProvider);
   talker.info('appStartupProvider: Starting async initialization...');
 
-  // These are all async tasks that can run while the splash screen is visible.
 
   await ref.read(cacheRepositoryProvider).init();
   await ref.read(hotStateCacheServiceProvider).initializeAndStart();
   await ref.read(sharedPreferencesProvider.future);
 
-  // Eagerly initialize providers that need to be ready on app start.
   ref.read(settingsProvider);
   ref.read(commandProvider);
   await ref.read(appNotifierProvider.future);
@@ -40,7 +37,6 @@ final appStartupProvider = FutureProvider<void>((ref) async {
 // --------------------
 //     ThemeData
 // --------------------
-// NEW: A helper function to create ThemeData instances to avoid code duplication.
 ThemeData _createThemeData(Color seedColor, Brightness brightness) {
   return ThemeData(
     useMaterial3: true,
@@ -48,7 +44,6 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
       seedColor: seedColor,
       brightness: brightness,
     ).copyWith(
-      // Keep surface consistent for dark mode, use default for light
       surface: brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
     ),
     appBarTheme: AppBarTheme(
@@ -83,7 +78,6 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
 
 /// A provider that builds and returns the theme configuration.
 final themeConfigProvider = Provider((ref) {
-  // Watch the settings provider for changes.
   final settings = ref.watch(effectiveSettingsProvider);
   final generalSettings =
       settings.pluginSettings[GeneralSettings] as GeneralSettings;
@@ -91,13 +85,12 @@ final themeConfigProvider = Provider((ref) {
   final seedColor = Color(generalSettings.accentColorValue);
   final themeMode = generalSettings.themeMode;
 
-  // Create both light and dark themes based on the seed color.
   final lightTheme = _createThemeData(seedColor, Brightness.light);
   final darkTheme = _createThemeData(seedColor, Brightness.dark);
 
-  // Return all the necessary parts for MaterialApp in a record.
   return (light: lightTheme, dark: darkTheme, mode: themeMode);
 });
+
 // --------------------
 //     Main
 // --------------------
@@ -117,18 +110,14 @@ void main() {
     settings: TalkerRiverpodLoggerSettings(
       enabled: true,
       printProviderDisposed: true,
-      printStateFullData: false, // Truncate long state objects
+      printStateFullData: false,
     ),
   );
-  // CacheServiceManager.Init();
-  WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
-  // --- 3. SET THE SYSTEM UI STYLE ---
+  WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      // This makes the system navigation bar background black.
       systemNavigationBarColor: Color(0xFF2B2B29),
 
-      // This makes the icons on the navigation bar (back, home, etc.) white.
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
@@ -151,7 +140,6 @@ void main() {
             talker: talker,
             child: Consumer(
               builder: (context, ref, child) {
-                // REFACTOR: Watch the new theme provider.
                 final themeConfig = ref.watch(themeConfigProvider);
 
                 return MaterialApp(
@@ -159,11 +147,9 @@ void main() {
                   scaffoldMessengerKey: ref.watch(
                     rootScaffoldMessengerKeyProvider,
                   ),
-                  // REFACTOR: Apply the dynamic theme configuration.
                   theme: themeConfig.light,
                   darkTheme: themeConfig.dark,
-                  //themeMode: themeConfig.mode,
-                  themeMode: ThemeMode.dark, // Fixed darkMode for now
+                  themeMode: ThemeMode.dark,
                   home: AppStartupWidget(
                     onLoaded: (context) => const AppScreen(),
                   ),
@@ -202,7 +188,6 @@ class AppStartupWidget extends ConsumerWidget {
     return startupState.when(
       loading: () => const AppStartupLoadingWidget(),
       error: (error, stack) {
-        // Report startup errors to Talker
         ref.read(talkerProvider).handle(error, stack, 'Startup error');
         return AppStartupErrorWidget(
           error: error,

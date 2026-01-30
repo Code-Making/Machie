@@ -39,18 +39,15 @@ class SimpleStatePersistenceStrategy
 
   @override
   Future<ProjectDto> load() async {
-    // Prioritize the rehydration JSON if it exists (for hot starts).
     if (_rehydrationJson != null) {
       return ProjectDto.fromJson(_rehydrationJson);
     }
 
-    // Otherwise, load from long-term SharedPreferences storage.
     final jsonString = _prefs.getString(_storageKey);
     if (jsonString != null) {
       try {
         return ProjectDto.fromJson(jsonDecode(jsonString));
       } catch (_) {
-        // Fallback if parsing fails.
         return _createFreshDto();
       }
     }
@@ -60,14 +57,12 @@ class SimpleStatePersistenceStrategy
 
   @override
   Future<void> save(ProjectDto projectDto) async {
-    // The `save` method is now responsible for long-term persistence.
     final jsonString = jsonEncode(projectDto.toJson());
     await _prefs.setString(_storageKey, jsonString);
   }
 
   @override
   Future<void> clear() async {
-    // Remove the long-term state when the project is removed from the recent list.
     await _prefs.remove(_storageKey);
   }
 

@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/data/cache/hive_cache_repository.dart
-// =========================================
-
 import 'dart:convert';
 
 import 'package:hive_ce/hive.dart';

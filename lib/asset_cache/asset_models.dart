@@ -1,9 +1,6 @@
-// lib/asset_cache/asset_models.dart
-
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';

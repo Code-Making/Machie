@@ -1,6 +1,3 @@
-// FILE: lib/data/cache/background_task/background_cache_service.dart
-// (Add this to the existing file from Step 2)
-
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';

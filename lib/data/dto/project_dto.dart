@@ -1,13 +1,10 @@
 import 'package:flutter/foundation.dart';
 
-// DTO for EditorTab metadata
 @immutable
 class TabMetadataDto {
   final String fileUri;
   final bool isDirty;
-  // Store the name for reconstruction of virtual files.
   final String fileName;
-  // Explicitly store the type identifier for rehydration.
   final String fileType;
 
   const TabMetadataDto({
@@ -22,7 +19,6 @@ class TabMetadataDto {
       fileUri: json['fileUri'],
       isDirty: json['isDirty'] ?? false,
       fileName: json['fileName'] ?? '',
-      // Default to a project file for backward compatibility with old data.
       fileType: json['fileType'] ?? 'project',
     );
   }
@@ -35,12 +31,10 @@ class TabMetadataDto {
   };
 }
 
-// DTO for an EditorTab instance
 @immutable
 class EditorTabDto {
   final String id;
   final String pluginType;
-  // Any other persistable tab-specific data would go here.
 
   const EditorTabDto({required this.id, required this.pluginType});
 
@@ -51,7 +45,6 @@ class EditorTabDto {
   Map<String, dynamic> toJson() => {'id': id, 'pluginType': pluginType};
 }
 
-// DTO for the entire tab session
 @immutable
 class TabSessionStateDto {
   final List<EditorTabDto> tabs;
@@ -84,7 +77,6 @@ class TabSessionStateDto {
   };
 }
 
-// NEW: DTO for the ExplorerWorkspaceState
 @immutable
 class ExplorerWorkspaceStateDto {
   final String activeExplorerPluginId;

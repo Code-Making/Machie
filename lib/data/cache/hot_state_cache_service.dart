@@ -1,7 +1,3 @@
-// =========================================
-// FINAL CORRECTED FILE: lib/data/cache/hot_state_cache_service.dart
-// =========================================
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,14 +8,14 @@ import '../repositories/cache/cache_repository.dart';
 import '../repositories/cache/hive_cache_repository.dart';
 import 'type_adapter_registry.dart';
 
-import 'background_task/background_cache_service.dart'; // <-- Add import
+import 'background_task/background_cache_service.dart';
 
 final hotStateCacheServiceProvider = Provider<HotStateCacheService>((ref) {
   return HotStateCacheService(
     ref.watch(cacheRepositoryProvider),
     ref.watch(typeAdapterRegistryProvider),
     ref.watch(talkerProvider),
-    ref.watch(backgroundCacheServiceProvider), // <-- New provider
+    ref.watch(backgroundCacheServiceProvider),
   );
 });
 
@@ -32,34 +28,29 @@ class HotStateCacheService {
   final CacheRepository _cacheRepository;
   final TypeAdapterRegistry _adapterRegistry;
   final Talker _talker;
-  final BackgroundCacheService _backgroundTaskService; // <-- STORE THE MANAGER
+  final BackgroundCacheService _backgroundTaskService;
   Timer? _debounceTimer;
 
   HotStateCacheService(
     this._cacheRepository,
     this._adapterRegistry,
     this._talker,
-    this._backgroundTaskService, // <-- ADD TO CONSTRUCTOR
+    this._backgroundTaskService,
   );
 
-  /// Initializes and starts the background caching service.
-  /// This should be called once during app startup.
   Future<void> initializeAndStart() async {
     await _backgroundTaskService.initialize();
     await _backgroundTaskService.start();
   }
 
-  /// Sends a keep-alive signal to the background service.
   Future<void> sendHeartbeat() async {
     await _backgroundTaskService.sendHeartbeat();
   }
 
-  /// Notifies the service that the UI is visible and active again.
   Future<void> notifyUiResumed() async {
     await _backgroundTaskService.notifyUiResumed();
   }
 
-  /// Notifies the service that the UI is paused (e.g., app is backgrounded).
   Future<void> notifyUiPaused() async {
     await _backgroundTaskService.notifyUiPaused();
   }
@@ -77,7 +68,6 @@ class HotStateCacheService {
       final payload = adapter.toJson(dto);
       payload['__type__'] = type;
 
-      // Use the manager to send the data
       await _backgroundTaskService.updateHotState(projectId, tabId, payload);
     });
   }
@@ -126,7 +116,6 @@ class HotStateCacheService {
     _talker.info(
       'HotStateCacheService: Clearing all cache for project "$projectId".',
     );
-    // Clear from both persistent and in-memory cache
     await _cacheRepository.clearBox(projectId);
     await _backgroundTaskService.clearProjectCache(projectId);
   }

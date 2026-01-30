@@ -9,7 +9,6 @@ import 'core_asset_loaders.dart';
 final assetLoaderRegistryProvider = Provider<AssetLoaderRegistry>((ref) {
   final plugins = ref.watch(activePluginsProvider);
   final loaders = plugins.expand((plugin) => plugin.assetLoaders).toList();
-  // Add core loaders (like generic Image loader) here if they aren't in a plugin
   loaders.add(CoreImageAssetLoader());
   return AssetLoaderRegistry(loaders);
 });

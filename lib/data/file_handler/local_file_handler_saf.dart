@@ -11,7 +11,7 @@ import 'package:saf_util/saf_util_platform_interface.dart';
 import 'file_handler.dart';
 import 'local_file_handler.dart';
 
-import 'package:path/path.dart' as p; // Add this import
+import 'package:path/path.dart' as p;
 
 class CustomSAFDocumentFile extends ProjectDocumentFile {
   final SafDocumentFile _safFile;
@@ -52,8 +52,6 @@ class SafFileHandler implements LocalFileHandler {
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
 
-  // Use POSIX context to ensure forward slashes are used for internal path logic,
-  // which is standard for Tiled and cross-platform asset references.
   final p.Context _pathContext = p.Context(style: p.Style.posix);
 
   SafFileHandler(this.rootUri);
@@ -75,7 +73,6 @@ class SafFileHandler implements LocalFileHandler {
       return files.map((f) => CustomSAFDocumentFile(f)).toList();
     } on PlatformException catch (e) {
       if (e.code == 'PERMISSION_DENIED') {
-        // Translate to our custom exception
         throw PermissionDeniedException(uri: uri);
       }
       rethrow;
@@ -98,7 +95,6 @@ class SafFileHandler implements LocalFileHandler {
     if (start < 0 || end <= start) {
       throw ArgumentError('Invalid range: start=$start, end=$end');
     }
-    // Convert our 'end' offset to the 'count' parameter required by saf_stream.
     final count = end - start;
     return _safStream.readFileBytes(uri, start: start, count: count);
   }
@@ -189,14 +185,12 @@ class SafFileHandler implements LocalFileHandler {
     await _safUtil.delete(file.uri, file.isDirectory);
   }
 
-  // THE FIX: Implemented robust rename with fallback.
   @override
   Future<ProjectDocumentFile> renameDocumentFile(
     ProjectDocumentFile file,
     String newName,
   ) async {
     try {
-      // 1. Attempt the efficient, native rename first.
       final renamed = await _safUtil.rename(
         file.uri,
         file.isDirectory,
@@ -204,19 +198,16 @@ class SafFileHandler implements LocalFileHandler {
       );
       return CustomSAFDocumentFile(renamed);
     } on PlatformException catch (e) {
-      // 2. If it fails, log it and fall back to a manual copy-delete.
       debugPrint(
         'Native rename failed: ${e.message}. Falling back to manual rename.',
       );
 
-      // Fallback for directories is not supported as it requires recursion.
       if (file.isDirectory) {
         throw Exception(
           'Renaming this folder is not supported on your device.',
         );
       }
 
-      // Fallback logic for files:
       final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
       final bytes = await readFileAsBytes(file.uri);
       final newFile = await createDocumentFile(
@@ -229,7 +220,6 @@ class SafFileHandler implements LocalFileHandler {
     }
   }
 
-  // `copyDocumentFile` remains the same, as it already uses the stream-based method.
   @override
   Future<ProjectDocumentFile> copyDocumentFile(
     ProjectDocumentFile source,
@@ -247,14 +237,12 @@ class SafFileHandler implements LocalFileHandler {
     );
   }
 
-  // THE FIX: Implemented robust move with fallback.
   @override
   Future<ProjectDocumentFile> moveDocumentFile(
     ProjectDocumentFile source,
     String destinationParentUri,
   ) async {
     try {
-      // 1. Attempt the efficient, native move first.
       final sourceParentUri = source.uri.substring(
         0,
         source.uri.lastIndexOf('%2F'),
@@ -267,17 +255,14 @@ class SafFileHandler implements LocalFileHandler {
       );
       return CustomSAFDocumentFile(movedFile);
     } on PlatformException catch (e) {
-      // 2. If it fails, log it and fall back to a manual copy-delete.
       debugPrint(
         'Native move failed: ${e.message}. Falling back to manual move.',
       );
 
-      // Fallback for directories is not supported as it requires recursion.
       if (source.isDirectory) {
         throw Exception('Moving this folder is not supported on your device.');
       }
 
-      // Fallback logic for files:
       final copiedFile = await copyDocumentFile(source, destinationParentUri);
       await deleteDocumentFile(source);
       return copiedFile;
@@ -289,7 +274,6 @@ class SafFileHandler implements LocalFileHandler {
     String parentUri,
     String relativePath,
   ) async {
-    // Sanitize path to use forward slashes and filter out empty segments.
     final segments =
         relativePath
             .replaceAll(r'\', '/')
@@ -304,13 +288,11 @@ class SafFileHandler implements LocalFileHandler {
 
     for (final segment in segments) {
       if (segment == '.') {
-        continue; // Stay in the current directory.
+        continue;
       } else if (segment == '..') {
-        currentUri = getParentUri(currentUri); // Go up one level.
+        currentUri = getParentUri(currentUri);
       } else {
-        // Go down one level by finding the child with the matching name.
         try {
-          // This part is inefficient but necessary for SAF. We must list children to find the next URI.
           final children = await listDirectory(currentUri, includeHidden: true);
           final foundChild = children.firstWhereOrNull(
             (child) => child.name == segment,
@@ -319,18 +301,14 @@ class SafFileHandler implements LocalFileHandler {
           if (foundChild != null) {
             currentUri = foundChild.uri;
           } else {
-            // If any segment in the path is not found, the path is invalid.
             return null;
           }
         } catch (_) {
-          // An error during listDirectory (e.g., permission) means the path is invalid.
           return null;
         }
       }
     }
 
-    // After resolving all segments, the final `currentUri` points to the target.
-    // Use getFileMetadata as a final check to ensure it exists and to get its full info.
     return getFileMetadata(currentUri);
   }
 
@@ -356,14 +334,11 @@ class SafFileHandler implements LocalFileHandler {
     final List<ProjectDocumentFile> createdDirs = [];
     String currentParentUri = parentUri;
 
-    // Manually create parent directories one by one to track them.
     for (final segment in directorySegments) {
-      // Check if this segment already exists.
       final existingDir = await resolvePath(currentParentUri, segment);
       if (existingDir != null && existingDir.isDirectory) {
         currentParentUri = existingDir.uri;
       } else {
-        // If it doesn't exist, create it and add to our list.
         final newDir = await createDocumentFile(
           currentParentUri,
           segment,
@@ -374,7 +349,6 @@ class SafFileHandler implements LocalFileHandler {
       }
     }
 
-    // Now create the final file in the final parent directory.
     final finalFile = await createDocumentFile(
       currentParentUri,
       fileName,
@@ -401,8 +375,6 @@ class SafFileHandler implements LocalFileHandler {
   @override
   String getParentUri(String uri) {
     final lastIndex = uri.lastIndexOf(_separator);
-    // If there's no separator or it's a root URI, there's no parent to return.
-    // In SAF, a root might not have a parent we can navigate "up" to.
     if (lastIndex == -1 || !uri.substring(0, lastIndex).contains(_separator)) {
       return uri;
     }
@@ -429,20 +401,16 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   String resolveRelativePath(String contextPath, String relativePath) {
-    // 1. Get directory of the context file (e.g., "maps/level1.tmx" -> "maps")
     final contextDir = _pathContext.dirname(contextPath);
 
-    // 2. Join and normalize to handle ".." segments
     final combined = _pathContext.join(contextDir, relativePath);
     return _pathContext.normalize(combined);
   }
 
   @override
   String calculateRelativePath(String fromContext, String toTarget) {
-    // 1. Get directory of the context file
     final contextDir = _pathContext.dirname(fromContext);
 
-    // 2. Calculate relative path
     return _pathContext.relative(toTarget, from: contextDir);
   }
 }

@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/app/app_commands.dart
-// =========================================
-
 import 'package:flutter/material.dart';
 
 import '../command/command_models.dart';
@@ -15,7 +11,6 @@ class AppCommands {
       id: 'show_logs',
       label: 'Show Logs',
       icon: const Icon(Icons.bug_report),
-      // THE FIX: Changed to a list.
       defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: 'App',
       execute: (ref) async {
@@ -27,7 +22,6 @@ class AppCommands {
       id: 'show_settings',
       label: 'Show Settings',
       icon: const Icon(Icons.settings),
-      // THE FIX: Changed to a list.
       defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: 'App',
       execute: (ref) async {
@@ -39,7 +33,6 @@ class AppCommands {
       id: 'toggle_fullscreen',
       label: 'Toggle Fullscreen',
       icon: const Icon(Icons.fullscreen),
-      // THE FIX: Changed to a list.
       defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: 'App',
       execute: (ref) async {

@@ -205,33 +205,24 @@ class ProjectRepository {
   /// Resolves a path that is relative to another file within the project.
   /// For example, resolves "../images/player.png" from the context of "maps/level1.tmx".
   String resolveRelativePath(String contextPath, String relativePath) {
-    // === FIX START ===
-    // The context path is a FILE (e.g., "maps/level1.tmx"). We must resolve
-    // relative to its DIRECTORY.
     final contextDirectory = p.dirname(contextPath);
 
-    // Join the context directory with the relative path.
     final combinedPath = p.join(contextDirectory, relativePath);
 
-    // Normalize the path to handle '..' and '.' correctly.
     final normalizedPath = p.normalize(combinedPath);
 
-    // Ensure consistent path separators.
     return normalizedPath.replaceAll(r'\', '/');
-    // === FIX END ===
   }
 
   /// Calculates the relative path from one project-relative path to another.
   /// This is used for SAVING paths in files (e.g., in the TMX).
   /// This method is likely already correct, but shown here for completeness.
   String calculateRelativePath(String fromPath, String toPath) {
-    // Ensure 'from' is treated as a directory context if it doesn't have an extension
     final fromDirectory =
         p.extension(fromPath).isEmpty ? fromPath : p.dirname(fromPath);
 
     final relativePath = p.relative(toPath, from: fromDirectory);
 
-    // Ensure consistent path separators for storage.
     return relativePath.replaceAll(r'\', '/');
   }
 }

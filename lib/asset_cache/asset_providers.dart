@@ -1,5 +1,3 @@
-// FILE: lib/asset_cache/asset_providers.dart
-
 import 'dart:async';
 
 import 'package:collection/collection.dart';
@@ -35,8 +33,6 @@ final resolvedAssetProvider = Provider.family
       return assetMap[lookupKey];
     });
 
-/// It automatically listens for file system events and invalidates itself if the
-/// underlying file is modified or deleted, ensuring the UI stays reactive.
 final assetDataProvider = AsyncNotifierProvider.autoDispose
     .family<AssetNotifier, AssetData, String>(AssetNotifier.new);
 
@@ -86,12 +82,10 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       throw Exception('No loader registered for file type: ${file.name}');
     }
 
-    // --- File operation listener remains the same ---
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
       _,
       next,
     ) {
-      // ... (existing logic for file changes)
       final event = next.asData?.value;
       if (event == null) return;
 
@@ -154,7 +148,6 @@ final assetMapProvider = NotifierProvider.autoDispose
 class AssetMapNotifier
     extends
         AutoDisposeFamilyNotifier<AsyncValue<Map<String, AssetData>>, String> {
-  // This still stores the canonical project-relative URIs
   Set<String> _uris = {};
 
   Set<AssetQuery> _queries = {};
@@ -190,9 +183,8 @@ class AssetMapNotifier
   }
 
   Future<Map<String, AssetData>> updateUris(Set<AssetQuery> newQueries) async {
-    final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+    final talker = ref.read(talkerProvider);
 
-    // [DIAGNOSTIC] Log incoming request
     talker.info(
       'AssetMapNotifier: Update requested. New Query Count: ${newQueries.length}',
     );
@@ -205,17 +197,16 @@ class AssetMapNotifier
     if (const SetEquality().equals(newQueries, _queries)) {
       talker.debug(
         'AssetMapNotifier: Queries match existing state. Skipping update.',
-      ); // [DIAGNOSTIC]
+      );
       return state.valueOrNull ?? const {};
     }
 
     talker.info(
       'AssetMapNotifier: Queries changed. Processing update...',
-    ); // [DIAGNOSTIC]
+    );
 
     _queries = newQueries;
 
-    // START OF CHANGES
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) {
       state = AsyncValue.error(
@@ -234,7 +225,6 @@ class AssetMapNotifier
       }
     }
     _uris = newUris;
-    // END OF CHANGES
 
     _cleanupSubscriptions();
 
@@ -268,7 +258,6 @@ class AssetMapNotifier
 
       state = AsyncValue.data(results);
 
-      // If a file changes on disk later, these listeners will fire.
       for (final uri in _uris) {
         final sub = ref.listen<AsyncValue<AssetData>>(assetDataProvider(uri), (
           previous,
@@ -288,7 +277,6 @@ class AssetMapNotifier
     }
   }
 
-  /// Callback when a single underlying asset changes (e.g. file modified on disk).
   void _onAssetChanged(String uri, AsyncValue<AssetData> nextAssetValue) {
     AssetData? newData;
 

@@ -1,5 +1,3 @@
-// FILE: lib/data/cache/background_task/web_concurrent_cache_service.dart
-
 import 'background_cache_service.dart';
 
 /// Placeholder implementation for the Web platform.

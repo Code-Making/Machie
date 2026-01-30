@@ -8,7 +8,6 @@ import '../data/cache/hot_state_cache_service.dart';
 import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
 
-/// Handles app lifecycle events, primarily for saving state.
 class LifecycleHandler extends ConsumerStatefulWidget {
   final Widget child;
   final Talker talker;

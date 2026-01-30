@@ -29,16 +29,12 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
     }
 
     final command = notifier.allRegisteredCommands.firstWhereOrNull((c) {
-      // The command ID from the registry MUST match the ID from our ordered list.
       if (c.id != id) {
         return false;
       }
 
-      // Now that we have the correct command, check if it's valid in the current context.
-      // Condition 1: It's an app-level command.
       if (c.sourcePlugin == 'App') return true;
 
-      // Condition 2: It's a generic text command and the ACTIVE PLUGIN is a TextEditablePlugin.
       if (c is BaseTextEditableCommand) {
         return currentPlugin is TextEditablePlugin;
       } else {
@@ -53,7 +49,7 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
   return visibleItems;
 });
 
-// NEW: A generic, reusable CommandToolbar widget.
+// A generic, reusable CommandToolbar widget.
 class CommandToolbar extends ConsumerWidget {
   final CommandPosition position;
   final bool showLabels;
@@ -68,7 +64,6 @@ class CommandToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the new provider family with our position's ID.
     final items = ref.watch(commandsForPositionProvider(position.id));
     final currentPlugin = ref.watch(
       appNotifierProvider.select(
@@ -94,7 +89,6 @@ class CommandToolbar extends ConsumerWidget {
       toolbar = Column(mainAxisSize: MainAxisSize.min, children: children);
     }
 
-    // Delegate wrapping to the plugin.
     if (currentPlugin != null) {
       return currentPlugin.wrapCommandToolbar(toolbar);
     }
@@ -102,7 +96,6 @@ class CommandToolbar extends ConsumerWidget {
   }
 }
 
-// REFACTORED: AppBarCommands is now a thin wrapper around CommandToolbar.
 class AppBarCommands extends ConsumerWidget {
   const AppBarCommands({super.key});
 
@@ -112,7 +105,6 @@ class AppBarCommands extends ConsumerWidget {
   }
 }
 
-// REFACTORED: BottomToolbar is now a thin wrapper around CommandToolbar.
 class BottomToolbar extends ConsumerWidget {
   const BottomToolbar({super.key});
 
@@ -184,11 +176,10 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
 
   @override
   void dispose() {
-    _hideMenu(); // Ensure the overlay is removed when the widget is disposed
+    _hideMenu();
     super.dispose();
   }
 
-  /// Toggles the visibility of the custom menu overlay.
   void _toggleMenu() {
     if (_overlayEntry != null) {
       _hideMenu();
@@ -197,7 +188,6 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
     }
   }
 
-  /// Removes the menu overlay from the screen.
   void _hideMenu() {
     _overlayEntry?.remove();
     _overlayEntry = null;
@@ -205,13 +195,11 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
 
   void _handleCommandExecution(Command command) {
     _hideMenu();
-    // Check if enabled before executing
     if (command.canExecute(ref)) {
       command.execute(ref);
     }
   }
 
-  /// Creates and displays the custom menu overlay.
   void _showMenu() {
     final overlay = Overlay.of(context);
     final renderBox = context.findRenderObject()! as RenderBox;
@@ -240,13 +228,9 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
           return const SizedBox.shrink();
         }
 
-        // ================== THE FINAL REFINEMENT ==================
         Widget menuBody;
 
         if (widget.commandGroup.showLabels) {
-          // CASE 1: Labels are shown. We need IntrinsicWidth to measure the
-          // widest ListTile and ensure all tiles have the same width and
-          // a full-width tappable area.
           menuBody = IntrinsicWidth(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -265,8 +249,6 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
             ),
           );
         } else {
-          // CASE 2: Icon-only. IntrinsicWidth is unnecessary here. A simple
-          // Column of IconButtons will naturally have the correct, compact width.
           menuBody = Column(
             mainAxisSize: MainAxisSize.min,
             children:
@@ -283,7 +265,6 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
                 }).toList(),
           );
         }
-        // ==========================================================
 
         return Stack(
           children: [
@@ -306,12 +287,11 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 250),
                   child: Padding(
-                    // Add a bit more padding for the icon-only version
                     padding: EdgeInsets.symmetric(
                       vertical: 4.0,
                       horizontal: widget.commandGroup.showLabels ? 0.0 : 4.0,
                     ),
-                    child: menuBody, // Use the conditionally built menu body
+                    child: menuBody,
                   ),
                 ),
               ),
@@ -324,7 +304,6 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
     overlay.insert(_overlayEntry!);
   }
 
-  /// Helper to get the list of valid commands for the current context.
   List<Command> _getCommandsInGroup(WidgetRef ref) {
     final notifier = ref.read(commandProvider.notifier);
     final currentPluginId = ref.watch(
@@ -347,13 +326,11 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Check if there are any executable commands in the group for the current context.
     final commandsInGroup = _getCommandsInGroup(ref);
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    // This widget links the button's position to the LayerLink.
     final button = CompositedTransformTarget(
       link: _layerLink,
       child: IconButton(
@@ -363,7 +340,6 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
       ),
     );
 
-    // This is the same wrapping logic from the original implementation.
     final currentPlugin = ref.watch(
       appNotifierProvider.select(
         (s) => s.value?.currentProject?.session.currentTab?.plugin,

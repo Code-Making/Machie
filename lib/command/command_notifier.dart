@@ -70,9 +70,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
   Future<void> _refreshCommands() async {
     await _collectCommands(_plugins);
 
-    // After collecting new commands, we need to reconcile them with the existing state.
-    // This is similar to _loadFromPrefs but uses the current in-memory state
-    // instead of reading from disk again (to preserve unsaved state changes).
     _reconcileState();
   }
 
@@ -83,7 +80,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final commandSources = <String, Set<String>>{};
     final allAppCommands = AppCommands.getCommands();
 
-    // UPDATED: Pass 'ref' to getCommands() so plugins can read settings
     final allPluginEditorCommands = plugins.expand((p) => p.getCommands(ref));
     final allPluginAppCommands = plugins.expand((p) => p.getAppCommands());
 
@@ -123,12 +119,10 @@ class CommandNotifier extends StateNotifier<CommandState> {
   void _reconcileState() {
     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
 
-    // 1. Clean up positions: Remove IDs that no longer exist
     final newPositions = Map<String, List<String>>.from(
       state.orderedCommandsByPosition,
     );
     newPositions.forEach((posId, cmdIds) {
-      // Filter out commands that don't exist and aren't groups
       newPositions[posId] =
           cmdIds.where((id) {
             return allKnownCommandIds.contains(id) ||
@@ -136,13 +130,11 @@ class CommandNotifier extends StateNotifier<CommandState> {
           }).toList();
     });
 
-    // 2. Clean up hidden list
     final newHidden =
         state.hiddenOrder
             .where((id) => allKnownCommandIds.contains(id))
             .toList();
 
-    // 3. Find newly added commands (orphans)
     final allPlacedItemIds = {
       ...newPositions.values.expand((ids) => ids),
       ...newHidden,
@@ -153,7 +145,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
       (id) => !allPlacedItemIds.contains(id),
     );
 
-    // 4. Distribute orphans to default positions or hidden
     for (final commandId in orphanedCommandIds) {
       final command = _allRegisteredCommands.firstWhereOrNull(
         (c) => c.id == commandId,
@@ -162,13 +153,10 @@ class CommandNotifier extends StateNotifier<CommandState> {
         for (final position in command.defaultPositions) {
           final positionId = position.id;
           if (newPositions.containsKey(positionId)) {
-            // Avoid duplicates
             if (!newPositions[positionId]!.contains(commandId)) {
               newPositions[positionId]!.add(commandId);
             }
           } else {
-            // If default position list doesn't exist yet (unlikely), create it?
-            // Or fallback to hidden.
             if (!newHidden.contains(commandId)) {
               newHidden.add(commandId);
             }
@@ -181,12 +169,8 @@ class CommandNotifier extends StateNotifier<CommandState> {
       orderedCommandsByPosition: newPositions,
       hiddenOrder: newHidden,
     );
-    // Don't save to prefs immediately on refresh, let user action trigger save,
-    // or save if strictly necessary. For now, in-memory sync is safer.
   }
 
-  // ... (createGroup, updateGroup, deleteGroup, _getMutableLists, _updateStateWithLists, reorderItemInList, removeItemFromList, addItemToList unchanged) ...
-  // ... (_saveToPrefs unchanged) ...
 
   void createGroup({
     required String name,

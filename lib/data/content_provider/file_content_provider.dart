@@ -1,7 +1,3 @@
-// =========================================
-// NEW FILE: lib/editor/services/file_content_provider.dart
-// =========================================
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -19,7 +15,7 @@ import '../file_handler/local_file_handler_saf.dart';
 import '../repositories/project/project_repository.dart';
 import 'internal_file_content_provider.dart';
 
-import '../dto/project_dto.dart'; // NEW IMPORT
+import '../dto/project_dto.dart';
 
 /// A result class that encapsulates the content of a file and its MD5 hash.
 class EditorContentResult {
@@ -56,13 +52,8 @@ abstract class IRehydratable {
 /// the underlying storage mechanism (e.g., disk, memory, database).
 // REFACTORED: The provider interface is simpler. No more priority or canHandle.
 abstract class FileContentProvider {
-  // REFACTORED: This is the core change. The provider now declares an
-  // explicit mapping from each concrete file Type to its stable serialization String ID.
-  /// A map where the key is a concrete [DocumentFile] `Type` and the value
-  /// is its unique, stable string identifier for serialization.
   Map<Type, String> get typeMappings;
 
-  // REMOVED: `handledTypes` and `typeId` are now obsolete.
 
   Future<EditorContentResult> getContent(
     DocumentFile file,
@@ -71,7 +62,6 @@ abstract class FileContentProvider {
   Future<SaveResult> saveContent(DocumentFile file, EditorContent content);
 }
 
-// REFACTORED: This provider now specifically handles ProjectDocumentFile types.
 class ProjectFileContentProvider implements FileContentProvider, IRehydratable {
   final ProjectRepository _repo;
   ProjectFileContentProvider(this._repo);
@@ -105,8 +95,6 @@ class ProjectFileContentProvider implements FileContentProvider, IRehydratable {
     DocumentFile file,
     EditorContent content,
   ) async {
-    // We can safely cast here because the registry guarantees this provider
-    // only receives ProjectDocumentFile types.
     final projectFile = file as ProjectDocumentFile;
     if (content is EditorContentString) {
       final savedFile = await _repo.writeFile(projectFile, content.content);
@@ -125,8 +113,6 @@ class ProjectFileContentProvider implements FileContentProvider, IRehydratable {
 
   @override
   Future<DocumentFile?> rehydrate(TabMetadataDto dto) {
-    // For project files, we query the file system to get the live,
-    // up-to-date metadata.
     return _repo.fileHandler.getFileMetadata(dto.fileUri);
   }
 }
@@ -141,7 +127,6 @@ class VirtualFileContentProvider implements FileContentProvider, IRehydratable {
     DocumentFile file,
     PluginDataRequirement requirement,
   ) async {
-    // A new virtual file is always empty.
     if (requirement == PluginDataRequirement.bytes) {
       final bytes = Uint8List(0);
       return EditorContentResult(
@@ -163,16 +148,11 @@ class VirtualFileContentProvider implements FileContentProvider, IRehydratable {
     DocumentFile file,
     EditorContent content,
   ) async {
-    // A virtual file cannot be saved directly. It must go through the "Save As" flow.
-    // Throwing this specific exception allows the EditorService to catch it and
-    // orchestrate the correct UI flow.
     throw RequiresSaveAsException(file);
   }
 
   @override
   Future<DocumentFile?> rehydrate(TabMetadataDto dto) {
-    // For virtual files, we reconstruct it directly from the DTO's data.
-    // This is an asynchronous future to match the interface, but completes immediately.
     return Future.value(
       VirtualDocumentFile(uri: dto.fileUri, name: dto.fileName),
     );
@@ -184,46 +164,34 @@ class VirtualFileContentProvider implements FileContentProvider, IRehydratable {
 /// Manages a collection of [FileContentProvider]s and selects the
 /// appropriate one for a given file.
 class FileContentProviderRegistry {
-  /// For runtime lookups: `Map<ConcreteType, ProviderInstance>`
   final Map<Type, FileContentProvider> _providersByType;
 
-  /// For rehydration from DTO: `Map<StringId, ProviderInstance>`
   final Map<String, FileContentProvider> _providersById;
 
-  /// For serialization to DTO: `Map<ConcreteType, StringId>`
   final Map<Type, String> _typeIdentifiers;
 
-  /// The constructor takes a flat list of providers and intelligently builds
-  /// the internal lookup maps from the self-describing `typeMappings`.
   FileContentProviderRegistry(List<FileContentProvider> providers)
     : _providersByType = {},
       _providersById = {},
       _typeIdentifiers = {} {
     for (final provider in providers) {
-      // Iterate through the explicit mappings provided by each provider.
       for (final entry in provider.typeMappings.entries) {
         final type = entry.key;
         final id = entry.value;
 
-        // 1. Build the runtime lookup map (Type -> Provider)
         if (_providersByType.containsKey(type)) {
-          // print('Warning: Overwriting FileContentProvider for type $type.');
         }
         _providersByType[type] = provider;
 
-        // 2. Build the rehydration lookup map (String ID -> Provider)
         if (_providersById.containsKey(id)) {
-          // print('Warning: Overwriting FileContentProvider for typeId "$id".');
         }
         _providersById[id] = provider;
 
-        // 3. Build the serialization lookup map (Type -> String ID)
         _typeIdentifiers[type] = id;
       }
     }
   }
 
-  /// Selects the correct provider for a given [DocumentFile] instance at runtime.
   FileContentProvider getProviderFor(DocumentFile file) {
     final provider = _providersByType[file.runtimeType];
     if (provider == null) {
@@ -234,8 +202,6 @@ class FileContentProviderRegistry {
     return provider;
   }
 
-  /// Reconstructs a concrete [DocumentFile] from a DTO by finding the correct
-  /// provider based on the serialized type ID.
   Future<DocumentFile?> rehydrateFileFromDto(TabMetadataDto dto) {
     final provider = _providersById[dto.fileType];
 
@@ -243,20 +209,12 @@ class FileContentProviderRegistry {
       return (provider as IRehydratable).rehydrate(dto);
     }
 
-    // print(
-    //   'Warning: No IRehydratable provider found for fileType "${dto.fileType}". Cannot rehydrate file.',
-    // );
     return Future.value(null);
   }
 
-  /// Gets the stable string identifier for a given [DocumentFile] instance,
-  /// used for serialization.
   String getTypeIdForFile(DocumentFile file) {
     final typeId = _typeIdentifiers[file.runtimeType];
     if (typeId == null) {
-      // print(
-      //   'Warning: No type identifier found for file type ${file.runtimeType}.',
-      // );
       return 'unknown';
     }
     return typeId;
@@ -273,35 +231,27 @@ final fileContentProviderRegistryProvider = Provider<
 
   final allProviders = <FileContentProvider>[];
 
-  // 1. Get all factories from EDITOR plugins.
   final editorPluginFactories = ref
       .watch(activePluginsProvider)
       .expand((plugin) => plugin.fileContentProviderFactories);
 
-  // 2. Get all factories from EXPLORER plugins.
   final explorerPluginFactories = ref
       .watch(explorerRegistryProvider)
       .expand((plugin) => plugin.fileContentProviderFactories);
 
-  // 3. Combine them all into a single list of factories.
   final allFactories = [...editorPluginFactories, ...explorerPluginFactories];
 
-  // 4. Execute each factory to build the provider instances.
   for (final factory in allFactories) {
     try {
-      // The factory is called here, with the ref it needs to resolve dependencies.
       final provider = factory(ref);
       allProviders.add(provider);
     } catch (e, st) {
-      // If a factory fails (e.g., git repo not found), we can safely ignore it.
-      // That provider simply won't be available.
       ref
           .read(talkerProvider)
           .handle(e, st, 'Failed to create a FileContentProvider via factory');
     }
   }
 
-  // 5. Add the core, default providers.
   final coreProviders = <FileContentProvider>[
     ProjectFileContentProvider(repo),
     VirtualFileContentProvider(),

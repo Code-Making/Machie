@@ -1,7 +1,3 @@
-// =========================================
-// NEW FILE: lib/data/cache/cache_repository.dart
-// =========================================
-
 /// Abstract interface for a key-value caching system.
 ///
 /// This defines a generic contract for storing, retrieving, and deleting

@@ -1,7 +1,3 @@
-// =========================================
-// NEW FILE: lib/data/cache/type_adapters.dart
-// =========================================
-
 /// Abstract interface for a type adapter that can convert a specific
 /// object type [T] to and from a JSON-like map.
 ///

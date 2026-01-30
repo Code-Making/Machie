@@ -1,7 +1,3 @@
-// =========================================
-// lib/app/app_notifier.dart
-// =========================================
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -26,8 +22,6 @@ import '../utils/clipboard.dart';
 import '../utils/toast.dart';
 import '../widgets/dialogs/file_explorer_dialogs.dart';
 import 'app_state.dart';
-
-// NEW
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -95,7 +89,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
     }
 
-    // Default return if rehydration fails or isn't possible.
     return AppState(
       knownProjects: appStateDto.knownProjects,
       lastOpenedProjectId: appStateDto.lastOpenedProjectId,
@@ -179,7 +172,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
   }
 
-  /// Handles events published by the ProjectRepository to keep the UI in sync.
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
@@ -215,14 +207,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
   }
 
-  /// Checks a list of tabs for unsaved changes and prompts the user if necessary.
-  /// Returns the user's chosen action, or `UnsavedChangesAction.discard` if no prompt was needed.
   Future<UnsavedChangesAction> _handleUnsavedChanges(
     List<EditorTab> tabsToCheck,
   ) async {
     final metadataMap = ref.read(tabMetadataProvider);
 
-    // THE FIX: Filter out any tabs that are associated with a VirtualDocumentFile.
     final dirtyTabsMetadata =
         tabsToCheck
             .map((tab) => metadataMap[tab.id])
@@ -234,7 +223,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
             .toList();
 
     if (dirtyTabsMetadata.isEmpty) {
-      // No dirty (and non-virtual) tabs, so we can proceed without saving.
       return UnsavedChangesAction.discard;
     }
 
@@ -253,7 +241,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
         UnsavedChangesAction.cancel;
   }
 
-  /// Opens a project from the list of previously known projects.
   Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
@@ -281,12 +268,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-  /// Closes the currently active project.
   Future<bool> closeProject() async {
     final projectToClose = state.value?.currentProject;
-    if (projectToClose == null) return true; // Already closed.
+    if (projectToClose == null) return true;
 
-    // --- GATEKEEPER INTEGRATION ---
+
     final allTabs = projectToClose.session.tabs;
     final action = await _handleUnsavedChanges(allTabs);
 
@@ -295,18 +281,14 @@ class AppNotifier extends AsyncNotifier<AppState> {
         await _editorService.saveTabs(projectToClose, allTabs);
         break;
       case UnsavedChangesAction.discard:
-        // Proceed without saving.
         break;
       case UnsavedChangesAction.cancel:
-        // MODIFIED: Abort and signal cancellation.
         return false;
     }
-    // --- END INTEGRATION ---
 
     await _projectService.closeProject(projectToClose);
     _updateStateSync((s) => s.copyWith(clearCurrentProject: true));
 
-    // ADDED: Signal success.
     return true;
   }
 
@@ -351,7 +333,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-  /// Removes a project from the "known projects" list.
   Future<void> removeKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) {
@@ -381,7 +362,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-  /// Opens a file in a new editor tab.
   Future<bool> openFileInEditor(
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
@@ -418,7 +398,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
   }
 
-  // --- UI State and Tab Management ---
 
   void switchTab(int index) {
     final project = state.value?.currentProject;
@@ -438,29 +417,22 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final project = state.value?.currentProject;
     if (project == null) return;
 
-    // --- GATEKEEPER INTEGRATION ---
     final tabToClose = project.session.tabs[index];
     final action = await _handleUnsavedChanges([tabToClose]);
 
     switch (action) {
       case UnsavedChangesAction.save:
         await _editorService.saveTab(project, tabToClose);
-        // After saving, fall through to the close logic.
         break;
       case UnsavedChangesAction.discard:
-        // Proceed without saving.
         break;
       case UnsavedChangesAction.cancel:
-        // Abort the close operation.
         return;
     }
-    // --- END INTEGRATION ---
 
-    // The state might have changed during the await, so we need to get the latest version.
     final currentProject = state.value?.currentProject;
     if (currentProject == null) return;
 
-    // Find the index again in case other tabs were closed.
     final newIndex = currentProject.session.tabs.indexOf(tabToClose);
     if (newIndex != -1) {
       final newProject = _editorService.closeTab(currentProject, newIndex);
@@ -473,12 +445,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final project = state.value?.currentProject;
     if (project == null || indicesToClose.isEmpty) return;
 
-    // Sort indices in descending order to avoid shifting issues.
     final sortedIndices = indicesToClose..sort((a, b) => b.compareTo(a));
 
     var newProject = project;
     for (final index in sortedIndices) {
-      // Pass the evolving project state to the service method.
       newProject = _editorService.closeTab(newProject, index);
     }
 
@@ -495,7 +465,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
 
-  // --- State Persistence & Helpers ---
 
   Future<void> saveAppState() async {
     final project = state.value?.currentProject;
