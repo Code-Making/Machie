@@ -121,6 +121,16 @@ class SettingsScreen extends ConsumerWidget {
                 settings.pluginSettings[activePlugin.settings.runtimeType]!
                     as PluginSettings,
           ),
+      ListTile(
+  title: const Text('Licenses'),
+  onTap: () {
+    showLicensePage(
+      context: context,
+      applicationName: 'Your App Name',
+      applicationVersion: '1.0.0',
+    );
+  },
+),
       ],
     );
   }
