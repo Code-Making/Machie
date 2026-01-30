@@ -13,20 +13,16 @@ import '../settings/settings_notifier.dart'; // Import for effectiveSettingsProv
 
 export 'command_models.dart';
 
-final commandProvider = NotifierProvider<CommandNotifier, CommandState>((
-  ref,
-) {
-  final plugins = ref.watch(activePluginsProvider);
-  return CommandNotifier(ref: ref, plugins: plugins);
-});
+final commandProvider = NotifierProvider<CommandNotifier, CommandState>(
+  CommandNotifier.new,
+);
 
-class CommandNotifier extends Notifier<CommandState> {
-  final Ref ref;
+class CommandNotifier extends BuildlessNotifier<CommandState> {
   final List<Command> _allRegisteredCommands = [];
   final Map<String, CommandGroup> _pluginDefinedGroups = {};
 
   // Keep track of plugins for refresh logic
-  final List<EditorPlugin> _plugins;
+  List<EditorPlugin>? _plugins;
 
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
   Map<String, CommandGroup> get pluginDefinedGroups => _pluginDefinedGroups;
@@ -45,12 +41,14 @@ class CommandNotifier extends Notifier<CommandState> {
     return null;
   }
 
-  CommandNotifier({required this.ref, required List<EditorPlugin> plugins})
-    : _plugins = plugins,
-      super(const CommandState()) {
+  @override
+  CommandState build() {
+    // Fetch active plugins once during initialization.
+    final plugins = ref.watch(activePluginsProvider);
+    _plugins = plugins;
     _initializeCommands(plugins);
 
-    // NEW: Listen to effective settings to refresh commands when shortcuts change
+    // Listen to effective settings to refresh commands when shortcuts change
     ref.listen(effectiveSettingsProvider, (previous, next) {
       // Simple equality check to avoid redundant refreshes if settings objects
       // rely on reference equality but content didn't change materially for commands.
@@ -58,6 +56,8 @@ class CommandNotifier extends Notifier<CommandState> {
       // The refresh is relatively cheap.
       _refreshCommands();
     });
+
+    return const CommandState();
   }
 
   void _initializeCommands(List<EditorPlugin> plugins) async {
@@ -68,7 +68,8 @@ class CommandNotifier extends Notifier<CommandState> {
   /// Re-fetches commands from plugins and updates the state
   /// without losing user positioning preferences.
   Future<void> _refreshCommands() async {
-    await _collectCommands(_plugins);
+    if (_plugins == null) return; // Ensure plugins are available
+    await _collectCommands(_plugins!);
 
     _reconcileState();
   }
