@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/explorer/plugins/git_explorer/git_file_content_provider.dart
-// =========================================
-
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';

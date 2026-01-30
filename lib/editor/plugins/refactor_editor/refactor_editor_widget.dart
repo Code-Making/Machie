@@ -667,7 +667,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
         if (settings.supportedExtensions.any(
           (ext) => relativePath.endsWith(ext),
         )) {
-          // File processing can happen immediately.
+          
           try {
             final content = await repo.readFile(entry.uri);
             onFileContent(content, entry, relativePath);

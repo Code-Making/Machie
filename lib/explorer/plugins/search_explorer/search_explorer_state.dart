@@ -1,5 +1,3 @@
-// FILE: lib/explorer/plugins/search_explorer/search_explorer_state.dart
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

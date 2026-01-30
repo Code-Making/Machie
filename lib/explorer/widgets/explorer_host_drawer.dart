@@ -1,5 +1,3 @@
-// lib/explorer/explorer_host_drawer.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';

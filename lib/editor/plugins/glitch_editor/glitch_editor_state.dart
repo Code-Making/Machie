@@ -1,6 +1,6 @@
-// =========================================
-// UPDATED: lib/editor/plugins/glitch_editor/glitch_editor_state.dart
-// =========================================
+
+
+
 
 import 'package:flutter/foundation.dart';
 

@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
+
 
 import 'dart:convert';
 import 'dart:math';
@@ -159,7 +159,7 @@ class TexturePackerEditorWidgetState
     if (!const SetEquality().equals(newQueries, _requiredAssetQueries)) {
       _requiredAssetQueries = newQueries;
 
-      // Update the asset map. The AssetSystem will now fetch and cache these files.
+      
       // This ensures that when PixiExportService runs, the assets are ready.
       ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(newQueries);
     }

@@ -177,7 +177,7 @@ class _TexturePackerFilePickerDialogState
                 ],
               ),
             const Divider(),
-            // File List
+            
             Expanded(
               child:
                   directoryState == null

@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/texture_packer/texture_packer_asset_resolver.dart
+
 
 import 'dart:ui' as ui;
 

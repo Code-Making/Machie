@@ -34,7 +34,7 @@ class ProjectSettingsNotifier extends StateNotifier<ProjectSettingsState?> {
 
   Project? get _currentProject => _ref.read(currentProjectProvider);
 
-  /// Updates an app-level setting override for the current project.
+  /
   void updateOverride(MachineSettings newSettings) {
     final project = _currentProject;
     if (project == null || state == null) return;
@@ -111,7 +111,7 @@ class ProjectSettingsNotifier extends StateNotifier<ProjectSettingsState?> {
     );
   }
 
-  /// Updates the project-type-specific settings for the current project.
+  /
   void updateProjectTypeSettings(ProjectSettings newSettings) {
     final project = _currentProject;
     if (project == null || state == null) return;

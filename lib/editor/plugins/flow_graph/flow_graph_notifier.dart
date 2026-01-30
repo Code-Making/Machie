@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/flow_graph/flow_graph_notifier.dart
+
 
 import 'package:flutter/material.dart';
 
@@ -109,7 +109,7 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  // UPDATED: Now takes pre-calculated local coordinates
+  
   void updateConnectionDrag(Offset localPosition) {
     _pendingConnectionPointer = localPosition;
     notifyListeners();

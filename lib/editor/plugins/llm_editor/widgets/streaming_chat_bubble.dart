@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// UPDATE: Using new package
+
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 // Import builders to maintain consistent styling with ChatBubble
@@ -73,7 +73,7 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            // UPDATE: Replaced manual SelectableText.rich with MarkdownBody
+            
             child: MarkdownBody(
               data: widget.content + " █", // Visual cursor to indicate streaming
               builders: {'p': pathLinkBuilder},

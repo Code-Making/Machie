@@ -1,5 +1,3 @@
-// FILE: lib/editor/services/text_editing_capability.dart
-
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

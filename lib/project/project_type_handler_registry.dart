@@ -1,5 +1,3 @@
-// NEW FILE: lib/project/project_type_handler_registry.dart
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'handlers/local_project_type_handler.dart';

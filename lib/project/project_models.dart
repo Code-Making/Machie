@@ -1,7 +1,3 @@
-// =========================================
-// FILE: lib/project/project_models.dart
-// =========================================
-
 import 'package:flutter/foundation.dart';
 
 import '../data/content_provider/file_content_provider.dart';

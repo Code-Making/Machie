@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/tiled_editor/widgets/tile_palette.dart
+
 
 import 'dart:ui' as ui;
 

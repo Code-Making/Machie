@@ -1,10 +1,10 @@
-// FILE: lib/editor/plugins/flow_graph/core_nodes.dart
+
 
 import 'models/flow_schema_models.dart';
 
 List<FlowNodeType> getCoreFlowNodes() {
   return [
-    // === INPUT NODES (The Graph's Public API) ===
+    
     FlowNodeType(
       type: 'core_input_string',
       label: 'Input (String)',
@@ -90,7 +90,7 @@ List<FlowNodeType> getCoreFlowNodes() {
       ],
     ),
 
-    // === CONSTANT NODES ===
+    
     FlowNodeType(
       type: 'core_constant_string',
       label: 'Constant (String)',
@@ -155,7 +155,7 @@ List<FlowNodeType> getCoreFlowNodes() {
       ],
     ),
 
-    // === UTILITY NODES ===
+    
     FlowNodeType(
       type: 'core_comment',
       label: 'Comment',

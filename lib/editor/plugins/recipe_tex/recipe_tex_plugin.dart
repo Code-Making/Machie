@@ -1,6 +1,6 @@
-// =========================================
-// UPDATED: lib/editor/plugins/recipe_tex/recipe_tex_plugin.dart
-// =========================================
+
+
+
 
 import 'dart:async';
 

@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/flow_graph/flow_graph_editor_widget.dart
+
 
 import 'dart:async';
 
@@ -122,7 +122,7 @@ class FlowGraphEditorWidgetState
     // Re-evaluate asset dependencies if settings change.
     _updateAssetDependencies();
 
-    // === MODIFICATION START: Schema Merging Logic ===
+    
 
     final schemaPath = settings.schemaPath;
     FlowSchemaAssetData? userSchemaData;
@@ -153,7 +153,7 @@ class FlowGraphEditorWidgetState
     // 3. Create a final schema object for the UI
     final finalSchemaData = FlowSchemaAssetData(combinedNodes);
 
-    // === MODIFICATION END ===
+    
 
     return Stack(
       children: [

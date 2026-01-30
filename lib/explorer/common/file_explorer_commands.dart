@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/explorer/common/file_explorer_commands.dart
-// =========================================
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

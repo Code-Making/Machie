@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/flow_graph/widgets/flow_connection_painter.dart
+
 
 import 'package:flutter/material.dart';
 

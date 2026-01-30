@@ -284,13 +284,13 @@ class EditorService {
     );
 
     if (file != null) {
-      // File exists, open it directly.
+      
       return await appNotifier.openFileInEditor(file);
     } else {
       if (!context.mounted) {
         return false;
       }
-      // File does not exist, ask to create it.
+      
       final shouldCreate = await showCreateFileConfirmationDialog(
         context,
         relativePath: sanitizedPath,

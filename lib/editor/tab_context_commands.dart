@@ -1,7 +1,3 @@
-// =========================================
-// NEW FILE: lib/editor/tab_context_commands.dart
-// =========================================
-
 import 'package:flutter/material.dart';
 
 import '../app/app_notifier.dart';

@@ -147,7 +147,7 @@ class FlowGraphReferencePropertyDescriptor extends StringPropertyDescriptor {
   });
 }
 
-// === Concrete Descriptor Types ===
+
 
 class IntPropertyDescriptor extends PropertyDescriptor {
   final int Function() getter;

@@ -1,6 +1,6 @@
-// =========================================
-// FILE: lib/editor/plugins/glitch_editor/glitch_editor_widget.dart
-// =========================================
+
+
+
 
 // lib/plugins/glitch_editor/glitch_editor_widget.dart
 
@@ -115,7 +115,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     _redoStack.clear();
 
     if (updateState && mounted) {
-      setState(() {}); // Update UI to disable undo/redo buttons if visible.
+      setState(() {}); 
     }
   }
 

@@ -1,5 +1,3 @@
-// lib/explorer/common/file_explorer_dialogs.dart
-
 import 'package:flutter/material.dart';
 
 import '../../editor/models/editor_plugin_models.dart';

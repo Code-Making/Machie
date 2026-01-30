@@ -1,5 +1,3 @@
-// FILE: lib/explorer/plugins/git_explorer/git_explorer_state.dart
-
 import 'dart:async';
 
 import 'package:dart_git/dart_git.dart';
@@ -211,7 +209,7 @@ class GitTreeCacheNotifier
               return a.name.compareTo(b.name);
             });
 
-      // Update state only if the provider has not been disposed and the commit hasn't changed.
+      
       if (ref.read(selectedGitCommitHashProvider) == initialCommitHash) {
         state = {...state, pathInRepo: AsyncData(items)};
       }

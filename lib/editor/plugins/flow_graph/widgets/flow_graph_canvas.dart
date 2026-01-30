@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_canvas.dart
+
 
 import 'package:flutter/material.dart';
 

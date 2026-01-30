@@ -1,6 +1,6 @@
-// =========================================
+
 // FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_editor_widget.dart
-// =========================================
+
 
 import 'dart:async';
 

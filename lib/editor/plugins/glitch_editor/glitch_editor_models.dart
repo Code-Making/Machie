@@ -1,6 +1,6 @@
-// =========================================
-// FILE: lib/editor/plugins/glitch_editor/glitch_editor_models.dart
-// =========================================
+
+
+
 
 // lib/plugins/glitch_editor/glitch_editor_models.dart
 

@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/flow_graph/utils/flow_layout_utils.dart
+
 
 import 'dart:ui';
 
@@ -8,7 +8,7 @@ import '../models/flow_schema_models.dart';
 class FlowLayoutUtils {
   // Constants shared with SchemaNodeWidget layout
   static const double headerHeight =
-      40.0; // Updated to match SchemaNodeWidget height
+      40.0; 
   static const double rowHeight = 32.0;
   static const double nodeWidth = 200.0;
 

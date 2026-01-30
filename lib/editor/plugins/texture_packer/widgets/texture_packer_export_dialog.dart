@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/texture_packer/widgets/texture_packer_export_dialog.dart
+
 
 import 'package:flutter/material.dart';
 

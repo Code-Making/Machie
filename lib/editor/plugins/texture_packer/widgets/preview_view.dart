@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/texture_packer/widgets/preview_view.dart
+
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;

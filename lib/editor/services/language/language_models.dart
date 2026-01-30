@@ -1,5 +1,3 @@
-// lib/editor/services/language/language_models.dart
-
 import 'package:re_highlight/re_highlight.dart';
 
 import 'default_parsers.dart';
@@ -22,7 +20,7 @@ class LanguageConfig {
 
   /// Optional resolver to handle implicit extensions or directory indices.
   /// Converts a raw import string (e.g. './utils') into a list of potential
-  /// file paths to probe on the file system (e.g. ['./utils.ts', './utils/index.ts']).
+  /
   final List<String> Function(String importPath)? importResolver;
 
   LanguageConfig({

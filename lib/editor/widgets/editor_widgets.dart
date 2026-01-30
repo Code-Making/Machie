@@ -1,9 +1,3 @@
-// =========================================
-// FILE: lib/editor/editor_widgets.dart
-// =========================================
-
-// lib/editor/editor_widgets.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

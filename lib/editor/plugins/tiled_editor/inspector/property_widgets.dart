@@ -673,7 +673,7 @@ class PropertyFlowGraphSelector extends ConsumerWidget {
                 final repo = ref.read(projectRepositoryProvider);
                 if (repo != null) {
                   //
-                  // === FIX STARTS HERE ===
+                  
                   // Calculate the path relative to the TMX file's DIRECTORY, not the project root.
                   final tmxDir = p.dirname(contextPath);
                   final relativePath = repo.calculateRelativePath(
@@ -681,7 +681,7 @@ class PropertyFlowGraphSelector extends ConsumerWidget {
                     newPath,
                   );
                   descriptor.updateValue(relativePath);
-                  // === FIX ENDS HERE ===
+                  
                   //
                   onUpdate();
                 }

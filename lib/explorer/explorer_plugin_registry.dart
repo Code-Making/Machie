@@ -1,4 +1,4 @@
-// FILE: lib/explorer/explorer_plugin_registry.dart
+
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

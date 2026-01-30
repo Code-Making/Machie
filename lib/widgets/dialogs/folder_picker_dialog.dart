@@ -1,5 +1,3 @@
-// lib/editor/plugins/refactor_editor/folder_picker_dialog.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +15,7 @@ class FileOrFolderPickerDialog extends ConsumerStatefulWidget {
   const FileOrFolderPickerDialog({
     super.key,
     this.initialUri,
-  }); // Update constructor
+  }); 
 
   @override
   ConsumerState<FileOrFolderPickerDialog> createState() =>
@@ -110,7 +108,7 @@ class _FileOrFolderPickerDialogState
     final projectRootUri =
         ref.read(appNotifierProvider).value!.currentProject!.rootUri;
 
-    // UPDATED: Now we show both files and folders.
+    
     final items = nodes.map((n) => n.file).toList();
 
     return ListView.builder(
@@ -124,7 +122,7 @@ class _FileOrFolderPickerDialogState
         final isSelected = _selectedPath == relativePath;
 
         return ListTile(
-          // UPDATED: Use the FileTypeIcon and appropriate selection icon.
+          
           leading:
               isSelected
                   ? const Icon(Icons.check_box)

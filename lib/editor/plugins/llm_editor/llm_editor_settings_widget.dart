@@ -153,7 +153,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
                     widget.settings.copyWith(refactorProviderId: value);
                 widget.onChanged(newSettings);
 
-                // Update Local UI State
+                
                 setState(() {
                   _currentEditingProviderId = value;
                   _updateApiControllerText();

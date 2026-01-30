@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/editor/plugins/editor_command_context.dart
-// =========================================
-
 import 'package:flutter/material.dart'; // ADDED: For Widget
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

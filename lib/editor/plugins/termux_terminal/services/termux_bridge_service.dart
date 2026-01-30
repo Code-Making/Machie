@@ -122,7 +122,7 @@ class TermuxBridgeService {
   }) async {
     final port = await initialize();
 
-    // UPDATED: Use absolute path for socat to ensure it is found.
+    
     const socatPath = '/data/data/com.termux/files/usr/bin/socat';
 
     // Command Breakdown:

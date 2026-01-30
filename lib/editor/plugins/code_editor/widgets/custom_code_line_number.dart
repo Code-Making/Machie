@@ -1,6 +1,6 @@
-// =========================================
-// UPDATED: lib/editor/plugins/code_editor/widgets/custom_code_line_number.dart
-// =========================================
+
+
+
 
 import 'package:flutter/material.dart';
 

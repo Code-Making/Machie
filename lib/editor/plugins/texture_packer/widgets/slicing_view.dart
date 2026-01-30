@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/texture_packer/widgets/slicing_view.dart
+
 
 import 'dart:ui' as ui;
 

@@ -1,5 +1,3 @@
-// lib/project/services/project_hierarchy_service.dart
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

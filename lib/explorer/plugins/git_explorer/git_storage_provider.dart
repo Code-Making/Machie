@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/explorer/plugins/git_explorer/git_storage_provider.dart
-// =========================================
-
 import 'dart:async';
 import 'dart:typed_data';
 

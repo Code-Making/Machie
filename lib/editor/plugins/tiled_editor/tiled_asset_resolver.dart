@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/tiled_editor/tiled_asset_resolver.dart
+
 
 import 'dart:ui' as ui;
 

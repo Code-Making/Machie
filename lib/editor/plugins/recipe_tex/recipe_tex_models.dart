@@ -1,6 +1,6 @@
-// =========================================
+
 // FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_tex_models.dart
-// =========================================
+
 
 import 'package:flutter/material.dart';
 
@@ -47,9 +47,9 @@ class InstructionStep {
     return InstructionStep(title ?? this.title, content ?? this.content);
   }
 
-  // ===================================
+  
   //           THE FIX IS HERE
-  // ===================================
+  
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -90,9 +90,9 @@ class Ingredient {
     );
   }
 
-  // ===================================
+  
   //           THE FIX IS HERE
-  // ===================================
+  
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

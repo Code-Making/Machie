@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/tiled_editor/tiled_export_service.dart
+
 
 import 'dart:async';
 import 'dart:convert';
@@ -1370,7 +1370,7 @@ class TiledExportService {
                   );
                 }
 
-                // Update property reference in exported file
+                
                 final newProps = Map<String, Property<Object>>.from(
                   properties.byName,
                 );

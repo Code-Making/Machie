@@ -59,7 +59,7 @@ class HiveCacheRepository implements CacheRepository {
     }
   }
 
-  // UPDATED: The put method now uses the generic _openBox helper.
+  
   @override
   Future<void> put<T>(String boxName, String key, T value) async {
     final box = await _openBox(boxName); // No type argument needed here.

@@ -1,5 +1,3 @@
-// lib/explorer/plugins/search_explorer/search_explorer_view.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

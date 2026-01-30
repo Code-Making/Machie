@@ -43,7 +43,7 @@ class _SlicingPropertiesDialogState
   @override
   void initState() {
     super.initState();
-    // UPDATED: Use ID instead of index
+    
     _activeId = ref.read(activeSourceImageIdProvider);
 
     SlicingConfig config = const SlicingConfig();
@@ -83,7 +83,7 @@ class _SlicingPropertiesDialogState
       padding: int.tryParse(_paddingController.text) ?? 0,
     );
 
-    // UPDATED: Pass ID string to update method
+    
     widget.notifier.updateSlicingConfig(_activeId!, newConfig);
     Navigator.of(context).pop();
   }

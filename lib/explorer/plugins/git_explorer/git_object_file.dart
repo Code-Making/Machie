@@ -1,5 +1,3 @@
-// lib/explorer/plugins/git_explorer/git_object_file.dart
-
 import 'package:flutter/foundation.dart';
 
 import 'package:dart_git/plumbing/git_hash.dart';
@@ -14,7 +12,7 @@ class GitObjectDocumentFile implements DocumentFile {
   final String name;
 
   @override
-  final String uri; // A virtual URI, e.g., "git://<commitHash>/<path>"
+  final String uri;
 
   @override
   final bool isDirectory;

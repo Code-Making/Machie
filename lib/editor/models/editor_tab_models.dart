@@ -1,5 +1,3 @@
-// FILE: lib/editor/editor_tab_models.dart
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';

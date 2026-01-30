@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/texture_packer/services/pixi_export_service.dart
+
 
 import 'dart:convert';
 import 'dart:ui' as ui;

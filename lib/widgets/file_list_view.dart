@@ -1,5 +1,3 @@
-// lib/widgets/file_list_view.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';

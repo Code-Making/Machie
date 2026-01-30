@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/termux_terminal/termux_hot_state_adapter.dart
+
 
 import '../../../../data/cache/type_adapters.dart';
 import 'termux_hot_state.dart';

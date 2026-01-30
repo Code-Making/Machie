@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// UPDATE: Use the new package
+
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -165,7 +165,7 @@ class ChatBubble extends ConsumerWidget {
           ),
           const Divider(height: 16),
         ],
-        // UPDATE: Using MarkdownBody from flutter_markdown_plus
+        
         MarkdownBody(
           data: displayMessage.message.content,
           builders: {'code': codeBuilder, 'p': pathLinkBuilder},
@@ -183,7 +183,7 @@ class ChatBubble extends ConsumerWidget {
     DelegatingCodeBuilder codeBuilder,
     PathLinkBuilder pathBuilder,
   ) {
-    // UPDATE: Using MarkdownBody from flutter_markdown_plus
+    
     return MarkdownBody(
       data: displayMessage.message.content,
       builders: {'code': codeBuilder, 'p': pathBuilder},

@@ -1,9 +1,7 @@
-// lib/plugins/code_editor/code_themes.dart
 
-import 'package:flutter/material.dart'; // For TextStyle
-import 'package:re_editor/re_editor.dart'; // For CodeHighlightThemeMode
+import 'package:flutter/material.dart';
+import 'package:re_editor/re_editor.dart';
 
-// IMPORTS FOR ALL THEMES
 
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/cpp.dart';

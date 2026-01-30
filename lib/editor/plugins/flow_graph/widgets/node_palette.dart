@@ -1,4 +1,4 @@
-// FILE: lib/editor/plugins/flow_graph/widgets/node_palette.dart
+
 
 import 'package:flutter/material.dart';
 

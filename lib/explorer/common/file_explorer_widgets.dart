@@ -1,5 +1,3 @@
-// FILE: lib/explorer/common/file_explorer_widgets.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,8 +112,7 @@ class DirectoryView extends ConsumerWidget {
           },
         );
       },
-      // Don't show a spinner for every folder while building the tree recursively
-      // Just show nothing until loaded.
+
       loading: () => const SizedBox.shrink(),
       error:
           (err, stack) => Padding(

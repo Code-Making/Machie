@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/explorer/plugins/git_explorer/git_explorer_view.dart
-// =========================================
-
 import 'package:flutter/material.dart';
 
 import 'package:dart_git/dart_git.dart';

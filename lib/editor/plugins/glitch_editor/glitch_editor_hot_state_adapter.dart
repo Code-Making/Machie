@@ -1,6 +1,6 @@
-// =========================================
-// UPDATED: lib/editor/plugins/glitch_editor/glitch_editor_hot_state_adapter.dart
-// =========================================
+
+
+
 
 import 'dart:convert';
 

@@ -1,9 +1,3 @@
-// =========================================
-// FILE: lib/editor/tab_state_manager.dart
-// =========================================
-
-// lib/editor/tab_state_manager.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
