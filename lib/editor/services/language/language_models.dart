@@ -20,7 +20,6 @@ class LanguageConfig {
 
   /// Optional resolver to handle implicit extensions or directory indices.
   /// Converts a raw import string (e.g. './utils') into a list of potential
-  /
   final List<String> Function(String importPath)? importResolver;
 
   LanguageConfig({

@@ -34,13 +34,10 @@ class ProjectSettingsNotifier extends StateNotifier<ProjectSettingsState?> {
 
   Project? get _currentProject => _ref.read(currentProjectProvider);
 
-  /
   void updateOverride(MachineSettings newSettings) {
     final project = _currentProject;
     if (project == null || state == null) return;
 
-    // *** THE DEFINITIVE FIX ***
-    // We clone the incoming setting using its own clone method.
     final clonedSettings = newSettings.clone();
 
     final Map<Type, MachineSettings> newPluginOverrides = Map.from(
@@ -104,7 +101,7 @@ class ProjectSettingsNotifier extends StateNotifier<ProjectSettingsState?> {
     _updateProjectState(
       state!.copyWith(
         pluginSettingsOverrides:
-            newPluginOverrides, // CORRECTED (no cast needed)
+            newPluginOverrides,
         explorerPluginSettingsOverrides:
             newExplorerOverrides.cast<String, ExplorerPluginSettings>(),
       ),

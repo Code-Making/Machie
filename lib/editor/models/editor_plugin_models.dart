@@ -52,7 +52,6 @@ abstract class EditorPlugin {
   List<CommandPosition> getCommandPositions() => [];
 
   /// Plugin-specific commands. Defaults to an empty list.
-  /
   List<Command> getCommands(Ref ref) => [];
 
   /// Plugin-specific command groups. Defaults to an empty list.

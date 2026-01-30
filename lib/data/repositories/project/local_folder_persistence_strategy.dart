@@ -7,7 +7,6 @@ import '../../file_handler/file_handler.dart';
 import 'project_state_persistence_strategy.dart';
 
 /// A persistence strategy that saves the project state to a `project.json`
-/
 class LocalFolderPersistenceStrategy
     implements ProjectStatePersistenceStrategy {
   static const _projectDataFolderName = '.machine';
