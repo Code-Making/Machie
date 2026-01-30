@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import 'package:riverpod/legacy.dart';
 
 import '../data/content_provider/file_content_provider.dart';
 import '../data/file_handler/file_handler.dart';
