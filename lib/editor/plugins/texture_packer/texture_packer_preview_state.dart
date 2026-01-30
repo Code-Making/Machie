@@ -29,5 +29,5 @@ class PreviewState {
 }
 
 // Scoped by tab ID so multiple tabs don't interfere
-final previewStateProvider = StateProvider.family
+final previewProvider = Provider.family
     .autoDispose<PreviewState, String>((ref, tabId) => const PreviewState());

@@ -29,12 +29,12 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
 );
 
 final activePluginsProvider =
-    StateNotifierProvider<PluginManager, List<EditorPlugin>>((ref) {
+    NotifierProvider<PluginManager, List<EditorPlugin>>((ref) {
       final initialPlugins = ref.read(pluginRegistryProvider);
       return PluginManager(initialPlugins);
     });
 
-class PluginManager extends StateNotifier<List<EditorPlugin>> {
+class PluginManager extends Notifier<List<EditorPlugin>> {
   PluginManager(Set<EditorPlugin> plugins)
     : super(_sortPlugins(plugins.toList()));
 

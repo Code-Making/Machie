@@ -39,7 +39,7 @@ class FileExplorerSettings implements ExplorerPluginSettings {
 }
 
 // STATE: Kept in memory (or persisted separately via ProjectDto later)
-class FileExplorerExpansionNotifier extends StateNotifier<Set<String>> {
+class FileExplorerExpansionNotifier extends Notifier<Set<String>> {
   FileExplorerExpansionNotifier() : super({});
 
   void toggle(String uri, bool isExpanded) {
@@ -57,7 +57,7 @@ class FileExplorerExpansionNotifier extends StateNotifier<Set<String>> {
 
 // A dedicated provider for expansion state.
 // Lightweight, in-memory, does NOT trigger disk writes.
-final fileExplorerExpandedFoldersProvider = StateNotifierProvider.autoDispose<
+final fileExplorerExpandedFoldersProvider = NotifierProvider.autoDispose<
   FileExplorerExpansionNotifier,
   Set<String>
 >((ref) {

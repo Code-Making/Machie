@@ -27,7 +27,7 @@ class EmptyCommandContext extends CommandContext {
     : super(appBarOverride: null, appBarOverrideKey: null);
 }
 
-final commandContextProvider = StateProvider.family<CommandContext, String>(
+final commandContextProvider = Provider.family<CommandContext, String>(
   (ref, tabId) => const EmptyCommandContext(),
 );
 final activeCommandContextProvider = Provider<CommandContext>((ref) {

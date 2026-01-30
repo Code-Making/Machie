@@ -16,7 +16,7 @@ final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
   return [FileExplorerPlugin(), SearchExplorerPlugin(), GitExplorerPlugin()];
 });
 
-final activeExplorerProvider = StateProvider<ExplorerPlugin>((ref) {
+final activeExplorerProvider = Provider<ExplorerPlugin>((ref) {
   return ref.watch(explorerRegistryProvider).first;
 });
 

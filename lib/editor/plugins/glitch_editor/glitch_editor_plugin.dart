@@ -25,9 +25,9 @@ class GlitchEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.glitch_editor';
   static const String hotStateId = 'com.machine.glitch_editor_state';
 
-  final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
-  final isZoomModeProvider = StateProvider((ref) => false);
-  final isSlidingProvider = StateProvider((ref) => false);
+  final brushSettingsProvider = Provider((ref) => GlitchBrushSettings());
+  final isZoomModeProvider = Provider((ref) => false);
+  final isSlidingProvider = Provider((ref) => false);
 
   @override
   String get id => pluginId;

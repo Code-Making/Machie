@@ -24,7 +24,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   void initState() {
     super.initState();
     _textController.addListener(() {
-      ref.read(searchStateProvider.notifier).search(_textController.text);
+      ref.read(searchProvider.notifier).search(_textController.text);
     });
   }
 
@@ -38,7 +38,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   Widget build(BuildContext context) {
     // Watch the new provider to handle the initial indexing state
     final indexState = ref.watch(searchableFilesProvider);
-    final searchState = ref.watch(searchStateProvider);
+    final searchState = ref.watch(searchProvider);
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
 
     if (fileHandler == null) {

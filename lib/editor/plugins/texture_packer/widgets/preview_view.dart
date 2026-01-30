@@ -50,10 +50,10 @@ class _PreviewViewState extends ConsumerState<PreviewView>
         if (selectedId != null) {
           final node = _findNodeById(widget.notifier.project.tree, selectedId);
           if (node?.type == PackerItemType.animation) {
-            final state = ref.read(previewStateProvider(widget.tabId));
+            final state = ref.read(previewProvider(widget.tabId));
             if (!state.isLooping) {
               ref
-                  .read(previewStateProvider(widget.tabId).notifier)
+                  .read(previewProvider(widget.tabId).notifier)
                   .state = state.copyWith(isPlaying: false);
               _animationController.reset();
             }
@@ -187,7 +187,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
       texturePackerAssetResolverProvider(widget.tabId),
     );
     // END OF CHANGES
-    final previewState = ref.watch(previewStateProvider(widget.tabId));
+    final previewState = ref.watch(previewProvider(widget.tabId));
     final settings =
         ref.watch(
           effectiveSettingsProvider.select(

@@ -12,8 +12,8 @@ class PreviewAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(previewStateProvider(tabId));
-    final notifier = ref.read(previewStateProvider(tabId).notifier);
+    final state = ref.watch(previewProvider(tabId));
+    final notifier = ref.read(previewProvider(tabId).notifier);
 
     return AppBar(
       leading: IconButton(

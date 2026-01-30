@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final clipboardProvider = StateProvider<ClipboardItem?>((ref) => null);
+final clipboardProvider = Provider<ClipboardItem?>((ref) => null);
 
 enum ClipboardOperation { cut, copy }
 

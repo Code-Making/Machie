@@ -78,16 +78,16 @@ final searchableFilesProvider = FutureProvider.autoDispose<
   return allFiles;
 });
 
-final searchStateProvider =
-    StateNotifierProvider.autoDispose<SearchStateNotifier, SearchState>(
-      (ref) => SearchStateNotifier(ref),
+final searchProvider =
+    NotifierProvider.autoDispose<SearchNotifier, SearchState>(
+      (ref) => SearchNotifier(ref),
     );
 
-class SearchStateNotifier extends StateNotifier<SearchState> {
+class SearchNotifier extends Notifier<SearchState> {
   final Ref _ref;
   Timer? _debounce;
 
-  SearchStateNotifier(this._ref) : super(SearchState());
+  SearchNotifier(this._ref) : super(SearchState());
 
   void search(String query) {
     _debounce?.cancel();

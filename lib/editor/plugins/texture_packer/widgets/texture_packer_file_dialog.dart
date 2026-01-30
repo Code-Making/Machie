@@ -14,7 +14,7 @@ class TexturePackerImportResult {
   TexturePackerImportResult(this.files, this.asSprites);
 }
 
-final _tpFilePickerLastPathProvider = StateProvider<String?>((ref) => null);
+final _tpFilePickerLastPathProvider = Provider<String?>((ref) => null);
 
 class TexturePackerFilePickerDialog extends ConsumerStatefulWidget {
   final String projectRootUri;

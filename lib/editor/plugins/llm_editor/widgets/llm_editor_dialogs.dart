@@ -15,7 +15,7 @@ import '../../../../utils/code_themes.dart';
 import '../llm_editor_models.dart';
 import 'context_widgets.dart';
 
-final filePickerLastPathProvider = StateProvider<String?>((ref) => null);
+final filePickerLastPathProvider = Provider<String?>((ref) => null);
 
 class EditMessageDialog extends ConsumerStatefulWidget {
   final ChatMessage initialMessage;

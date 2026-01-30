@@ -9,13 +9,13 @@ import 'project_settings_models.dart';
 /// Provides the ProjectSettingsState of the currently active project.
 /// This is the "source of truth" for what is overridden at the project level.
 final projectSettingsProvider =
-    StateNotifierProvider<ProjectSettingsNotifier, ProjectSettingsState?>((
+    NotifierProvider<ProjectSettingsNotifier, ProjectSettingsState?>((
       ref,
     ) {
       return ProjectSettingsNotifier(ref);
     });
 
-class ProjectSettingsNotifier extends StateNotifier<ProjectSettingsState?> {
+class ProjectSettingsNotifier extends Notifier<ProjectSettingsState?> {
   final Ref _ref;
 
   ProjectSettingsNotifier(this._ref)

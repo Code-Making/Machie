@@ -35,10 +35,10 @@ import 'widgets/slicing_view.dart';
 import 'widgets/source_images_panel.dart';
 import 'widgets/texture_packer_file_dialog.dart';
 
-final activeSourceImageIdProvider = StateProvider.autoDispose<String?>(
+final activeSourceImageIdProvider = Provider.autoDispose<String?>(
   (ref) => null,
 );
-final selectedNodeIdProvider = StateProvider.autoDispose<String?>(
+final selectedNodeIdProvider = Provider.autoDispose<String?>(
   (ref) => null,
 );
 

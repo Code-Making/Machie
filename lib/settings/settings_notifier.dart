@@ -11,7 +11,7 @@ import '../explorer/explorer_plugin_registry.dart';
 export 'settings_models.dart';
 export '../project/project_settings_notifier.dart';
 
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
+final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>((
   ref,
 ) {
   final plugins = ref.watch(activePluginsProvider);
@@ -19,7 +19,7 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
   return SettingsNotifier(plugins: plugins, explorerPlugins: explorerPlugins);
 });
 
-class SettingsNotifier extends StateNotifier<AppSettings> {
+class SettingsNotifier extends Notifier<AppSettings> {
   SettingsNotifier({
     required List<EditorPlugin> plugins,
     required List<ExplorerPlugin> explorerPlugins,

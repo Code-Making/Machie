@@ -43,11 +43,11 @@ class TabMetadata {
 
 // ... (TabMetadataNotifier is unchanged) ...
 final tabMetadataProvider =
-    StateNotifierProvider<TabMetadataNotifier, Map<String, TabMetadata>>((ref) {
+    NotifierProvider<TabMetadataNotifier, Map<String, TabMetadata>>((ref) {
       return TabMetadataNotifier();
     });
 
-class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
+class TabMetadataNotifier extends Notifier<Map<String, TabMetadata>> {
   TabMetadataNotifier() : super({});
 
   void initTab(String tabId, DocumentFile file) {

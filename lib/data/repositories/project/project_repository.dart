@@ -46,7 +46,7 @@ final fileOperationStreamProvider =
       return ref.watch(fileOperationControllerProvider).stream;
     });
 
-final projectRepositoryProvider = StateProvider<ProjectRepository?>(
+final projectRepositoryProvider = Provider<ProjectRepository?>(
   (ref) => null,
 );
 
