@@ -1,8 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
-import 'package:riverpod/legacy.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';

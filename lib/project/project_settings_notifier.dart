@@ -1,6 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
-import 'package:riverpod/legacy.dart';
 
 import '../app/app_notifier.dart';
 import '../explorer/explorer_plugin_registry.dart';
