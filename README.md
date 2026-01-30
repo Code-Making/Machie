@@ -28,15 +28,34 @@ This app is currently Android-only, but every platform-specific code should alre
 - File-content provider to open custom URI schemes like any other file.
 
 ## Editors
-### Code aeditor
+### Code Editor
+- Based on a personal fork of Re-Editor
+- Syntax-Highlighting from Re-Highlight
+- Extensive selection and code manipulation tools
+- Unified API to communicate with other editors (like the LLM editor)
+- Search and replace, with $ notation match group replacement
+- Many themes
+- Bracket match highlighting
+- Color code highlighting and picker
+- Navigate to local imports and one-tap add import
 ### Refactor Editor
+- Search and edit file content in the whole project
+- When this editor is opened, moving a file in the file explorer will trigger path mode, which search and replaces reference to the moved-file path.
 ### Glitch Image Editor
+- Paint glitches on images
 ### Tiled Map Editor
+- Orthogonal-only tiled .tmx editor
+- Dependency gathering and tileset atlas packing and export
 ### Flow Graph Editor
+- Flow graph editor that supports custom node definitions via a .json schema file.
+- Export graph to .json to be used anywhere 
 ### Texture Packer
+- Pack spritesheets into an atlas with an associated .json
 ### LLM Editor
+- Speak to an AI with easy context gathering features
+- Can replace text with a prompt in any TextEditable editor
 ### Termux Terminal
-
+- Communicate to a termux instance via the RUN_COMMAND intent
 ## Explorers
 ### File
 ### Search
