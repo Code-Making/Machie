@@ -9,7 +9,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'git_object_file.dart';
 import 'git_provider.dart';
 
-final gitHistoryStartHashProvider = NotifierProvider<GitHash?>((ref) => null);
+final gitHistoryStartHashProvider = NotifierProvider<
+    GitHistoryStartHashNotifier,
+    GitHash?,
+>((ref) => GitHistoryStartHashNotifier());
+
+class GitHistoryStartHashNotifier extends Notifier<GitHash?> {
+  @override
+  GitHash? build() => null;
+
+  void setHash(GitHash? hash) {
+    state = hash;
+  }
+}
 
 final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((
   ref,
@@ -55,11 +67,12 @@ class PaginatedCommitsState extends Equatable {
     List<GitCommit>? commits,
     bool? isLoading,
     bool? hasMore,
-  }) => PaginatedCommitsState(
-    commits: commits ?? this.commits,
-    isLoading: isLoading ?? this.isLoading,
-    hasMore: hasMore ?? this.hasMore,
-  );
+  }) =>
+      PaginatedCommitsState(
+        commits: commits ?? this.commits,
+        isLoading: isLoading ?? this.isLoading,
+        hasMore: hasMore ?? this.hasMore,
+      );
   @override
   List<Object?> get props => [commits, isLoading, hasMore];
 }
@@ -118,14 +131,30 @@ class PaginatedCommitsNotifier
 }
 
 final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider.family<
-  PaginatedCommitsNotifier,
-  PaginatedCommitsState,
-  GitHash
->(PaginatedCommitsNotifier.new);
+    PaginatedCommitsNotifier,
+    PaginatedCommitsState,
+    GitHash>(PaginatedCommitsNotifier.new);
 
-// ... (The rest of the file is unchanged) ...
 final gitExplorerExpandedFoldersProvider =
-    Provider.autoDispose<Set<String>>((ref) => {});
+    NotifierProvider<ExpandedFoldersNotifier, Set<String>>(
+        ExpandedFoldersNotifier.new);
+
+class ExpandedFoldersNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => {};
+
+  void add(String folderPath) {
+    state = {...state, folderPath};
+  }
+
+  void remove(String folderPath) {
+    state = state.where((path) => path != folderPath).toSet();
+  }
+
+  void clear() {
+    state = {};
+  }
+}
 
 // SIMPLIFIED: The selected hash now defaults to whatever the history start hash is.
 final selectedGitCommitHashProvider = Provider<GitHash?>((ref) {
@@ -133,21 +162,18 @@ final selectedGitCommitHashProvider = Provider<GitHash?>((ref) {
 });
 
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<
-  GitTreeCacheNotifier,
-  Map<String, AsyncValue<List<GitObjectDocumentFile>>>
->(GitTreeCacheNotifier.new);
+    GitTreeCacheNotifier,
+    Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(
+    GitTreeCacheNotifier.new);
 
-class GitTreeCacheNotifier
-    extends
-        AutoDisposeNotifier<
-          Map<String, AsyncValue<List<GitObjectDocumentFile>>>
-        > {
+class GitTreeCacheNotifier extends AutoDisposeNotifier<
+    Map<String, AsyncValue<List<GitObjectDocumentFile>>>> {
   @override
   Map<String, AsyncValue<List<GitObjectDocumentFile>>> build() {
     ref.listen<GitHash?>(selectedGitCommitHashProvider, (previous, next) {
       if (previous != next && next != null) {
         state = {};
-        ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
+        ref.read(gitExplorerExpandedFoldersProvider.notifier).clear();
         loadDirectory('');
       }
     });
@@ -192,24 +218,24 @@ class GitTreeCacheNotifier
         final entry = await gitRepo.objStorage.refSpec(rootTree, pathInRepo);
         tree = await gitRepo.objStorage.readTree(entry.hash);
       }
-      final items =
-          tree.entries.map((entry) {
-              final fullPath =
-                  pathInRepo.isEmpty ? entry.name : '$pathInRepo/${entry.name}';
-              return GitObjectDocumentFile(
-                name: entry.name,
-                commitHash: currentCommitHash,
-                objectHash: entry.hash,
-                pathInRepo: fullPath,
-                isDirectory: entry.mode == GitFileMode.Dir,
-              );
-            }).toList()
-            ..sort((a, b) {
-              if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
-              return a.name.compareTo(b.name);
-            });
+      final items = tree.entries
+          .map((entry) {
+            final fullPath =
+                pathInRepo.isEmpty ? entry.name : '$pathInRepo/${entry.name}';
+            return GitObjectDocumentFile(
+              name: entry.name,
+              commitHash: currentCommitHash,
+              objectHash: entry.hash,
+              pathInRepo: fullPath,
+              isDirectory: entry.mode == GitFileMode.Dir,
+            );
+          })
+          .toList()
+          ..sort((a, b) {
+            if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
+            return a.name.compareTo(b.name);
+          });
 
-      
       if (ref.read(selectedGitCommitHashProvider) == initialCommitHash) {
         state = {...state, pathInRepo: AsyncData(items)};
       }
