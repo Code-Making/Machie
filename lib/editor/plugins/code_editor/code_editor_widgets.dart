@@ -56,7 +56,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   late CodeCommentFormatter _commentFormatter;
   late CodeEditorStyle _style;
 
-  // Specific Caches for Rendering Performance
+
   late SpanParser _cachedParser;
   bool _enableBracketMatching = true;
   bool _enableColorPreviews = true;
@@ -64,7 +64,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   late String? _baseContentHash;
 
-  // --- TextEditable Interface Implementation ---
+
 
   @override
   Future<TextSelectionDetails> getSelectionDetails() async {
@@ -72,7 +72,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     TextRange? textRange;
     if (!currentSelection.isCollapsed) {
-      // Convert CodeLineSelection to TextRange
       textRange = TextRange(
         start: TextPosition(
           line: currentSelection.start.index,
@@ -97,8 +96,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     CodeLineSelection? selectionToReplace;
 
-    // This is the translation layer. If our abstract range is provided,
-    // convert it to the concrete type the controller understands.
     if (range != null) {
       selectionToReplace = CodeLineSelection(
         baseIndex: range.start.line,
@@ -108,8 +105,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       );
     }
 
-    // The controller's replaceSelection method handles the null case by
-    // using the current selection, which is exactly what we want.
     controller.runRevocableOp(() {
       controller.replaceSelection(replacement, selectionToReplace);
     });
@@ -127,10 +122,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   void revealRange(TextRange range) {
-    // 1. Convert our abstract TextPosition to the concrete re_editor CodeLine model.
-    // Our TextPosition uses 1-based lines, which matches re_editor's CodeLine.
     final startPosition = CodeLinePosition(
-      index: range.start.line, // re_editor CodeLinePosition is 0-based for line
+      index: range.start.line,
       offset: range.start.column,
     );
     controller.selection = CodeLineSelection(
@@ -145,7 +138,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   Future<String> getTextContent() async {
-    // Return the controller's current text, wrapped in a Future to match the interface.
     return controller.text;
   }
 
@@ -153,11 +145,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   void insertTextAtLine(int lineNumber, String textToInsert) {
     if (!mounted) return;
 
-    // Clamp the line number to be within the valid range of the document.
     final line = lineNumber.clamp(0, controller.codeLines.length);
 
-    // To insert at the beginning of a line, we replace a zero-length selection
-    // at the start of that line.
     final selectionToReplace = CodeLineSelection.fromPosition(
       position: CodeLinePosition(index: line, offset: 0),
     );
@@ -170,7 +159,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   @override
   void replaceAllOccurrences(String find, String replace) {
     if (!mounted) return;
-    // This method is correct as the `replaceAll` method exists.
     controller.replaceAll(find, replace);
   }
 
@@ -179,13 +167,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (!mounted) return;
 
     final start = startLine.clamp(0, controller.codeLines.length);
-    // Clamp the end line to be a valid index.
     final end = endLine.clamp(0, controller.codeLines.length - 1);
 
     if (start > end) return;
 
-    // Create a selection that spans the full lines to be replaced.
-    // The selection's extent goes to the beginning (offset 0) of the line *after* the last line to replace.
     final selectionToReplace = CodeLineSelection(
       baseIndex: start,
       baseOffset: 0,
@@ -193,7 +178,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       extentOffset: 0,
     );
 
-    // Perform the replacement within a single, undoable operation.
     controller.runRevocableOp(() {
       controller.replaceSelection(newContent, selectionToReplace);
     });
@@ -207,9 +191,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   void batchReplaceRanges(List<ReplaceRangeEdit> edits) {
-    // Sort edits in reverse order of their starting position. This is crucial
-    // to ensure that applying an edit does not shift the document offsets of
-    // subsequent edits in the list.
     edits.sort((a, b) {
       final startA = a.range.start;
       final startB = b.range.start;
@@ -268,14 +249,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
 
-    // 1. Initial Load of Language
     if (widget.tab.initialLanguageId != null) {
       _languageConfig = Languages.getById(widget.tab.initialLanguageId!);
     } else {
       _languageConfig = Languages.getForFile(fileUri);
     }
 
-    // 2. Initial Load of Settings & Parser
     _updateInternalConfig();
 
     controller = CodeLineEditingController(
@@ -305,7 +284,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Re-read everything if inherited widgets change
     setState(() {
       _updateInternalConfig();
     });
@@ -339,11 +317,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   }
 
   void _updateInternalConfig() {
-    // A. Update Language Specifics
     _commentFormatter = _getCommentFormatter();
     _cachedParser = _languageConfig.parser;
 
-    // B. Read Settings
     final settings =
         ref.read(
           effectiveSettingsProvider.select(
@@ -352,12 +328,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         ) ??
         CodeEditorSettings();
 
-    // C. Update Feature Flags
     _enableBracketMatching = settings.enableBracketMatching;
     _enableColorPreviews = settings.enableColorPreviews;
     _enableLinks = settings.enableLinks;
 
-    // D. Update Visual Style
     final selectedThemeName = settings.themeName;
     final bool enableLigatures = settings.fontLigatures;
 
@@ -402,57 +376,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     return DefaultCodeCommentFormatter(singleLinePrefix: '');
   }
 
-  // void _updateStyleAndRecognizers() {
-  //   final codeEditorSettings = ref.read(
-  //     effectiveSettingsProvider.select(
-  //       (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-  //     ),
-  //   );
-
-  //   final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
-  //   final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-  //   final List<FontFeature>? fontFeatures =
-  //       enableLigatures
-  //           ? null
-  //           : const [
-  //             FontFeature.disable('liga'),
-  //             FontFeature.disable('clig'),
-  //             FontFeature.disable('calt'),
-  //           ];
-
-  //   final Map<String, CodeHighlightThemeMode> languageMap = {};
-  //   if (_languageConfig.highlightMode != null) {
-  //     languageMap[_languageConfig.id] = CodeHighlightThemeMode(
-  //       mode: _languageConfig.highlightMode!,
-  //     );
-  //   }
-
-  //   _style = CodeEditorStyle(
-  //     fontHeight: codeEditorSettings?.fontHeight,
-  //     fontSize: codeEditorSettings?.fontSize ?? 12.0,
-  //     fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
-  //     fontFeatures: fontFeatures,
-  //     codeTheme: CodeHighlightTheme(
-  //       theme:
-  //           CodeThemes.availableCodeThemes[selectedThemeName] ??
-  //           CodeThemes.availableCodeThemes['Atom One Dark']!,
-  //       languages: languageMap,
-  //     ),
-  //   );
-  // }
-
-  // void _updateCommentFormatter() {
-  //   if (_languageConfig.comments != null) {
-  //     _commentFormatter = DefaultCodeCommentFormatter(
-  //       singleLinePrefix: _languageConfig.comments!.singleLine,
-  //       multiLinePrefix: _languageConfig.comments!.blockBegin,
-  //       multiLineSuffix: _languageConfig.comments!.blockEnd,
-  //     );
-  //   } else {
-  //     _commentFormatter = DefaultCodeCommentFormatter(singleLinePrefix: '');
-  //   }
-  // }
-
   Widget _buildSelectionAppBar() {
     return const CodeEditorSelectionAppBar();
   }
@@ -489,7 +412,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         currentSelection.end.index > currentSelection.start.index;
 
     if (isAlreadyFullLineSelection) {
-      // For expanding selection, we can only expand if there's a next line
       if (currentSelection.end.index < lines.length - 1) {
         controller.selection = currentSelection.copyWith(
           extentIndex: currentSelection.end.index + 1,
@@ -497,23 +419,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         );
       } else if (currentSelection.end.index == lines.length - 1) {
         controller.selection = currentSelection.copyWith(
-          extentIndex: lines.length - 1, // Stay on last line
-          extentOffset: lines.last.length, // Set to end of the last line
+          extentIndex: lines.length - 1,
+          extentOffset: lines.last.length,
         );
       }
     } else {
       final newStartIndex = currentSelection.start.index;
 
-      // Special case: if we're on the last line, select just this line
       if (currentSelection.end.index == lines.length - 1) {
         controller.selection = CodeLineSelection(
           baseIndex: newStartIndex,
           baseOffset: 0,
-          extentIndex: lines.length - 1, // Stay on last line
-          extentOffset: lines.last.length, // Set to end of the last line
+          extentIndex: lines.length - 1,
+          extentOffset: lines.last.length,
         );
       } else {
-        // Normal case: select from current line to next line
         final newEndIndex = currentSelection.end.index + 1;
         controller.selection = CodeLineSelection(
           baseIndex: newStartIndex,
@@ -559,13 +479,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     final CodeLineSelection currentSelection = controller.selection;
     final List<CodeLine> lines = controller.codeLines.toList();
 
-    // Check if we have a multiline selection that ends at offset 0
     final bool isMultilineWithZeroEnd =
         currentSelection.end.index > currentSelection.start.index &&
         currentSelection.end.offset == 0;
 
     if (isMultilineWithZeroEnd) {
-      // Move selection end to the previous line, at the end of that line
       final previousLineIndex = currentSelection.end.index - 1;
       if (previousLineIndex >= 0) {
         final previousLine = lines[previousLineIndex];
@@ -578,7 +496,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     }
   }
 
-  // --- NEW PUBLIC METHODS for Commands ---
+
   void showFindPanel() {
     findController.findMode();
   }
@@ -592,13 +510,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     final target = span.target.trim();
     if (target.isEmpty) return;
 
-    // 1. Handle Web URLs
     if (target.startsWith('http://') || target.startsWith('https://')) {
       MachineToast.info('Opening URL: $target');
       return;
     }
 
-    // 2. Parse file target with potential line/column numbers
     final parsed = _parseFileTarget(target);
     if (parsed == null) {
       MachineToast.error('Invalid link format: $target');
@@ -611,30 +527,16 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     if (repo == null || currentFileMetadata == null) return;
 
-    // 3. Determine Base Path & Resolution Strategy
-    // Strategy:
-    // - If it has a line number, it's likely a log/error -> Resolve from Project Root.
-    // - If it starts with 'package:', it's a package import -> (Naive) Try resolving from Project Root.
-    // - If it starts with '.', it's relative -> Resolve from Context (Current Dir).
-    // - Otherwise (e.g. 'lib/foo.dart'), assume Project Root (common for logs and non-relative imports).
 
     final bool hasLineNumber = parsed.line != null;
-    //   final bool isPackageScheme = parsed.path.startsWith('package:');
     final bool isRelativeImport = parsed.path.startsWith('.');
 
-    // We treat logs (hasLineNumber) as project-root relative by default,
-    // unless they are explicitly relative (start with .).
     final bool resolveFromContext = isRelativeImport && !hasLineNumber;
 
-    // Remove 'package:' prefix for basic file system mapping if applicable
-    // (This is a naive fallback for package imports if they map to local source)
-    // Real package resolution would require analyzing pubspec/package_config.
     String cleanPath = parsed.path;
-    /* 
+    /*
     if (isPackageScheme) {
-       // Optional: Strip 'package:project_name/' if it matches current project?
-       // For now, let's leave it to FileHandler or fail gracefully if not found.
-    } 
+    }
     */
 
     try {
@@ -642,16 +544,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
           resolveFromContext
               ? repo.fileHandler.getParentUri(
                 currentFileMetadata.file.uri,
-              ) // Context Dir
-              : repo.rootUri; // Project Root
+              )
+              : repo.rootUri;
 
-      // 4. Generate Candidates (Implicit Extensions)
       final candidates =
           _languageConfig.importResolver?.call(cleanPath) ?? [cleanPath];
 
       ProjectDocumentFile? targetFile;
 
-      // 5. Probe File System
       for (final candidate in candidates) {
         final result = await repo.fileHandler.resolvePath(baseUri, candidate);
 
@@ -672,7 +572,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         );
 
         if (didOpen) {
-          // 6. Jump to Line/Column
           if (parsed.line != null) {
             final editorState = await onReady.future;
             if (editorState is TextEditable) {
@@ -902,76 +801,48 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     controller.runRevocableOp(() => controller.value = formatted);
   }
 
-void deleteCommentText() {
+  void deleteCommentText() {
     adjustSelectionIfNeeded();
     final selection = controller.selection;
     final singleLinePrefix = _languageConfig.comments?.singleLine;
 
-    // Can't do anything if we don't know the single-line comment syntax.
     if (singleLinePrefix == null || singleLinePrefix.isEmpty) {
       return;
     }
 
-    final startLineIndex = selection.start.index;
-    final endLineIndex = selection.end.index;
+    final startLine = selection.start.index;
+    final endLine = selection.end.index;
 
-    // 1. Build a list of the new line contents.
     final List<String> newLines = [];
-    for (int i = startLineIndex; i <= endLineIndex; i++) {
+    for (int i = startLine; i <= endLine; i++) {
       final line = controller.codeLines[i].text;
       final commentIndex = line.indexOf(singleLinePrefix);
 
       if (commentIndex != -1) {
-        // A comment is found.
         final contentBeforeComment = line.substring(0, commentIndex);
-
-        // Check if the content before the comment is part of a string or quote.
-        // This is a simplified check and might not cover all edge cases.
-        bool isInStringOrQuote = false;
-        for (int j = 0; j < commentIndex; j++) {
-          if (line[j] == '"' || line[j] == "'") {
-            // A more robust solution would track whether we are inside a string.
-            // For simplicity here, we assume any quote before the comment
-            // might indicate it's within a string literal.
-            isInStringOrQuote = true;
-            break;
-          }
-        }
-
-        if (contentBeforeComment.trim().isNotEmpty && !isInStringOrQuote) {
-          // If there's non-whitespace content before the comment and it's not
-          // likely within a string, keep the content before the comment.
-          // This removes the comment prefix and the comment text.
+        if (contentBeforeComment.trim().isNotEmpty) {
           newLines.add(contentBeforeComment.trimRight());
-        } else {
-          // Otherwise, it's a comment-only line, or the comment is part of a string.
-          // In the case of comment-only, we effectively delete it by not adding it.
-          // In the case of being within a string, we also don't modify it to avoid breaking strings.
-          newLines.add(line.trimRight()); // Keep the original line if it's part of a string or empty before comment
         }
       } else {
-        // No comment, keep the line as is.
         newLines.add(line.trimRight());
       }
     }
 
-    // 2. Define a selection that covers the full lines we are replacing.
     final selectionToReplace = CodeLineSelection(
-      baseIndex: startLineIndex,
-      baseOffset: 0, // from the beginning of the first line
-      extentIndex: endLineIndex,
+      baseIndex: startLine,
+      baseOffset: 0,
+      extentIndex: endLine,
       extentOffset:
-          controller.codeLines[endLineIndex].length, // to the end of the last line
+          controller.codeLines[endLine].length,
     );
 
-    // 3. Perform the replacement in a single, undoable operation.
     controller.runRevocableOp(() {
       controller.replaceSelection(newLines.join('\n'), selectionToReplace);
     });
   }
 
   Future<void> showLanguageSelectionDialog() async {
-    final allLanguages = Languages.all; // Use the public list from registry
+    final allLanguages = Languages.all;
 
     final selectedLanguageId = await showDialog<String>(
       context: context,
@@ -987,7 +858,6 @@ void deleteCommentText() {
                   final lang = allLanguages[index];
                   return ListTile(
                     title: Text(lang.name),
-                    // Highlight current selection
                     selected: lang.id == _languageConfig.id,
                     onTap: () => Navigator.pop(ctx, lang.id),
                   );
@@ -1000,10 +870,7 @@ void deleteCommentText() {
     if (selectedLanguageId != null &&
         selectedLanguageId != _languageConfig.id) {
       setState(() {
-        // Update config by looking up the new ID
         _languageConfig = Languages.getById(selectedLanguageId);
-        // _updateStyleAndRecognizers();
-        // _updateCommentFormatter();
         _updateInternalConfig();
       });
       ref.read(editorServiceProvider).markCurrentTabDirty();
@@ -1075,10 +942,7 @@ void deleteCommentText() {
       }
     });
 
-    // 2. Listen for Settings Changes
-    // This is efficient: we only rebuild/recalc when settings actually change.
     ref.listen(effectiveSettingsProvider, (previous, next) {
-      // We could do deep comparison here, but _updateInternalConfig is fast enough.
       setState(() {
         _updateInternalConfig();
       });
