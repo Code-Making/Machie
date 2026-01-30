@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import 'package:riverpod/legacy.dart';
 
 import '../models/editor_plugin_models.dart';
 import 'code_editor/code_editor_plugin.dart';
