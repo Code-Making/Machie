@@ -4,7 +4,7 @@
 </p>
 
 <h1 align="center">
-Machine, A Flutter-based editor app.
+Machine, A Flutter-based code editor app.
 </h1>
 
 # Overview
