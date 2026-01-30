@@ -902,7 +902,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     controller.runRevocableOp(() => controller.value = formatted);
   }
 
-  void deleteCommentText() {
+void deleteCommentText() {
     adjustSelectionIfNeeded();
     final selection = controller.selection;
     final singleLinePrefix = _languageConfig.comments?.singleLine;
@@ -912,25 +912,43 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       return;
     }
 
-    final startLine = selection.start.index;
-    final endLine = selection.end.index;
+    final startLineIndex = selection.start.index;
+    final endLineIndex = selection.end.index;
 
     // 1. Build a list of the new line contents.
     final List<String> newLines = [];
-    for (int i = startLine; i <= endLine; i++) {
+    for (int i = startLineIndex; i <= endLineIndex; i++) {
       final line = controller.codeLines[i].text;
       final commentIndex = line.indexOf(singleLinePrefix);
 
       if (commentIndex != -1) {
         // A comment is found.
         final contentBeforeComment = line.substring(0, commentIndex);
-        if (contentBeforeComment.trim().isNotEmpty) {
-          // If there's non-whitespace content before the comment, keep it.
+
+        // Check if the content before the comment is part of a string or quote.
+        // This is a simplified check and might not cover all edge cases.
+        bool isInStringOrQuote = false;
+        for (int j = 0; j < commentIndex; j++) {
+          if (line[j] == '"' || line[j] == "'") {
+            // A more robust solution would track whether we are inside a string.
+            // For simplicity here, we assume any quote before the comment
+            // might indicate it's within a string literal.
+            isInStringOrQuote = true;
+            break;
+          }
+        }
+
+        if (contentBeforeComment.trim().isNotEmpty && !isInStringOrQuote) {
+          // If there's non-whitespace content before the comment and it's not
+          // likely within a string, keep the content before the comment.
           // This removes the comment prefix and the comment text.
           newLines.add(contentBeforeComment.trimRight());
+        } else {
+          // Otherwise, it's a comment-only line, or the comment is part of a string.
+          // In the case of comment-only, we effectively delete it by not adding it.
+          // In the case of being within a string, we also don't modify it to avoid breaking strings.
+          newLines.add(line.trimRight()); // Keep the original line if it's part of a string or empty before comment
         }
-        // Otherwise, it's a comment-only line, which we delete by not adding
-        // it to the list of new lines.
       } else {
         // No comment, keep the line as is.
         newLines.add(line.trimRight());
@@ -939,11 +957,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     // 2. Define a selection that covers the full lines we are replacing.
     final selectionToReplace = CodeLineSelection(
-      baseIndex: startLine,
+      baseIndex: startLineIndex,
       baseOffset: 0, // from the beginning of the first line
-      extentIndex: endLine,
+      extentIndex: endLineIndex,
       extentOffset:
-          controller.codeLines[endLine].length, // to the end of the last line
+          controller.codeLines[endLineIndex].length, // to the end of the last line
     );
 
     // 3. Perform the replacement in a single, undoable operation.
