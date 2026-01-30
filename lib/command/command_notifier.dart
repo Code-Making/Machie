@@ -4,8 +4,6 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter_riverpod/legacy.dart';
-import 'package:riverpod/legacy.dart';
 
 import '../app/app_commands.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
