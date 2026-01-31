@@ -9,6 +9,7 @@ import '../../../services/language/language_models.dart';
 import '../../../services/language/parsed_span_models.dart';
 import 'code_editor_types.dart';
 import 'line_resource_manager.dart';
+import 'line_parsing_cache.dart';
 
 class CodeEditorUtils {
   // --- Bracket Matching Logic (Unchanged) ---
@@ -122,15 +123,29 @@ class CodeEditorUtils {
     required bool enableBracketMatching,
     required bool enableColorPreviews,
     required bool enableLinks,
-    required LineResourceManager resourceManager, // <--- Accept manager
+    required LineResourceManager resourceManager,
+    required LineParsingCache parsingCache,
   }) {
     resourceManager.disposeLine(index);
 
-    final parsedSpans = parser(codeLine.text);
+    List<ParsedSpan>? parsedSpans = parsingCache.get(codeLine.text);
+
+    if (parsedSpans == null) {
+      // Cache Miss: Run the expensive parser
+      parsedSpans = parser(codeLine.text);
+      // Store result (Make it unmodifiable/fixed if possible to save memory, but List is fine)
+      parsingCache.set(codeLine.text, parsedSpans);
+    }
+    
+    final effectiveSpans = parsedSpans.where((span) {
+      if (span is LinkSpan) return enableLinks;
+      if (span is ColorSpan) return enableColorPreviews;
+      return true;
+    }).toList();
 
     final decoratedSpan = _applyParsedSpans(
       textSpan,
-      parsedSpans,
+      effectiveSpans, // Use the filtered list
       style,
       onLinkTap: onLinkTap,
       onColorTap: onColorTap != null ? (span) => onColorTap(index, span) : null,

@@ -28,6 +28,7 @@ import 'widgets/code_editor_ui.dart';
 import 'widgets/code_find_panel_view.dart';
 import 'widgets/goto_line_dialog.dart';
 import 'logic/line_resource_manager.dart';
+import 'logic/line_parsing_cache.dart';
 
 class CodeEditorMachine extends EditorWidget {
   @override
@@ -65,7 +66,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   late String? _baseContentHash;
 
-  late final LineResourceManager _resourceManager; 
+  late final LineResourceManager _resourceManager; // From Phase 1
+  late final LineParsingCache _parsingCache;       // <--- 1. New Cache
 
 
   @override
@@ -243,6 +245,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   @override
   void init() {
     _resourceManager = LineResourceManager();
+    _parsingCache = LineParsingCache();            // <--- 2. Initialize
     _focusNode = FocusNode();
     _baseContentHash = widget.tab.initialBaseContentHash;
     _bracketHighlightNotifier = ValueNotifier(const BracketHighlightState());
@@ -316,7 +319,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     controller.dispose();
     _focusNode.dispose();
     findController.dispose();
-    _resourceManager.disposeAll(); 
+    _resourceManager.disposeAll();
+    _parsingCache.clear();                         // <--- 3. Clear on dispose
     super.dispose();
   }
 
@@ -367,6 +371,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         languages: languageMap,
       ),
     );
+    if (_isInitialized) { 
+       _parsingCache.clear();
+    }
+
   }
 
   CodeCommentFormatter _getCommentFormatter() {
@@ -901,7 +909,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       enableBracketMatching: _enableBracketMatching,
       enableColorPreviews: _enableColorPreviews,
       enableLinks: _enableLinks,
-      resourceManager: _resourceManager,
+      resourceManager: _resourceManager, 
+      parsingCache: _parsingCache,
     );
   }
 
