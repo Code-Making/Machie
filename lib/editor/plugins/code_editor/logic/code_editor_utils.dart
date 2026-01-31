@@ -8,6 +8,7 @@ import 'package:re_editor/re_editor.dart';
 import '../../../services/language/language_models.dart';
 import '../../../services/language/parsed_span_models.dart';
 import 'code_editor_types.dart';
+import 'line_resource_manager.dart';
 
 class CodeEditorUtils {
   // --- Bracket Matching Logic (Unchanged) ---
