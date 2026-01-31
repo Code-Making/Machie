@@ -515,7 +515,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   }
 
   /// Parses the target for line numbers (e.g., "file.dart:10:5") and navigates.
-  void _onLinkTap(LinkSpan span) async {
+void _onLinkTap(LinkSpan span) async {
     final target = span.target.trim();
     if (target.isEmpty) return;
 
@@ -538,9 +538,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
 
     final bool hasLineNumber = parsed.line != null;
-    final bool isRelativeImport = parsed.path.startsWith('.');
-
-    final bool resolveFromContext = isRelativeImport && !hasLineNumber;
+    // Determine if the path should be resolved relative to the current file's directory.
+    // This is true if the path is not absolute (starts with '/') and not a package URI.
+    final bool isAbsolutePath = parsed.path.startsWith('/');
+    final bool isPackageScheme = parsed.path.startsWith('package:');
+    
+    final bool resolveFromContext = !isAbsolutePath && !isPackageScheme;
 
     String cleanPath = parsed.path;
     /*
