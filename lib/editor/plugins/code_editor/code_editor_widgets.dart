@@ -549,7 +549,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     // 3. FIX: Determine if relative. 
     // It is relative if it doesn't start with a slash.
     // e.g. "widgets/foo.dart" is relative. "/lib/main.dart" is absolute.
-    final bool isRelativeImport = !parsed.path.startsWith('/') && !target.startsWith('warning');
+    final bool isRelativeImport = !parsed.path.startsWith('/') && !parsed.path.startsWith('lib');
 
     // If it's a relative path, we resolve it against the current file's parent directory.
     // If it's absolute (starts with /), we resolve it against project root.
