@@ -57,7 +57,9 @@ This app is currently Android-only, but every platform-specific code should alre
 ### Termux Terminal
 - Communicate to a termux instance via the RUN_COMMAND intent
 ## Explorers
-### File
+### File Explorer
+- A simple hierarchical file explorer
 ### Search
+- A simple search
 ### Git
-# Credits
+- A local git viewer. It only supports viewing the project files at previous git commits. Based on a fork of dartgit
