@@ -371,10 +371,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         languages: languageMap,
       ),
     );
-    if (_isInitialized) { 
        _parsingCache.clear();
-    }
-
   }
 
   CodeCommentFormatter _getCommentFormatter() {
