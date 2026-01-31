@@ -515,6 +515,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   }
 
   /// Parses the target for line numbers (e.g., "file.dart:10:5") and navigates.
+  void _onLinkTap(LinkSpan span) async {
     final target = span.target.trim();
     if (target.isEmpty) return;
 
