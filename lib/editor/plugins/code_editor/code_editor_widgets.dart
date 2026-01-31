@@ -515,10 +515,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   }
 
   /// Parses the target for line numbers (e.g., "file.dart:10:5") and navigates.
-void _onLinkTap(LinkSpan span) async {
     final target = span.target.trim();
     if (target.isEmpty) return;
 
+    // 1. Ignore Web URLs
     if (target.startsWith('http://') || target.startsWith('https://')) {
       MachineToast.info('Opening URL: $target');
       return;
@@ -530,34 +530,36 @@ void _onLinkTap(LinkSpan span) async {
       return;
     }
 
+    // 2. Ignore Package and Dart SDK imports
+    if (parsed.path.startsWith('package:') || parsed.path.startsWith('dart:')) {
+      // Optionally show a toast explaining why nothing happened
+      // MachineToast.info('Package navigation not supported yet.');
+      return;
+    }
+
     final appNotifier = ref.read(appNotifierProvider.notifier);
     final repo = ref.read(projectRepositoryProvider);
     final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
     if (repo == null || currentFileMetadata == null) return;
 
-
     final bool hasLineNumber = parsed.line != null;
-    // Determine if the path should be resolved relative to the current file's directory.
-    // This is true if the path is not absolute (starts with '/') and not a package URI.
-    final bool isAbsolutePath = parsed.path.startsWith('/');
-    final bool isPackageScheme = parsed.path.startsWith('package:');
     
-    final bool resolveFromContext = !isAbsolutePath && !isPackageScheme;
+    // 3. FIX: Determine if relative. 
+    // It is relative if it doesn't start with a slash.
+    // e.g. "widgets/foo.dart" is relative. "/lib/main.dart" is absolute.
+    final bool isRelativeImport = !parsed.path.startsWith('/');
+
+    // If it's a relative path, we resolve it against the current file's parent directory.
+    // If it's absolute (starts with /), we resolve it against project root.
+    final bool resolveFromContext = isRelativeImport;
 
     String cleanPath = parsed.path;
-    /*
-    if (isPackageScheme) {
-    }
-    */
 
     try {
-      final String baseUri =
-          resolveFromContext
-              ? repo.fileHandler.getParentUri(
-                currentFileMetadata.file.uri,
-              )
-              : repo.rootUri;
+      final String baseUri = resolveFromContext
+          ? repo.fileHandler.getParentUri(currentFileMetadata.file.uri)
+          : repo.rootUri;
 
       final candidates =
           _languageConfig.importResolver?.call(cleanPath) ?? [cleanPath];
@@ -606,6 +608,7 @@ void _onLinkTap(LinkSpan span) async {
       MachineToast.error('Could not open file: $e');
     }
   }
+
 
   /// Helper to extract path, line, and column from strings like:
   /// - "/lib/main.dart:10:5"
