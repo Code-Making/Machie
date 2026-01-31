@@ -142,20 +142,29 @@ class Languages {
       blockEnd: '*/',
     ),
     importFormatter: (path) => "import '$path';",
-    parser: (line) {
-      final spans = _parseDefaultsOptimized(line);
-      final trimmed = line.trimLeft();
+  parser: (line) {
+    // 1. Use the optimized DefaultParsers (which now has built-in pruning)
+    final spans = DefaultParsers.parseAll(line);
+    
+    // 2. Optimization: Don't trim or check startsWith unless necessary
+    //    Most lines in code are short variable declarations or function calls.
+    
+    // Trigger check: Does the line potentially have an import/export?
+    final bool potentialImport = line.contains('import') || 
+                                 line.contains('export') || 
+                                 line.contains('part');
 
-      // 1. Imports/Exports/Parts (String check instead of Regex)
+    if (potentialImport) {
+      final trimmed = line.trimLeft();
       if (trimmed.startsWith('import ') ||
           trimmed.startsWith('export ') ||
           trimmed.startsWith('part ')) {
         final link = _findLinkAfterIndex(line, 0);
         if (link != null) spans.add(link);
       }
-      // 2. Analysis Logs / Stack Traces (Manual parsing instead of Regex)
-      // Look for ".dart:" signature
-      else {
+    }
+
+    else if (line.contains('.dart:')) {
         int dartExtIndex = line.indexOf('.dart:');
         if (dartExtIndex != -1) {
           // Found potential log. Scan backwards for start of path.
@@ -210,8 +219,9 @@ class Languages {
           }
         }
       }
-      return spans;
-    },
+    
+    return spans;
+  },
   );
 
   static final LanguageConfig _javascript = LanguageConfig(
