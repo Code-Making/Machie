@@ -64,6 +64,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   late String? _baseContentHash;
 
+  late final LineResourceManager _resourceManager; 
 
 
   @override
@@ -240,6 +241,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   void init() {
+    _resourceManager = LineResourceManager();
     _focusNode = FocusNode();
     _baseContentHash = widget.tab.initialBaseContentHash;
     _bracketHighlightNotifier = ValueNotifier(const BracketHighlightState());
@@ -313,6 +315,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     controller.dispose();
     _focusNode.dispose();
     findController.dispose();
+    _resourceManager.disposeAll(); 
     super.dispose();
   }
 
@@ -893,11 +896,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       bracketHighlightState: _bracketHighlightNotifier.value,
       onLinkTap: _onLinkTap,
       onColorTap: _onColorCodeTap,
-      // Pass Cached Values
       parser: _cachedParser,
       enableBracketMatching: _enableBracketMatching,
       enableColorPreviews: _enableColorPreviews,
       enableLinks: _enableLinks,
+      resourceManager: _resourceManager,
     );
   }
 

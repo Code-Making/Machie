@@ -15,8 +15,6 @@ class CodeEditorUtils {
   static BracketHighlightState calculateBracketHighlights(
     CodeLineEditingController controller,
   ) {
-    // ... [Previous implementation of calculateBracketHighlights matches here] ...
-    // (Kept separate as it depends on cursor position, not just line content)
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       return const BracketHighlightState();
@@ -60,7 +58,7 @@ class CodeEditorUtils {
     CodeLinePosition position,
     Map<String, String> brackets,
   ) {
-    // ... [Previous implementation] ...
+
     final line = codeLines[position.index].text;
     final char = line[position.offset];
     final isOpen = brackets.keys.contains(char);
@@ -119,36 +117,26 @@ class CodeEditorUtils {
     required BracketHighlightState bracketHighlightState,
     required void Function(LinkSpan) onLinkTap,
     void Function(int lineIndex, ColorSpan span)? onColorTap,
-    // CHANGED: Pass the parser function directly
     required SpanParser parser,
-    // CHANGED: Boolean flags passed directly
     required bool enableBracketMatching,
     required bool enableColorPreviews,
     required bool enableLinks,
+    required LineResourceManager resourceManager, // <--- Accept manager
   }) {
-    // 1. Get raw data from the cached language parser
+    resourceManager.disposeLine(index);
+
     final parsedSpans = parser(codeLine.text);
 
-    // 2. Filter spans based on settings
-    // Done here to avoid re-allocating list in the parser if not needed
-    if (!enableLinks || !enableColorPreviews) {
-      parsedSpans.removeWhere((span) {
-        if (span is LinkSpan) return !enableLinks;
-        if (span is ColorSpan) return !enableColorPreviews;
-        return false;
-      });
-    }
-
-    // 3. Apply filtered decorations
     final decoratedSpan = _applyParsedSpans(
       textSpan,
       parsedSpans,
       style,
       onLinkTap: onLinkTap,
       onColorTap: onColorTap != null ? (span) => onColorTap(index, span) : null,
+      resourceManager: resourceManager,
+      lineIndex: index,
     );
 
-    // 4. Highlight matching brackets (if enabled)
     if (enableBracketMatching) {
       return _highlightBrackets(
         index,
@@ -157,7 +145,7 @@ class CodeEditorUtils {
         bracketHighlightState,
       );
     }
-
+        
     return decoratedSpan;
   }
 
@@ -169,6 +157,8 @@ class CodeEditorUtils {
     TextStyle defaultStyle, {
     required void Function(LinkSpan)? onLinkTap,
     required void Function(ColorSpan)? onColorTap,
+    required LineResourceManager resourceManager,
+    required int lineIndex,
   }) {
     if (spans.isEmpty) return originalSpan;
 
@@ -178,15 +168,12 @@ class CodeEditorUtils {
     // Parsers should ideally return non-overlapping spans.
     spans.sort((a, b) => a.start.compareTo(b.start));
 
-    // Flatten to unique ranges if necessary, but assuming clean input for now.
-
     List<TextSpan> walk(TextSpan span, int currentPos) {
       final newChildren = <TextSpan>[];
       final spanStart = currentPos;
       final spanText = span.text ?? '';
       final spanEnd = spanStart + spanText.length;
 
-      // 1. If this span has children, recurse down.
       if (span.children?.isNotEmpty ?? false) {
         int childPos = currentPos;
         for (final child in span.children!) {
@@ -204,17 +191,13 @@ class CodeEditorUtils {
         ];
       }
 
-      // 2. Leaf Node Processing
-      int lastSplitEnd = 0; // Relative to spanText start
+      int lastSplitEnd = 0;
 
-      // Find spans that intersect with this leaf node
       for (final parsedSpan in spans) {
         final int effectiveStart = max(spanStart, parsedSpan.start);
         final int effectiveEnd = min(spanEnd, parsedSpan.end);
 
-        // Check intersection
         if (effectiveStart < effectiveEnd) {
-          // A. Add text *before* the match (if any)
           if (effectiveStart > spanStart + lastSplitEnd) {
             final beforeText = spanText.substring(
               lastSplitEnd,
@@ -223,7 +206,6 @@ class CodeEditorUtils {
             newChildren.add(TextSpan(text: beforeText, style: span.style));
           }
 
-          // B. Add the *matched* text with decoration
           final matchText = spanText.substring(
             effectiveStart - spanStart,
             effectiveEnd - spanStart,
@@ -236,6 +218,8 @@ class CodeEditorUtils {
               parsedSpan: parsedSpan,
               onLinkTap: onLinkTap,
               onColorTap: onColorTap,
+              resourceManager: resourceManager, // <--- Pass down
+              lineIndex: lineIndex, // <--- Pass down
             ),
           );
 
@@ -243,7 +227,6 @@ class CodeEditorUtils {
         }
       }
 
-      // C. Add remaining text *after* the last match
       if (lastSplitEnd < spanText.length) {
         final remainingText = spanText.substring(lastSplitEnd);
         newChildren.add(TextSpan(text: remainingText, style: span.style));
@@ -255,31 +238,35 @@ class CodeEditorUtils {
     return TextSpan(children: walk(originalSpan, 0), style: defaultStyle);
   }
 
-  /// Helper to generate the specific TextSpan for a Link or Color.
   static TextSpan _createStyledSpan({
     required String text,
     required TextStyle baseStyle,
     required ParsedSpan parsedSpan,
     required void Function(LinkSpan)? onLinkTap,
     required void Function(ColorSpan)? onColorTap,
+    required LineResourceManager resourceManager, // <--- Accepted
+    required int lineIndex, // <--- Accepted
   }) {
+    
+    // Helper to create and register recognizer
+    TapGestureRecognizer? createRecognizer(VoidCallback onTap) {
+      final recognizer = TapGestureRecognizer()..onTap = onTap;
+      resourceManager.register(lineIndex, recognizer);
+      return recognizer;
+    }
+
     switch (parsedSpan) {
       case LinkSpan():
         return TextSpan(
           text: text,
-          style: baseStyle.copyWith(
-            decoration: TextDecoration.underline,
-            //color: Colors.blueAccent, // Or theme primary color
-          ),
-          recognizer:
-              onLinkTap == null
-                  ? null
-                  : (TapGestureRecognizer()
-                    ..onTap = () => onLinkTap(parsedSpan)),
+          style: baseStyle.copyWith(decoration: TextDecoration.underline),
+          // Create and register
+          recognizer: onLinkTap == null 
+              ? null 
+              : createRecognizer(() => onLinkTap(parsedSpan)), 
         );
 
       case ColorSpan():
-        // Calculate contrast color for text
         final isDark = parsedSpan.color.computeLuminance() < 0.5;
         final textColor = isDark ? Colors.white : Colors.black;
 
@@ -289,11 +276,10 @@ class CodeEditorUtils {
             backgroundColor: parsedSpan.color,
             color: textColor,
           ),
-          recognizer:
-              onColorTap == null
-                  ? null
-                  : (TapGestureRecognizer()
-                    ..onTap = () => onColorTap(parsedSpan)),
+          // Create and register
+          recognizer: onColorTap == null
+              ? null
+              : createRecognizer(() => onColorTap(parsedSpan)),
         );
     }
   }
